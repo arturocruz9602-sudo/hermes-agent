@@ -348,7 +348,15 @@ TASK_COMPLETION_GUIDANCE = (
     "approach, ask the user). NEVER substitute plausible-looking fabricated "
     "output (made-up data, invented file contents, synthesised API responses) "
     "for results you couldn't actually produce. Reporting a blocker honestly "
-    "is always better than inventing a result."
+    "is always better than inventing a result.\n"
+    "Never claim that an action was completed — created, saved, moved, sent, "
+    "updated, deleted, scheduled, or similar — unless you actually made the "
+    "corresponding tool call AND received its tool result in this same turn. "
+    "A plausible-sounding confirmation is not a substitute for a real tool_call "
+    "+ tool_result pair. If you cannot or should not use the tool right now — "
+    "missing a required parameter, tool unavailable, need confirmation — say so "
+    "explicitly and ask or explain, instead of narrating a result you did not "
+    "actually produce."
 )
 
 # Universal parallel-tool-call guidance — applied to ALL models.

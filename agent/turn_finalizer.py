@@ -22,7 +22,10 @@ keep the exact logger name (``"agent.conversation_loop"``).
 
 from __future__ import annotations
 
+import json
 import os
+import re
+import unicodedata
 
 from agent.codex_responses_adapter import _summarize_user_message_for_log
 from agent.message_content import flatten_message_text
@@ -64,6 +67,83 @@ def _drop_verification_continuation_scaffolding(messages) -> None:
         m for m in messages
         if not (isinstance(m, dict) and any(m.get(f) for f in _VERIFICATION_CONTINUATION_FLAGS))
     ]
+
+
+# ---------------------------------------------------------------------------
+# Deterministic no-fabrication backstop (HAS Tarea 1 mitigation, 18 Jul 2026).
+#
+# A system-prompt-only instruction ("never claim an action completed without
+# a real tool call") was tried first and found to be a soft nudge, not a
+# guarantee: verified via real conversation transcripts that a small/cheap
+# model (Gemini 2.5 Flash Lite) can still narrate "Hecho, ya lo cree" /
+# "He registrado tu color favorito" with zero tool_calls in the turn, even
+# with that instruction present. This backstop makes the guarantee at the
+# framework level instead of the model level: if the final response text
+# reads like a completion claim for a create/save/move/send-type action,
+# and no tool call in THIS turn actually succeeded, the response is replaced
+# before it ever reaches the user.
+#
+# Turn-boundary detection mirrors the existing pattern just above (last_reasoning
+# extraction): walk ``messages`` backwards and stop at the last ``role == "user"``
+# message -- everything after that boundary belongs to the current turn.
+#
+# Deliberately scoped to "was ANY tool call successful this turn", not an
+# allowlist of specific tool names -- an allowlist would need to be kept in
+# sync with every new tool the framework or a plugin adds. Every real
+# fabrication case observed so far involved zero tool calls of any kind in
+# the turn, so this is the precise, proportionate gate for the failure mode
+# actually seen (not a claim that it detects 100% of possible phrasings --
+# pattern matching on natural language never does).
+_ACTION_VERB_STEMS = (
+    r"cre|guard|mov|envi|actualiz|elimin|borr|program|agend|registr"
+)
+_FABRICATED_SUCCESS_RE = re.compile(
+    rf"\b(?:he|ya)\b[^.!?\n]{{0,15}}\b(?:{_ACTION_VERB_STEMS})\w*"
+    r"|\b(?:created|saved|moved|sent|updated|deleted|scheduled)\b",
+    re.IGNORECASE,
+)
+
+_NO_FABRICATION_FALLBACK = (
+    "⚠️ No puedo confirmar que esa acción se haya completado — no hubo una "
+    "llamada real a una herramienta en este turno. Intenta de nuevo siendo "
+    "más específico, o dime qué falta para poder hacerlo."
+)
+
+
+def _strip_accents_for_match(text: str) -> str:
+    """Normalize accents away so _FABRICATED_SUCCESS_RE doesn't need to
+    enumerate every accented conjugation (creé, envié, actualicé, etc.)."""
+    return "".join(
+        c for c in unicodedata.normalize("NFKD", text)
+        if not unicodedata.combining(c)
+    )
+
+
+def _turn_has_successful_tool_call(messages: list) -> bool:
+    """True if a non-error tool result exists in the CURRENT turn.
+
+    Walks ``messages`` backwards from the end and stops at the last
+    ``role == "user"`` message (turn boundary) -- same technique used a few
+    lines below for last_reasoning extraction.
+    """
+    for msg in reversed(messages):
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("role") == "user":
+            break
+        if msg.get("role") == "tool":
+            content = msg.get("content")
+            if isinstance(content, str):
+                try:
+                    parsed = json.loads(content)
+                except (json.JSONDecodeError, TypeError):
+                    parsed = None
+                if isinstance(parsed, dict) and "error" in parsed:
+                    continue  # this specific tool call failed -- keep scanning
+                return True
+            elif content is not None:
+                return True  # non-string (e.g. multimodal) content -- treat as success
+    return False
 
 
 def finalize_turn(
@@ -504,6 +584,24 @@ def finalize_turn(
         except Exception as exc:
             logger.warning("transform_llm_output hook failed: %s", exc)
 
+    # No-fabrication backstop (HAS Tarea 1 mitigation, 18 Jul 2026). Runs
+    # after transform_llm_output (so it checks the text plugins actually
+    # produced) and before post_llm_call / result assembly (so every
+    # downstream consumer -- hooks, session persistence, the platform
+    # adapter that delivers to the user -- sees the corrected text, never
+    # the original fabricated claim. See module-level comment above
+    # _FABRICATED_SUCCESS_RE for why this is framework-level, not a second
+    # system-prompt instruction.
+    if final_response and not interrupted:
+        if _FABRICATED_SUCCESS_RE.search(_strip_accents_for_match(final_response)):
+            if not _turn_has_successful_tool_call(messages):
+                logger.warning(
+                    "Blocked a fabricated success claim (no successful "
+                    "tool_call this turn): %r",
+                    final_response[:200],
+                )
+                final_response = _NO_FABRICATION_FALLBACK
+
     # Plugin hook: post_llm_call
     # Fired once per turn after the tool-calling loop completes.
     # Plugins can use this to persist conversation data (e.g. sync
@@ -552,6 +650,105 @@ def finalize_turn(
         )
     except Exception as exc:
         logger.warning("on_turn_complete notification failed: %s", exc)
+
+    # Tarea E (HAS, 19 Jul 2026) -- oferta NO bloqueante de razonamiento
+    # profundo (chat-reasoning/deepseek-v4-pro). Corre despues de
+    # post_llm_call (lo persistido refleja la respuesta real de Hermes, no
+    # esta oferta) y antes de armar `result`. NUNCA bloquea el turno ni
+    # decide escalar sola -- ver agent/complexity_detector.py, invariante de
+    # seguridad en el docstring del modulo. Cualquier fallo aqui deja
+    # final_response intacto (fail-safe: el turno normal nunca se rompe por
+    # esto).
+    #
+    # BUG REAL encontrado y corregido 19 Jul 2026 (root cause, no solo
+    # sintoma): la version original de este bloque solo hacia
+    # `final_response = final_response + build_offer_text(...)`. Eso
+    # funciona en CLI (probado 3/3), pero en el gateway real la respuesta
+    # se entrega por STREAMING -- gateway/stream_consumer.py::finish() solo
+    # marca el fin de un buffer que YA se envio integro a Telegram delta a
+    # delta mientras el LLM generaba texto, antes de que finalize_turn
+    # corriera. Modificar final_response aqui llega demasiado tarde para
+    # streaming: nunca lo vio ni Telegram ni state.db (confirmado con
+    # logging de diagnostico real: offer_category='1_razonamiento' se
+    # calculo bien, pero el mensaje persistido no tenia el texto).
+    # Fix: usar agent.background_review_callback -- el mismo mecanismo
+    # real que el framework ya usa para "Self-improvement review: Memory
+    # updated" (agent/background_review.py) -- que manda un mensaje NUEVO
+    # y separado via el adapter de la plataforma DESPUES de que la
+    # respuesta principal termine de transmitirse (con cola interna para
+    # evitar que se entrelace con el streaming en curso). Ese callback es
+    # None en CLI (agent_init.py), asi que ahi se mantiene el append
+    # directo de siempre como fallback.
+    # CAUSA RAIZ REAL encontrada 20 Jul 2026: un turno ya despachado a la
+    # fuerza a chat-reasoning/chat-fallback2 (Tarea D o el despacho real de
+    # esta misma Tarea E) corre por el loop normal del agente y llega
+    # exactamente hasta aqui -- si su propia respuesta contiene señales de
+    # complejidad (muy probable: son respuestas de razonamiento profundo),
+    # este bloque le registraba una oferta NUEVA para la misma sesion justo
+    # despues de resolver la anterior. Eso deja una oferta pendiente viva
+    # que un mensaje del usuario completamente distinto, llegando poco
+    # despues, puede terminar resolviendo por el simple hecho de ser "el
+    # siguiente mensaje" -- sin que haya ningun bug en parse_yes_no ni en
+    # el endurecimiento del 19 Jul (ninguno de los dos filtra POR QUE
+    # existe la oferta, solo el texto de la respuesta). No tiene sentido
+    # ademas ofrecer "mas razonamiento" inmediatamente despues de un turno
+    # que ya fue despachado a razonamiento. Se corta aqui, en el origen.
+    _te_dispatched_models = {"chat-reasoning", "chat-fallback2"}
+    if final_response and not interrupted and agent.model not in _te_dispatched_models:
+        try:
+            from agent.complexity_detector import (
+                build_offer_text, detect_categories, register_offer,
+                should_offer,
+            )
+            from tools.approval import get_current_session_key
+
+            _te_session_key = get_current_session_key()
+            _te_categories = detect_categories(original_user_message or "")
+            _te_offer_category = should_offer(_te_session_key, _te_categories)
+            if _te_offer_category:
+                _te_monthly_spend = 0.0
+                try:
+                    import datetime as _te_dt
+
+                    from agent.insights import InsightsEngine
+                    from hermes_state import SessionDB
+
+                    _te_today = _te_dt.date.today()
+                    _te_days = (_te_today - _te_today.replace(day=1)).days + 1
+                    _te_db = SessionDB()
+                    try:
+                        _te_report = InsightsEngine(_te_db).generate(days=_te_days)
+                    finally:
+                        _te_db.close()
+                    _te_overview = _te_report.get("overview") or {}
+                    _te_monthly_spend = float(
+                        _te_overview.get("actual_cost")
+                        or _te_overview.get("estimated_cost")
+                        or 0.0
+                    )
+                except Exception:
+                    logger.debug(
+                        "Tarea E: no se pudo calcular el gasto del mes, "
+                        "se ofrece con $0.00", exc_info=True,
+                    )
+                _te_bg_cb = getattr(agent, "background_review_callback", None)
+                if callable(_te_bg_cb):
+                    _te_bg_cb(build_offer_text(
+                        _te_offer_category, _te_monthly_spend, standalone=True,
+                    ))
+                else:
+                    final_response = final_response + build_offer_text(
+                        _te_offer_category, _te_monthly_spend,
+                    )
+                register_offer(
+                    _te_session_key, _te_offer_category,
+                    original_message=original_user_message or "",
+                )
+        except Exception:
+            logger.warning(
+                "Tarea E: fallo agregando la oferta de razonamiento profundo "
+                "(no afecta la respuesta normal)", exc_info=True,
+            )
 
     # Extract reasoning from the CURRENT turn only.  Walk backwards
     # but stop at the user message that started this turn — anything
