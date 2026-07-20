@@ -175,3 +175,26 @@ apps/desktop/demo/
 # pr-infographic-workflow reference (storage rule + lapse #8 / #COMMIT-1).
 infographic/
 native/fts5_cjk/*.so
+
+# Code-scoped install-method stamp, written by install.sh at install time
+# (`echo "git" > "$INSTALL_DIR/.install_method"`) — runtime marker, not a
+# code change, same category as .hermes-bootstrap-complete above.
+.install_method
+
+# Defensive backstop for runtime credentials/state that normally live one
+# level up in ~/.hermes/, never inside this repo's working tree — ignored
+# here too in case a copy/symlink ever lands inside the checkout.
+.env.*
+auth.json
+*.pem
+*.key
+state.db
+state.db-journal
+state.db-wal
+state.db-shm
+kanban.db
+kanban.db-journal
+kanban.db-wal
+kanban.db-shm
+*.sqlite
+*.sqlite3
