@@ -4180,6 +4180,112 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             profile=_profile,
         )
 
+    async def _te_notify_deepseek_dispatch(
+        self, source: SessionSource, *, mechanism: str, reason: str, authorized: str,
+    ) -> Optional[float]:
+        """Red de seguridad pedida por Arturo (20 Jul 2026) tras el
+        incidente de $0.15 no autorizados: notifica INMEDIATO, por la
+        misma plataforma real, cada vez que se va a disparar una llamada
+        real a un modelo de pago de DeepSeek (chat-reasoning va Tarea E,
+        chat-fallback2 via Tarea D) -- para que Arturo se entere en el
+        momento, no dias despues por el dashboard de DeepSeek. Se llama
+        ANTES de intentar el despacho real, para que el aviso salga
+        incluso si el despacho mismo falla despues. Devuelve el gasto
+        acumulado del mes ANTES de este despacho (para el delta real que
+        manda ``_te_notify_deepseek_dispatch_done``), o None si no se
+        pudo calcular -- nunca lanza, un fallo aqui jamas debe bloquear
+        el despacho real ni la respuesta normal.
+        """
+        _spend_before: Optional[float] = None
+        try:
+            import datetime as _te_dt
+
+            from agent.insights import InsightsEngine
+            from hermes_state import SessionDB
+
+            _today = _te_dt.date.today()
+            _days = (_today - _today.replace(day=1)).days + 1
+            _db = SessionDB()
+            try:
+                _report = InsightsEngine(_db).generate(days=_days)
+            finally:
+                _db.close()
+            _overview = _report.get("overview") or {}
+            _spend_before = float(
+                _overview.get("actual_cost") or _overview.get("estimated_cost") or 0.0
+            )
+        except Exception:
+            logger.debug(
+                "Tarea E/D: no se pudo calcular el gasto ANTES del despacho",
+                exc_info=True,
+            )
+        try:
+            adapter = self.adapters.get(source.platform)
+            if adapter is not None and source.chat_id:
+                _spend_line = (
+                    f"\nGasto acumulado este mes hasta antes de esto: "
+                    f"${_spend_before:.4f} USD" if _spend_before is not None else ""
+                )
+                await adapter.send(
+                    str(source.chat_id),
+                    f"🔔 Despachando AHORA una llamada real a {mechanism} "
+                    f"(DeepSeek, gasto real).\n"
+                    f"Autorización: {authorized}\n"
+                    f"Motivo: {reason}"
+                    f"{_spend_line}",
+                )
+        except Exception:
+            logger.exception(
+                "Tarea E/D: fallo mandando la notificacion INMEDIATA de despacho a DeepSeek"
+            )
+        return _spend_before
+
+    async def _te_notify_deepseek_dispatch_done(
+        self, source: SessionSource, *, mechanism: str, spend_before: Optional[float],
+    ) -> None:
+        """Segunda mitad de la red de seguridad: manda el costo REAL (delta
+        de gasto del mes, antes vs despues) una vez que el despacho
+        terminó. Fail-safe igual que la primera mitad."""
+        try:
+            adapter = self.adapters.get(source.platform)
+            if adapter is None or not source.chat_id:
+                return
+            if spend_before is None:
+                await adapter.send(
+                    str(source.chat_id),
+                    f"✅ {mechanism} terminó -- no se pudo calcular el costo "
+                    f"real de este despacho (revisa tu dashboard de DeepSeek "
+                    f"si quieres el número exacto).",
+                )
+                return
+            import datetime as _te_dt
+
+            from agent.insights import InsightsEngine
+            from hermes_state import SessionDB
+
+            _today = _te_dt.date.today()
+            _days = (_today - _today.replace(day=1)).days + 1
+            _db = SessionDB()
+            try:
+                _report = InsightsEngine(_db).generate(days=_days)
+            finally:
+                _db.close()
+            _overview = _report.get("overview") or {}
+            _spend_after = float(
+                _overview.get("actual_cost") or _overview.get("estimated_cost") or 0.0
+            )
+            _delta = max(0.0, _spend_after - spend_before)
+            await adapter.send(
+                str(source.chat_id),
+                f"✅ {mechanism} terminó -- costo real de este despacho: "
+                f"${_delta:.4f} USD (gasto acumulado del mes ahora: "
+                f"${_spend_after:.4f} USD).",
+            )
+        except Exception:
+            logger.exception(
+                "Tarea E/D: fallo mandando la notificacion de costo real tras el despacho"
+            )
+
     def _telegram_topic_mode_enabled(self, source: SessionSource) -> bool:
         """Return whether Telegram DM topic mode is active for this chat."""
         if source.platform != Platform.TELEGRAM or source.chat_type != "dm":
