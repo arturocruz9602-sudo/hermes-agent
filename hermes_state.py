@@ -3786,6 +3786,198 @@ class SessionDB:
                 ),
             )
 
+    def insert_pending_message(
+        self, contenido: str, canal: str, chat_id: Optional[str] = None,
+    ) -> int:
+        """Encola un mensaje que no pudo responderse por cuota agotada.
+
+        Ver mensajes_pendientes en state.db (Tarea C, HAS). Devuelve el id
+        de la fila insertada.
+        """
+        def _do(conn):
+            cur = conn.execute(
+                """INSERT INTO mensajes_pendientes
+                   (contenido, canal, chat_id, fecha_recibido)
+                   VALUES (?, ?, ?, ?)""",
+                (contenido, canal, chat_id, time.time()),
+            )
+            return cur.lastrowid
+        return self._execute_write(_do)
+
+    def get_pending_messages(self, estado: str = "pendiente") -> List[Dict[str, Any]]:
+        """Lee mensajes_pendientes en el estado dado, mas antiguos primero."""
+        cursor = self._conn.execute(
+            """SELECT id, contenido, canal, chat_id, fecha_recibido, intentos,
+                      notice_message_id
+               FROM mensajes_pendientes
+               WHERE estado = ?
+               ORDER BY fecha_recibido ASC""",
+            (estado,),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def mark_pending_processed(self, message_id: int) -> None:
+        """Marca un mensaje pendiente como procesado exitosamente."""
+        def _do(conn):
+            conn.execute(
+                """UPDATE mensajes_pendientes
+                   SET estado = 'procesado', fecha_procesado = ?
+                   WHERE id = ?""",
+                (time.time(), message_id),
+            )
+        self._execute_write(_do)
+
+    def mark_pending_retry_or_failed(self, message_id: int, max_intentos: int) -> str:
+        """Incrementa intentos; marca 'fallido' si alcanza max_intentos.
+
+        Devuelve el estado resultante ('pendiente' o 'fallido'). Cuando el
+        resultado es 'pendiente', tambien limpia resuelto_via (Tarea D) --
+        claim_pending() lo deja puesto para reclamar la fila, y si el
+        intento fallo hay que liberarla para que el watcher automatico u
+        otra autorizacion manual puedan volver a reclamarla. Cuando el
+        resultado es 'fallido' se deja resuelto_via tal cual, como
+        registro historico de quien hizo el ultimo intento.
+        """
+        def _do(conn):
+            conn.execute(
+                "UPDATE mensajes_pendientes SET intentos = intentos + 1 WHERE id = ?",
+                (message_id,),
+            )
+            row = conn.execute(
+                "SELECT intentos FROM mensajes_pendientes WHERE id = ?",
+                (message_id,),
+            ).fetchone()
+            intentos = row[0] if row else 0
+            if intentos >= max_intentos:
+                conn.execute(
+                    "UPDATE mensajes_pendientes SET estado = 'fallido' WHERE id = ?",
+                    (message_id,),
+                )
+                return "fallido"
+            conn.execute(
+                "UPDATE mensajes_pendientes SET resuelto_via = NULL WHERE id = ?",
+                (message_id,),
+            )
+            return "pendiente"
+        return self._execute_write(_do)
+
+    def get_pending_by_id(self, message_id: int) -> Optional[Dict[str, Any]]:
+        """Tarea D: lee una fila de mensajes_pendientes por id, sin filtrar
+        por estado -- para releer el estado real tras un claim_pending()
+        fallido (la fila ya no esta en 'pendiente', por eso fallo)."""
+        cursor = self._conn.execute(
+            """SELECT id, contenido, canal, chat_id, fecha_recibido, estado,
+                      fecha_procesado, intentos, resuelto_via
+               FROM mensajes_pendientes
+               WHERE id = ?
+               LIMIT 1""",
+            (message_id,),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def find_pending_by_notice_message_id(
+        self, chat_id: str, notice_message_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Tarea D: busca el pendiente cuyo aviso 'quedo pendiente' tiene
+        este message_id de Telegram -- usado para correlacion por
+        respuesta directa."""
+        cursor = self._conn.execute(
+            """SELECT id, contenido, canal, chat_id, fecha_recibido, intentos
+               FROM mensajes_pendientes
+               WHERE chat_id = ? AND notice_message_id = ? AND estado = 'pendiente'
+               LIMIT 1""",
+            (chat_id, notice_message_id),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def find_most_recent_pending(self, chat_id: str) -> Optional[Dict[str, Any]]:
+        """Tarea D: fallback cuando no hay respuesta directa -- el
+        pendiente mas reciente de este chat."""
+        cursor = self._conn.execute(
+            """SELECT id, contenido, canal, chat_id, fecha_recibido, intentos
+               FROM mensajes_pendientes
+               WHERE chat_id = ? AND estado = 'pendiente'
+               ORDER BY fecha_recibido DESC
+               LIMIT 1""",
+            (chat_id,),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def claim_pending(self, message_id: int, via: str) -> bool:
+        """Tarea D: reclama atomicamente un pendiente antes de reprocesarlo.
+
+        Compartido entre el watcher automatico (via='auto_watcher') y la
+        autorizacion manual de DeepSeek (via='deepseek_manual') para que
+        solo uno de los dos dispare el turno si coinciden en el tiempo.
+        Devuelve True si este llamado gano el reclamo.
+        """
+        def _do(conn):
+            cur = conn.execute(
+                """UPDATE mensajes_pendientes
+                   SET resuelto_via = ?
+                   WHERE id = ? AND estado = 'pendiente' AND resuelto_via IS NULL""",
+                (via, message_id),
+            )
+            return cur.rowcount > 0
+        return self._execute_write(_do)
+
+    def backfill_notice_message_id(self, message_id: int, notice_message_id: str) -> None:
+        """Tarea D: guarda el message_id de Telegram del aviso 'quedo
+        pendiente', encontrado de forma diferida por el watcher (no en el
+        momento del envio, para no tocar el camino de entrega ya probado
+        de Tarea C)."""
+        def _do(conn):
+            conn.execute(
+                """UPDATE mensajes_pendientes
+                   SET notice_message_id = ?
+                   WHERE id = ? AND notice_message_id IS NULL""",
+                (notice_message_id, message_id),
+            )
+        self._execute_write(_do)
+
+    def find_earliest_assistant_message_after(
+        self, chat_id: str, since_epoch: float,
+    ) -> Optional[Dict[str, Any]]:
+        """Tarea D: primer mensaje del asistente despues de since_epoch en
+        la sesion mas reciente de este chat -- es el aviso 'quedo
+        pendiente' correspondiente a un mensaje encolado en ese momento."""
+        cursor = self._conn.execute(
+            """SELECT m.id, m.content, m.timestamp, m.platform_message_id
+               FROM messages m
+               WHERE m.session_id = (
+                   SELECT id FROM sessions WHERE chat_id = ?
+                   ORDER BY started_at DESC LIMIT 1
+               )
+               AND m.role = 'assistant'
+               AND m.platform_message_id IS NOT NULL
+               AND m.timestamp >= ?
+               ORDER BY m.timestamp ASC
+               LIMIT 1""",
+            (chat_id, since_epoch),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def find_user_id_for_chat(self, chat_id: str) -> Optional[str]:
+        """Tarea C/D: user_id de la sesion mas reciente de este chat.
+
+        Necesario porque un MessageEvent sintetico (reprocesamiento
+        automatico o autorizacion manual de DeepSeek) que llega mientras
+        la sesion ya esta activa pasa por un SEGUNDO chequeo de
+        autorizacion (_handle_active_session_busy_message) que exige
+        source.user_id -- sin el, el turno se descarta silenciosamente
+        como "unauthorized user" (bug real encontrado en pruebas de
+        Tarea D)."""
+        cursor = self._conn.execute(
+            "SELECT user_id FROM sessions WHERE chat_id = ? ORDER BY started_at DESC LIMIT 1",
+            (chat_id,),
+        )
+        row = cursor.fetchone()
+        return row[0] if row and row[0] else None
+
     def find_latest_gateway_session_for_peer(
         self,
         *,

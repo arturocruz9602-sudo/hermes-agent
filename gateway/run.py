@@ -34,6 +34,7 @@ import os
 import re
 import shlex
 import site
+import unicodedata
 import sys
 import signal
 import tempfile
@@ -1585,6 +1586,14 @@ from hermes_constants import get_hermes_home, get_hermes_home_override
 from utils import atomic_json_write, atomic_yaml_write, base_url_host_matches, is_truthy_value
 _hermes_home = get_hermes_home()
 
+# Tarea C (HAS) — cola de mensajes pendientes cuando Gemini y Groq se
+# agotan a la vez. Ver hermes_state.py (mensajes_pendientes) y
+# scripts/watchdog.sh (dispara _PENDING_TRIGGER_FILE al detectar
+# recuperacion).
+_PENDING_TRIGGER_FILE = _hermes_home / "logs" / ".reprocess_pending_trigger"
+_PENDING_WATCHER_INTERVAL = 30  # segundos entre chequeos del trigger
+_PENDING_MAX_INTENTOS = 5
+
 # Load environment variables from ~/.hermes/.env first.
 # User-managed env files should override stale shell exports on restart.
 from dotenv import load_dotenv  # noqa: F401  # backward-compat for tests that monkeypatch this symbol
@@ -2139,6 +2148,57 @@ from gateway.restart import (
     GATEWAY_SERVICE_RESTART_EXIT_CODE,
     parse_restart_drain_timeout,
 )
+
+# Tarea C (HAS) — canales soportados por _reprocess_pending_messages.
+# Agregar aqui cuando se soporte otro canal en mensajes_pendientes.
+_PENDING_CANAL_TO_PLATFORM = {"telegram": Platform.TELEGRAM}
+
+# Tarea D (HAS) — autorizacion manual y puntual de DeepSeek sobre un
+# mensaje ya encolado en mensajes_pendientes. Exige un verbo de
+# autorizacion cerca de "deepseek" (no la palabra sola) para reducir
+# falsos positivos si Arturo menciona DeepSeek de pasada teniendo un
+# pendiente sin relacion. Determinístico (sin LLM): el mensaje de
+# autorizacion llega precisamente cuando Gemini y Groq estan agotados,
+# por lo que no se puede depender de una llamada a un LLM para
+# interpretarlo.
+#
+# Raices de verbo (no formas exactas) para cubrir conjugaciones -- dos
+# pruebas reales encontraron huecos: "utiliza" (imperativo) no cubria
+# "utilices" (subjuntivo: "necesito que utilices deepseek"), incluido el
+# cambio ortografico z->c del español antes de e/i (utilizo->utilices,
+# autorizo->autorices); y "Ocupa deepsek" (mexicanismo coloquial para
+# "necesito/uso", mas una "e" faltante en "deepseek") tampoco matcheaba.
+# El texto se normaliza sin acentos antes de matchear (_strip_accents)
+# para no tener que enumerar cada variante acentuada (procésalo,
+# mándalo, autorízalo, etc.), y "deep[\s-]?se+k" tolera 1+ "e" en la
+# segunda silaba para absorber typos como "deepsek".
+_DEEPSEEK_AUTH_VERBS = (
+    r"usa\w*|uses\w*|usen\w*|"
+    r"utiliz\w*|utilic\w*|"
+    r"haz\w*|hag\w*|"
+    r"proces\w*|"
+    r"mand\w*|"
+    r"autoriz\w*|autoric\w*|"
+    r"ocup\w*|"
+    r"necesit\w*|"
+    r"quier\w*|quiero\w*|"
+    r"dale|damelo|daselo"
+)
+_DEEPSEEK_NAME_RE_FRAGMENT = r"deep[\s-]?se+k"
+_DEEPSEEK_AUTH_RE = re.compile(
+    rf"\b(?:{_DEEPSEEK_AUTH_VERBS})\b[^.!?\n]{{0,40}}\b{_DEEPSEEK_NAME_RE_FRAGMENT}\b"
+    rf"|\b{_DEEPSEEK_NAME_RE_FRAGMENT}\b[^.!?\n]{{0,40}}\b(?:{_DEEPSEEK_AUTH_VERBS})\b",
+    re.IGNORECASE,
+)
+
+
+def _strip_accents(text: str) -> str:
+    """Tarea D: quita acentos/diacriticos para que _DEEPSEEK_AUTH_RE no
+    tenga que enumerar cada variante acentuada de cada conjugacion."""
+    return "".join(
+        c for c in unicodedata.normalize("NFKD", text)
+        if not unicodedata.combining(c)
+    )
 
 
 from gateway.whatsapp_identity import (
@@ -3577,6 +3637,14 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 )
         except Exception:
             logger.debug("approvals.mode startup check skipped", exc_info=True)
+
+        # Tarea C (HAS) — correlaciona un MessageEvent sintetico de
+        # reprocesamiento con su fila en mensajes_pendientes. Clave =
+        # id(event) (identidad del objeto Python, vivo durante todo el
+        # turno que lo procesa); NO usar MessageEvent.message_id, que ya
+        # tiene un significado real (reply-threading en Telegram, ver
+        # plugins/platforms/telegram/adapter.py:3045).
+        self._pending_reprocess_ids: dict[int, int] = {}
 
         # Initialize session database for session_search tool support
         self._session_db = None
@@ -8498,6 +8566,11 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         # engages drain on the first tick.
         self._spawn_supervised(self._drain_control_watcher, "drain_control_watcher")
 
+        # Start background pending-messages watcher (Tarea C, HAS) --
+        # reprocesa mensajes_pendientes cuando watchdog.sh detecta que
+        # Gemini y/o Groq se recuperaron.
+        asyncio.create_task(self._pending_messages_watcher())
+
         logger.info("Press Ctrl+C to stop")
         
         return True
@@ -8996,6 +9069,410 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 if not self._running:
                     break
                 await asyncio.sleep(1)
+
+    async def _pending_messages_watcher(self, interval: int = _PENDING_WATCHER_INTERVAL):
+        """Background task: reprocesa mensajes_pendientes cuando watchdog.sh
+        detecta que Gemini y/o Groq se recuperaron, y (Tarea D) rellena de
+        forma diferida el notice_message_id de cada pendiente reciente.
+
+        watchdog.sh toca _PENDING_TRIGGER_FILE en el mismo bloque donde ya
+        limpia QUOTA_STATE_FILE (ver scripts/watchdog.sh). Este watcher solo
+        hace polling de ese archivo -- la deteccion de cuota sigue viviendo
+        unicamente en watchdog.sh.
+        """
+        while self._running:
+            try:
+                if _PENDING_TRIGGER_FILE.exists():
+                    _PENDING_TRIGGER_FILE.unlink(missing_ok=True)
+                    await self._reprocess_pending_messages()
+            except Exception as e:
+                logger.debug("Pending messages watcher error: %s", e)
+            try:
+                await self._backfill_pending_notice_message_ids()
+            except Exception as e:
+                logger.debug("Pending notice backfill error: %s", e)
+            for _ in range(interval):
+                if not self._running:
+                    break
+                await asyncio.sleep(1)
+
+    async def _backfill_pending_notice_message_ids(self):
+        """Tarea D: para cada pendiente sin notice_message_id, busca el
+        primer mensaje del asistente despues de fecha_recibido (el aviso
+        "quedo pendiente" ya enviado por el hook de Tarea C) y lo copia a
+        la fila. Diferido y desacoplado del envio a proposito -- ver el
+        docstring de _reprocess_pending_messages sobre por que no se
+        modifica el camino de entrega ya probado de Tarea C.
+        """
+        if self._session_db is None:
+            return
+        try:
+            pending = await self._session_db.get_pending_messages(estado="pendiente")
+        except Exception:
+            logger.exception("No se pudieron leer mensajes_pendientes para backfill")
+            return
+        for row in pending:
+            if row.get("notice_message_id"):
+                continue
+            chat_id = row.get("chat_id")
+            if not chat_id:
+                continue
+            try:
+                notice = await self._session_db.find_earliest_assistant_message_after(
+                    str(chat_id), row["fecha_recibido"],
+                )
+                if notice and notice.get("platform_message_id"):
+                    await self._session_db.backfill_notice_message_id(
+                        row["id"], str(notice["platform_message_id"]),
+                    )
+            except Exception:
+                logger.debug(
+                    "Backfill de notice_message_id fallo para id=%s", row["id"],
+                    exc_info=True,
+                )
+
+    async def _reprocess_pending_messages(self):
+        """Reenvia mensajes en mensajes_pendientes al flujo normal del gateway.
+
+        Cada fila se reconstruye como un MessageEvent sintetico (mismo
+        patron que /retry, gateway/slash_commands.py:1824-1858) y se
+        despacha via adapter.handle_message(), respetando el mismo guard
+        de sesion activa que un mensaje real -- no se salta ningun lock.
+        El resultado (procesado / pendiente+intentos / fallido) lo
+        actualiza el hook en _handle_message_with_agent via
+        self._pending_reprocess_ids[id(event)] -- NO via
+        MessageEvent.message_id, que ya tiene un uso real (reply-
+        threading en Telegram, ver plugins/platforms/telegram/adapter.py:3045);
+        reusarlo rompia el envio (bug real encontrado en pruebas).
+
+        Tarea D: antes de despachar, reclama la fila via
+        self._session_db.claim_pending(row_id, "auto_watcher") -- comparte
+        ese reclamo atomico con _maybe_handle_deepseek_pending_authorization
+        para que una autorizacion manual de DeepSeek y este watcher nunca
+        procesen la misma fila dos veces.
+        """
+        if self._session_db is None:
+            return
+        try:
+            pending = await self._session_db.get_pending_messages(estado="pendiente")
+        except Exception:
+            logger.exception("No se pudieron leer mensajes_pendientes")
+            return
+        if not pending:
+            return
+        logger.info("Reprocesando %d mensaje(s) pendiente(s)", len(pending))
+        for row in pending:
+            chat_id = row.get("chat_id")
+            platform = _PENDING_CANAL_TO_PLATFORM.get(row.get("canal") or "")
+            adapter = self.adapters.get(platform) if platform else None
+            if not chat_id or adapter is None:
+                logger.warning(
+                    "Mensaje pendiente id=%s sin chat_id/canal valido "
+                    "(canal=%s) -- no se puede reprocesar, cuenta como "
+                    "intento fallido",
+                    row["id"], row.get("canal"),
+                )
+                try:
+                    await self._session_db.mark_pending_retry_or_failed(
+                        row["id"], _PENDING_MAX_INTENTOS,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Fallo marcando intento fallido para id=%s", row["id"])
+                continue
+            # Tarea D: reclamo atomico compartido con la autorizacion manual
+            # de DeepSeek -- si Arturo autorizo DeepSeek para esta misma
+            # fila justo antes de este tick, el reclamo falla aqui y el
+            # watcher automatico se hace a un lado sin duplicar el turno.
+            try:
+                claimed = await self._session_db.claim_pending(row["id"], "auto_watcher")
+            except Exception:
+                logger.exception("Fallo reclamando pendiente id=%s", row["id"])
+                continue
+            if not claimed:
+                logger.info(
+                    "Pendiente id=%s ya reclamado por otra via -- se omite "
+                    "en este tick del watcher automatico", row["id"],
+                )
+                continue
+            # Tarea D encontro que un turno sintetico sin user_id se
+            # descarta silenciosamente si choca con la sesion ya activa
+            # (_handle_active_session_busy_message exige source.user_id).
+            # No hay un mensaje en vivo del cual tomarlo aqui (watcher en
+            # segundo plano) -- se busca en sessions por chat_id.
+            try:
+                _via_user_id = await self._session_db.find_user_id_for_chat(str(chat_id))
+            except Exception:
+                _via_user_id = None
+            source = SessionSource(
+                platform=platform, chat_id=str(chat_id), user_id=_via_user_id,
+            )
+            event = MessageEvent(
+                text=row["contenido"],
+                message_type=MessageType.TEXT,
+                source=source,
+                internal=True,
+                timestamp=datetime.fromtimestamp(row["fecha_recibido"]),
+            )
+            self._pending_reprocess_ids[id(event)] = {"row_id": row["id"], "via": "auto_watcher"}
+            try:
+                await adapter.handle_message(event)
+            except Exception:
+                self._pending_reprocess_ids.pop(id(event), None)
+                logger.exception(
+                    "Fallo despachando reprocesamiento para id=%s", row["id"])
+                try:
+                    await self._session_db.mark_pending_retry_or_failed(
+                        row["id"], _PENDING_MAX_INTENTOS,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Fallo marcando intento fallido para id=%s", row["id"])
+
+    async def _maybe_handle_deepseek_pending_authorization(
+        self, event: MessageEvent, source: SessionSource,
+    ) -> Optional[str]:
+        """Tarea D (HAS): autorizacion manual y puntual de DeepSeek sobre
+        un mensaje ya en mensajes_pendientes.
+
+        Determinístico, sin LLM (ver _DEEPSEEK_AUTH_RE) -- el mensaje de
+        autorizacion llega precisamente cuando Gemini y Groq estan
+        agotados, asi que no se puede depender de un LLM para
+        interpretarlo. Devuelve None si el mensaje no aplica (deja que
+        _handle_message siga su flujo normal); devuelve un string cuando
+        SI aplica -- ese string se entrega como la respuesta a este
+        mensaje, sin pasar por _handle_message_with_agent.
+        """
+        if event.internal or self._session_db is None:
+            return None
+        chat_id = source.chat_id
+        if not chat_id:
+            return None
+
+        # Puerta barata primero: si no hay nada pendiente para este chat,
+        # el chequeo termina aqui -- cero interferencia con conversacion
+        # normal, incluida cualquier mencion casual de "deepseek".
+        try:
+            target = await self._session_db.find_most_recent_pending(str(chat_id))
+        except Exception:
+            logger.exception("Fallo consultando pendientes para %s", chat_id)
+            return None
+        if target is None:
+            return None
+
+        text = event.text or ""
+        if not _DEEPSEEK_AUTH_RE.search(_strip_accents(text)):
+            return None
+
+        # Correlacion por respuesta directa: si Arturo respondio al aviso
+        # de un pendiente especifico, ese gana sobre "el mas reciente".
+        reply_id = str(event.reply_to_message_id) if event.reply_to_message_id else None
+        if reply_id:
+            try:
+                by_reply = await self._session_db.find_pending_by_notice_message_id(
+                    str(chat_id), reply_id,
+                )
+            except Exception:
+                logger.exception("Fallo buscando pendiente por respuesta para %s", chat_id)
+                by_reply = None
+            if by_reply is not None:
+                target = by_reply
+
+        row_id = target["id"]
+        try:
+            claimed = await self._session_db.claim_pending(row_id, "deepseek_manual")
+        except Exception:
+            logger.exception("Fallo reclamando pendiente id=%s (Tarea D)", row_id)
+            return (
+                "⚠️ No pude autorizar DeepSeek para tu mensaje pendiente por un "
+                "error interno. Sigue en la cola esperando Gemini/Groq."
+            )
+
+        if not claimed:
+            # Ya lo reclamo el watcher automatico (u otra autorizacion
+            # manual) antes de que este mensaje llegara. No procesarlo de
+            # nuevo -- avisar con claridad que NO se perdio la autorizacion.
+            try:
+                current = await self._session_db.get_pending_by_id(row_id)
+            except Exception:
+                current = None
+            if current is None:
+                return "✅ Ese mensaje ya se resolvio."
+            if current.get("estado") == "procesado":
+                quote = ""
+                try:
+                    since = current.get("fecha_procesado") or current["fecha_recibido"]
+                    answer = await self._session_db.find_earliest_assistant_message_after(
+                        str(chat_id), since,
+                    )
+                    if answer and answer.get("content"):
+                        excerpt = str(answer["content"])[:200].strip()
+                        quote = f"\n\nAqui esta la respuesta que ya te mande: «{excerpt}»"
+                except Exception:
+                    logger.debug("No se pudo citar la respuesta ya enviada", exc_info=True)
+                return (
+                    "✅ Ese mensaje ya se proceso automaticamente (Gemini/Groq "
+                    "se recuperaron) — no hizo falta DeepSeek." + quote
+                )
+            if current.get("estado") == "fallido":
+                return (
+                    "⚠️ Ese mensaje pendiente ya se marco como fallido tras varios "
+                    "intentos automaticos. Si quieres que lo intente ahora con "
+                    "DeepSeek, respondeme de nuevo."
+                )
+            return (
+                "⏳ Ese mensaje se esta procesando automaticamente ahora mismo "
+                "(Gemini/Groq acaban de recuperarse) — la respuesta llega en un "
+                "momento, no hace falta DeepSeek."
+            )
+
+        # Reclamo exitoso: despachar un turno unico forzado a chat-fallback2
+        # (DeepSeek). NO se reusa switch_model() -- probado en aislado y su
+        # verificacion contra /v1/models falla con 401 porque
+        # custom_providers en config.yaml guarda el api_key SIN resolver
+        # ("${LITELLM_MASTER_KEY}" literal), lo que dejaba switch_model()
+        # devolviendo success=False y credenciales vacias (hubiera roto
+        # Tarea D por completo). En su lugar se resuelve el ${VAR} a mano
+        # contra os.environ para la entrada "LiteLLM" de custom_providers
+        # -- confirmado con una llamada real a chat-fallback2 antes de
+        # aplicar este diff.
+        try:
+            from hermes_cli.config import load_config
+
+            cfg = load_config()
+            custom_provs = (cfg.get("custom_providers") if isinstance(cfg, dict) else None) or []
+            litellm_entry = next(
+                (p for p in custom_provs if isinstance(p, dict) and p.get("name") == "LiteLLM"),
+                None,
+            )
+            if litellm_entry is None:
+                raise RuntimeError("custom_providers entry 'LiteLLM' no encontrada en config.yaml")
+
+            def _expand_env_var(value: str) -> str:
+                return re.sub(
+                    r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}",
+                    lambda m: os.environ.get(m.group(1), ""),
+                    value,
+                )
+
+            resolved_base_url = _expand_env_var(str(litellm_entry.get("base_url", "")))
+            resolved_api_key = _expand_env_var(str(litellm_entry.get("api_key", "")))
+            if not resolved_base_url or not resolved_api_key:
+                raise RuntimeError(
+                    "base_url o api_key vacios tras resolver ${VAR} -- revisar .env"
+                )
+        except Exception:
+            logger.exception(
+                "Fallo resolviendo credenciales de DeepSeek para pendiente id=%s", row_id,
+            )
+            # No se pudo preparar el override -- devolver la fila a
+            # 'pendiente' para no perder el mensaje, y avisar.
+            try:
+                await self._session_db.mark_pending_retry_or_failed(row_id, _PENDING_MAX_INTENTOS)
+            except Exception:
+                logger.exception("Fallo revirtiendo claim para id=%s", row_id)
+            return (
+                "⚠️ No pude preparar DeepSeek para tu mensaje pendiente por un "
+                "error de configuracion. Sigue en la cola esperando Gemini/Groq."
+            )
+
+        # source ya paso la autorizacion arriba en _handle_message -- se
+        # reusa su user_id/user_name/chat_type para el turno sintetico.
+        # Sin esto, un turno que choca con la sesion ya activa (el caso
+        # tipico aqui: la sesion sigue "activa" procesando ESTE mismo
+        # mensaje de autorizacion) se descarta silenciosamente como
+        # "unauthorized user" por _handle_active_session_busy_message,
+        # que exige source.user_id (bug real encontrado en pruebas).
+        source_for_turn = SessionSource(
+            platform=source.platform,
+            chat_id=str(chat_id),
+            user_id=source.user_id,
+            user_name=source.user_name,
+            chat_type=source.chat_type,
+        )
+        synthetic_event = MessageEvent(
+            text=target["contenido"],
+            message_type=MessageType.TEXT,
+            source=source_for_turn,
+            internal=True,
+            timestamp=datetime.fromtimestamp(target["fecha_recibido"]),
+        )
+
+        # Patron de /moa (run.py ~9071-9080): fuerza el modelo para ESTE
+        # turno unico y lo revierte automaticamente despues, incluso si hay
+        # error o interrupcion -- es el requisito critico de Tarea D (el
+        # sistema no debe quedarse pegado en DeepSeek).
+        _quick_key = self._session_key_for_source(source_for_turn)
+        synthetic_event._moa_restore_override = self._session_model_overrides.get(_quick_key)
+        self._session_model_overrides[_quick_key] = {
+            "model": "chat-fallback2",
+            "provider": "custom:litellm",
+            "api_key": resolved_api_key,
+            "base_url": resolved_base_url,
+            "api_mode": "chat_completions",
+        }
+        self._evict_cached_agent(_quick_key)
+        synthetic_event._moa_disable_after_turn = True
+
+        self._pending_reprocess_ids[id(synthetic_event)] = {
+            "row_id": row_id, "via": "deepseek_manual",
+        }
+
+        adapter = self.adapters.get(source.platform)
+        if adapter is None:
+            try:
+                await self._session_db.mark_pending_retry_or_failed(row_id, _PENDING_MAX_INTENTOS)
+            except Exception:
+                logger.exception("Fallo revirtiendo claim para id=%s", row_id)
+            return "⚠️ No pude autorizar DeepSeek: adaptador de plataforma no disponible."
+
+        logger.info(
+            "DeepSeek autorizado MANUALMENTE por el usuario para mensaje "
+            "pendiente id=%s (Tarea D — no automatico, para trazabilidad de costos)",
+            row_id,
+        )
+        # Misma red de seguridad de Tarea E (20 Jul 2026): notifica
+        # INMEDIATO por Telegram antes del despacho real, mismo motivo.
+        _td_spend_before = await self._te_notify_deepseek_dispatch(
+            source_for_turn,
+            mechanism="chat-fallback2 (Tarea D)",
+            reason=(target.get("contenido") or "")[:200],
+            authorized=(
+                "autorización manual por texto (verbo + \"deepseek\" cerca, "
+                "regex determinístico) sobre un mensaje pendiente real"
+            ),
+        )
+        try:
+            await adapter.handle_message(synthetic_event)
+            await self._te_notify_deepseek_dispatch_done(
+                source_for_turn, mechanism="chat-fallback2 (Tarea D)",
+                spend_before=_td_spend_before,
+            )
+        except Exception:
+            self._pending_reprocess_ids.pop(id(synthetic_event), None)
+            # Defensa adicional para el requisito CRITICO de Tarea D: si
+            # handle_message() fallo ANTES de que el turno arrancara (error
+            # de setup/locking), el restore-en-finally del patron /moa --
+            # que vive DENTRO del procesamiento del turno -- nunca corre, y
+            # el override quedaria pegado en chat-fallback2 para esta
+            # sesion. Se restaura aqui a mano por si acaso.
+            _restore = getattr(synthetic_event, "_moa_restore_override", None)
+            if _restore is None:
+                self._session_model_overrides.pop(_quick_key, None)
+            else:
+                self._session_model_overrides[_quick_key] = _restore
+            self._evict_cached_agent(_quick_key)
+            logger.exception("Fallo despachando turno de DeepSeek para id=%s", row_id)
+            try:
+                await self._session_db.mark_pending_retry_or_failed(row_id, _PENDING_MAX_INTENTOS)
+            except Exception:
+                logger.exception("Fallo marcando intento fallido para id=%s", row_id)
+            return (
+                "⚠️ No pude iniciar el turno con DeepSeek para tu mensaje pendiente. "
+                "Sigue en la cola esperando Gemini/Groq."
+            )
+
+        return "🚀 Autorizando DeepSeek para tu mensaje pendiente ahora mismo — te contesto en un momento."
 
     def _active_profile_name(self) -> str:
         """Return the profile name this gateway represents."""
@@ -13786,6 +14263,92 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             # empty-response handling (and the suppression below) applies.
             if _is_gateway_hidden_reasoning_incomplete_turn(agent_result):
                 response = ""
+
+            # ── Cola de mensajes pendientes (Tarea C, HAS) ──────────────
+            # Si el turno fallo por cuota agotada en Gemini Y Groq (mismo
+            # criterio que scripts/watchdog.sh: fallback chain completo
+            # agotado — ver agent/conversation_loop.py:3725-3738), el
+            # mensaje se guarda en mensajes_pendientes en vez de dejar que
+            # el usuario reciba el error generico.
+            #
+            # self._pending_reprocess_ids[id(event)] identifica un turno
+            # que YA es un reintento disparado por
+            # _reprocess_pending_messages o por autorizacion manual de
+            # DeepSeek (Tarea D) -- no se vuelve a encolar (evitaria
+            # duplicados); se actualiza la fila existente en su lugar. NO
+            # se usa event.message_id para esto -- ese campo ya tiene un
+            # significado real (reply-threading en Telegram, ver
+            # plugins/platforms/telegram/adapter.py:3045); reusarlo rompia
+            # el envio (confirmado con una prueba real antes de este ajuste).
+            _failure_reason = agent_result.get("failure_reason")
+            _quota_exhausted = (
+                bool(agent_result.get("failed"))
+                and _failure_reason in ("rate_limit", "billing")
+            )
+            _pending_entry = self._pending_reprocess_ids.pop(id(event), None)
+            _pending_id = _pending_entry.get("row_id") if _pending_entry else None
+            _pending_via = _pending_entry.get("via") if _pending_entry else None
+
+            if _pending_id is not None and self._session_db is not None:
+                # Tarea D: usa el resultado GENERAL del turno (_pending_turn_failed),
+                # no solo el subconjunto de cuota (_quota_exhausted) -- un
+                # reprocesamiento (automatico o con DeepSeek) puede fallar por
+                # razones ajenas a rate_limit/billing (timeout, error de
+                # DeepSeek, etc.), y antes de esta correccion esos casos se
+                # marcaban 'procesado' incorrectamente (bug latente encontrado
+                # al conectar Tarea D, nunca disparado en Tarea C porque el
+                # unico reintento posible ahi era, precisamente, cuota).
+                _pending_turn_failed = bool(agent_result.get("failed"))
+                try:
+                    if _pending_turn_failed:
+                        _new_estado = await self._session_db.mark_pending_retry_or_failed(
+                            int(_pending_id), _PENDING_MAX_INTENTOS,
+                        )
+                        if _pending_via == "deepseek_manual":
+                            _fail_summary = str(agent_result.get("error", "error desconocido"))[:200]
+                            response = (
+                                f"⚠️ El intento con DeepSeek fallo: {_fail_summary}. "
+                                f"Tu mensaje sigue en la cola esperando a Gemini/Groq."
+                            )
+                        elif _new_estado == "fallido":
+                            response = (
+                                f"⚠️ No pude procesar este mensaje pendiente tras "
+                                f"{_PENDING_MAX_INTENTOS} intentos — lo marque como "
+                                f"fallido. Tendrias que reenviarlo tu."
+                            )
+                        else:
+                            response = (
+                                "⏳ Gemini y Groq siguen sin cuota. Tu mensaje "
+                                "pendiente sigue en espera, lo reintento en cuanto "
+                                "vuelva el servicio."
+                            )
+                    else:
+                        await self._session_db.mark_pending_processed(int(_pending_id))
+                        # response ya trae la respuesta real del agente --
+                        # se entrega tal cual, como cualquier turno exitoso.
+                except Exception:
+                    logger.exception(
+                        "Fallo actualizando mensajes_pendientes id=%s", _pending_id,
+                    )
+            elif _quota_exhausted and self._session_db is not None:
+                try:
+                    await self._session_db.insert_pending_message(
+                        contenido=message_text,
+                        canal=source.platform.value if source.platform else "unknown",
+                        chat_id=str(source.chat_id) if source.chat_id else None,
+                    )
+                    response = (
+                        "📥 Gemini y Groq estan sin cuota en este momento. Guarde "
+                        "tu mensaje y lo proceso automaticamente en cuanto el "
+                        "servicio se restablezca — no hace falta que lo reenvies."
+                    )
+                except Exception:
+                    logger.exception(
+                        "No se pudo encolar mensaje pendiente tras agotar cuota",
+                    )
+                    # response conserva el texto de error original de
+                    # final_response -- el usuario no se queda sin respuesta.
+
             try:
                 from gateway.response_filters import is_intentional_silence_agent_result
                 _intentional_silence = is_intentional_silence_agent_result(

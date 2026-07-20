@@ -2236,13 +2236,25 @@ def run_conversation(
                             close_interrupted_tool_sequence(messages, _interrupt_text)
                             agent._persist_session(messages, conversation_history)
                             agent.clear_interrupt()
-                            return {
+                            _interrupt_result = {
                                 "final_response": _interrupt_text,
                                 "messages": messages,
                                 "api_calls": api_call_count,
                                 "completed": False,
                                 "interrupted": True,
                             }
+                            # HAS Tarea G (18 Jul 2026): an interrupted retry for a
+                            # quota-type error must still carry failed/failure_reason
+                            # so the gateway's mensajes_pendientes hook (Tarea C) can
+                            # queue the original message. Without this, a follow-up
+                            # message that interrupts a rate-limited retry silently
+                            # discards the message that was failing -- confirmed via
+                            # a real incident where Tarea D had nothing to reclaim
+                            # because nothing had been queued.
+                            if _resp_error_code == 429:
+                                _interrupt_result["failed"] = True
+                                _interrupt_result["failure_reason"] = FailoverReason.rate_limit.value
+                            return _interrupt_result
                         time.sleep(0.2)
                         # Touch activity every ~30s so the gateway's inactivity
                         # monitor knows we're alive during backoff waits.
@@ -3732,13 +3744,21 @@ def run_conversation(
                     close_interrupted_tool_sequence(messages, _interrupt_text)
                     agent._persist_session(messages, conversation_history)
                     agent.clear_interrupt()
-                    return {
+                    _interrupt_result = {
                         "final_response": _interrupt_text,
                         "messages": messages,
                         "api_calls": api_call_count,
                         "completed": False,
                         "interrupted": True,
                     }
+                    # HAS Tarea G (18 Jul 2026) -- see the matching comment a few
+                    # hundred lines up (retry-wait interrupt path) for why this
+                    # is needed: a quota-classified interrupted turn must still
+                    # be queueable by Tarea C.
+                    if classified.reason in (FailoverReason.rate_limit, FailoverReason.billing):
+                        _interrupt_result["failed"] = True
+                        _interrupt_result["failure_reason"] = classified.reason.value
+                    return _interrupt_result
                 
                 # Check for 413 payload-too-large BEFORE generic 4xx handler.
                 # A 413 is a payload-size error — the correct response is to
@@ -4968,13 +4988,19 @@ def run_conversation(
                         close_interrupted_tool_sequence(messages, _interrupt_text)
                         agent._persist_session(messages, conversation_history)
                         agent.clear_interrupt()
-                        return {
+                        _interrupt_result = {
                             "final_response": _interrupt_text,
                             "messages": messages,
                             "api_calls": api_call_count,
                             "completed": False,
                             "interrupted": True,
                         }
+                        # HAS Tarea G (18 Jul 2026) -- same rationale as the other
+                        # two interrupt-return sites in this file.
+                        if is_rate_limited:
+                            _interrupt_result["failed"] = True
+                            _interrupt_result["failure_reason"] = classified.reason.value
+                        return _interrupt_result
                     time.sleep(0.2)  # Check interrupt every 200ms
                     # Touch activity every ~30s so the gateway's inactivity
                     # monitor knows we're alive during backoff waits.
