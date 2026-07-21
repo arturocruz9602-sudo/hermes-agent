@@ -1581,12 +1581,14 @@ class GatewaySlashCommandsMixin:
                     _picker_profile_home = _command_profile_home
 
                     async def _on_model_selected_scoped(
-                        _chat_id: str, model_id: str, provider_slug: str
+                        _chat_id: str, model_id: str, provider_slug: str,
+                        *, _persist_override: bool | None = None
                     ) -> str:
                         """Perform the model switch and return confirmation text."""
                         skew_error = _model_switch_skew_guard()
                         if skew_error:
                             return skew_error
+                        _effective_global = persist_global if _persist_override is None else _persist_override
                         # Offload the switch off the event loop — switch_model()
                         # can fall through to a synchronous models.dev HTTP fetch
                         # (requests.get, 15s timeout) on a cold/expired cache,
@@ -1598,7 +1600,7 @@ class GatewaySlashCommandsMixin:
                             current_model=_cur_model,
                             current_base_url=_cur_base_url,
                             current_api_key=_cur_api_key,
-                            is_global=persist_global,
+                            is_global=_effective_global,
                             explicit_provider=provider_slug,
                             user_providers=user_provs,
                             custom_providers=custom_provs,
@@ -1611,7 +1613,7 @@ class GatewaySlashCommandsMixin:
                                 enrich_model_switch_warnings_for_gateway,
                             )
 
-                            enrich_model_switch_warnings_for_gateway(
+                            await enrich_model_switch_warnings_for_gateway(
                                 result,
                                 _self,
                                 session_key=_session_key,
@@ -1827,17 +1829,20 @@ class GatewaySlashCommandsMixin:
                         return "\n".join(lines)
 
                     async def _on_model_selected(
-                        _chat_id: str, model_id: str, provider_slug: str
+                        _chat_id: str, model_id: str, provider_slug: str,
+                        *, _persist_override: bool | None = None
                     ) -> str:
                         if _picker_profile_home is None:
                             return await _on_model_selected_scoped(
-                                _chat_id, model_id, provider_slug
+                                _chat_id, model_id, provider_slug,
+                                _persist_override=_persist_override,
                             )
                         from gateway.run import _profile_runtime_scope
 
                         with _profile_runtime_scope(_picker_profile_home):
                             return await _on_model_selected_scoped(
-                                _chat_id, model_id, provider_slug
+                                _chat_id, model_id, provider_slug,
+                                _persist_override=_persist_override,
                             )
 
                     metadata = self._thread_metadata_for_source(source, self._reply_anchor_for_event(event))
@@ -1917,7 +1922,7 @@ class GatewaySlashCommandsMixin:
                 enrich_model_switch_warnings_for_gateway,
             )
 
-            enrich_model_switch_warnings_for_gateway(
+            await enrich_model_switch_warnings_for_gateway(
                 result,
                 self,
                 session_key=session_key,

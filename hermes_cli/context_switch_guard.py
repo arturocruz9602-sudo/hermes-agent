@@ -144,7 +144,7 @@ def merge_preflight_compression_warning(
     _append_warning(result, "".join(parts))
 
 
-def enrich_model_switch_warnings_for_gateway(
+async def enrich_model_switch_warnings_for_gateway(
     result: ModelSwitchResult,
     runner: Any,
     *,
@@ -187,7 +187,7 @@ def enrich_model_switch_warnings_for_gateway(
     if db is not None and store is not None:
         try:
             entry = store.get_or_create_session(source)
-            messages = db.get_messages_as_conversation(entry.session_id)
+            messages = await db.get_messages_as_conversation(entry.session_id)
         except Exception:
             pass
 

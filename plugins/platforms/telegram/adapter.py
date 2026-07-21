@@ -5580,7 +5580,10 @@ class TelegramAdapter(BasePlatformAdapter):
                 nav.append(InlineKeyboardButton("Next ▶", callback_data=f"mpv:{page + 1}"))
             rows.append(nav)
 
-        rows.append([InlineKeyboardButton("✗ Cancel", callback_data="mx")])
+        rows.append([
+            InlineKeyboardButton("⟳ LiteLLM", callback_data="mr"),
+            InlineKeyboardButton("✗ Cancel", callback_data="mx"),
+        ])
 
         page_info = f" ({start + 1}–{end} of {total})" if total_pages > 1 else ""
         return InlineKeyboardMarkup(rows), page_info
@@ -5957,6 +5960,39 @@ class TelegramAdapter(BasePlatformAdapter):
             )
             await query.answer()
 
+        elif data == "mr":
+            # --- Reset model to LiteLLM (custom:chat-primary) ---
+            callback = state.get("on_model_selected")
+            if not callback:
+                await query.answer(text="Picker expired.")
+                return
+
+            try:
+                result_text = await callback(chat_id, "chat-primary", "custom:litellm")
+            except Exception as exc:
+                logger.error("LiteLLM reset failed: %s", exc)
+                result_text = f"Error switching to LiteLLM: {exc}"
+
+            try:
+                await query.edit_message_text(
+                    text=self.format_message(result_text),
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                    reply_markup=None,
+                )
+            except Exception:
+                try:
+                    await query.edit_message_text(
+                        text=result_text,
+                        parse_mode=None,
+                        reply_markup=None,
+                    )
+                except Exception:
+                    pass
+            await query.answer(
+                text="Reset failed." if "Error" in result_text else "Reset to LiteLLM!"
+            )
+            self._model_picker_state.pop(chat_id, None)
+
         else:
             # Catch-all (e.g. page counter button "mx:noop")
             await query.answer()
@@ -6002,7 +6038,7 @@ class TelegramAdapter(BasePlatformAdapter):
         query_user_name = getattr(query.from_user, "first_name", None)
 
         # --- Model picker callbacks ---
-        if data.startswith(("mp:", "mpg:", "mpv:", "mm:", "mc:", "mb", "mx", "mg:")):
+        if data.startswith(("mp:", "mpg:", "mpv:", "mm:", "mc:", "mb", "mx", "mg:", "mr")):
             chat_id = str(query.message.chat_id) if query.message else None
             if chat_id:
                 await self._handle_model_picker_callback(query, data, chat_id)
