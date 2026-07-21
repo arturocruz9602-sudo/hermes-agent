@@ -451,6 +451,54 @@ HARDLINE_PATTERNS = [
     (_CMDPOS + r'init\s+[06]\b', "init 0/6 (shutdown/reboot)"),
     (_CMDPOS + r'systemctl\s+(poweroff|reboot|halt|kexec)\b', "systemctl poweroff/reboot"),
     (_CMDPOS + r'telinit\s+[06]\b', "telinit 0/6 (shutdown/reboot)"),
+    # Restart/stop/start of system services (litellm.service, hermes-gateway,
+    # hermes-watchdog, or any other unit) — unconditional, mirroring the
+    # equivalent hard-deny Arturo already runs for Claude Code
+    # (~/.claude/hooks/hermes-guard.sh). Deliberately NOT left in
+    # DANGEROUS_PATTERNS: under approvals.mode=smart the auxiliary LLM could
+    # silently APPROVE a restart with no prompt to Arturo at all (see
+    # _smart_approve) — a service restart is exactly the class of action he
+    # wants surfaced to him personally, never judged by another model, same
+    # principle as "if Claude Code can't restart services on its own, Hermes
+    # shouldn't either." Two forms: `systemctl [flags] restart/stop/start`
+    # (the flag group already swallows things like --user) and the
+    # verb-at-end `service NAME restart` form, which has no other coverage
+    # in this file at all.
+    (r'\bsystemctl\s+(-[^\s]+\s+)*(restart|stop|start|disable|mask)\b',
+     "restart/stop/start/disable/mask system service (Hermes may not manage services on its own — ask Arturo)"),
+    (r'\bservice\s+[a-z0-9_.-]+\s+(restart|stop|start)\b',
+     "restart/stop/start system service via 'service' command (Hermes may not manage services on its own — ask Arturo)"),
+
+    # =====================================================================
+    # Tarea I (19 Jul 2026) — promoted from DANGEROUS_PATTERNS to close the
+    # command_allowlist silent-bypass hole: these 6 categories were sitting
+    # in config.yaml's command_allowlist, which pre-approves a pattern_key
+    # PERMANENTLY and skips both smart-mode LLM review and ever notifying
+    # Arturo (see is_approved() / _command_matches_permanent_allowlist()).
+    # Moving them here means the allowlist entry becomes inert (hardline is
+    # checked first, unconditionally) regardless of what config.yaml says.
+    # config.yaml's command_allowlist was cleared of these entries in the
+    # same change (see reporte_tarea_i_hardening_permisos_19jul.md) so
+    # nothing relies on the now-dead allowlist strings.
+    #
+    # Two categories from the same allowlist were deliberately NOT hardlined
+    # (see report for full reasoning): "execute_code" (the whole
+    # code_execution/Python-sandbox toolset — too broad and too core a
+    # capability to block outright) and "overwrite project env/config file"
+    # (Hermes may legitimately need to edit an unrelated project's .env/
+    # config.yaml while helping with dev work, unlike its own framework
+    # files). Both were removed from command_allowlist only, so they now
+    # fall through to real smart-mode judgment instead of silent bypass.
+    # =====================================================================
+    (rf'>\s*{_SYSTEM_CONFIG_PATH}', "overwrite system config"),
+    (rf'\btee\b.*["\']?{_SENSITIVE_WRITE_TARGET}', "overwrite system file via tee"),
+    (rf'>>?\s*["\']?{_SENSITIVE_WRITE_TARGET}', "overwrite system file via redirection"),
+    (rf'\b(cp|mv|install)\b.*\s["\']?{_SENSITIVE_WRITE_TARGET}[^\s"\']*["\']?{_COMMAND_TAIL}', "copy/move file into sensitive credential/SSH/shell-rc path"),
+    (r'\b(python[23]?|perl|ruby|node)\s+-[ec]\s+', "script execution via -e/-c flag"),
+    (r'\b(python[23]?|perl|ruby|node)\s+<<', "script execution via heredoc"),
+    (r'\b(pkill|killall)\b.*\b(hermes|gateway|cli\.py)\b', "kill hermes/gateway process (self-termination)"),
+    (r'\bkill\b.*\$\(\s*(pgrep|pidof)\b', "kill process via pgrep/pidof expansion (self-termination)"),
+    (r'\bkill\b.*`\s*(pgrep|pidof)\b', "kill process via backtick pgrep/pidof expansion (self-termination)"),
 ]
 
 # Pre-compiled variant used by the hot-path matcher. Building these at module
@@ -631,8 +679,10 @@ DANGEROUS_PATTERNS = [
     # *next* line to satisfy the negative lookahead, silently allowing DELETE without WHERE.
     (r'\bDELETE\s+FROM\b(?![^\n]*\bWHERE\b)', "SQL DELETE without WHERE"),
     (r'\bTRUNCATE\s+(TABLE)?\s*\w', "SQL TRUNCATE"),
-    (rf'>\s*{_SYSTEM_CONFIG_PATH}', "overwrite system config"),
-    (r'\bsystemctl\s+(-[^\s]+\s+)*(stop|restart|disable|mask)\b', "stop/restart system service"),
+    # "overwrite system config" and "stop/restart/disable/mask system
+    # service" moved to HARDLINE_PATTERNS (Tarea I, 19 Jul 2026) — both were
+    # also sitting in config.yaml's command_allowlist, silently bypassing
+    # even smart-mode review before today's fix.
     (r'\bkill\s+-9\s+-1\b', "kill all processes"),
     (r'\bpkill\s+-9\b', "force kill processes"),
     # killall with SIGKILL (parallel to pkill -9). Catches -9 / -KILL /
@@ -643,9 +693,10 @@ DANGEROUS_PATTERNS = [
     (r'\bkillall\s+(-[^\s]*\s+)*-s\s+(KILL|SIGKILL|9)\b', "force kill processes (killall -s KILL)"),
     (r'\bkillall\s+(-[^\s]*\s+)*-r\b', "kill processes by regex (killall -r)"),
     (r':\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:', "fork bomb"),
-    # Shell -c is parsed structurally by _execution_flag_findings(). A regex
+    # Shell -c is parsed structurally by _execution_flag_findings() (see
+    # "shell command via -c/-lc flag" below in that function) — a regex here
     # that merely searched a dash-token for "c" also matched --norc,
-    # --rcfile, and --restricted.
+    # --rcfile, and --restricted, so it is deliberately not duplicated here.
     (r'\b(curl|wget)\b.*\|\s*(?:[/\w]*/)?(?:ba)?sh(?:\s|$|-c)', "pipe remote content to shell"),
     (r'\b(bash|sh|zsh|ksh)\s+<\s*<?\s*\(\s*(curl|wget)\b', "execute remote script via process substitution"),
     # Remote content executed via command substitution: eval/source/. $(curl ...)
@@ -667,10 +718,13 @@ DANGEROUS_PATTERNS = [
     # `echo <base64> | openssl base64 -d | bash` decodes arbitrary commands.
     (r'\bopenssl\b.*\b(?:base64|enc)\b[^|]*\s+-[dD]\b[^|]*\|\s*\b(bash|sh|zsh|ksh|dash)\b',
      "pipe openssl-decoded content to shell (possible command obfuscation)"),
-    (rf'\btee\b.*["\']?{_SENSITIVE_WRITE_TARGET}', "overwrite system file via tee"),
-    (rf'>>?\s*["\']?{_SENSITIVE_WRITE_TARGET}', "overwrite system file via redirection"),
+    # "overwrite system file via tee/via redirection" for _SENSITIVE_WRITE_TARGET
+    # already exists unconditionally above (HARDLINE_PATTERNS) — not repeated
+    # here to avoid a duplicate entry in this list.
     (rf'\btee\b.*["\']?{_PROJECT_SENSITIVE_WRITE_TARGET}["\']?{_WRITE_TARGET_BOUNDARY}', "overwrite project env/config via tee"),
     (rf'>>?\s*["\']?{_PROJECT_SENSITIVE_WRITE_TARGET}["\']?{_WRITE_TARGET_BOUNDARY}', "overwrite project env/config via redirection"),
+    (rf'\btee\b.*["\']?{_PROJECT_SENSITIVE_WRITE_TARGET}["\']?{_COMMAND_TAIL}', "overwrite project env/config via tee"),
+    (rf'>>?\s*["\']?{_PROJECT_SENSITIVE_WRITE_TARGET}["\']?{_COMMAND_TAIL}', "overwrite project env/config via redirection"),
     (r'\bxargs\s+.*\brm\b', "xargs with rm"),
     # find -exec rm / -execdir rm — the -execdir variant (same semantics,
     # runs in the directory of each match) was previously missed. Claude
@@ -695,16 +749,10 @@ DANGEROUS_PATTERNS = [
     # Gateway protection: never start gateway outside systemd management
     (r'gateway\s+run\b.*(&\s*$|&\s*;|\bdisown\b|\bsetsid\b)', "start gateway outside systemd (use 'systemctl --user restart hermes-gateway')"),
     (r'\bnohup\b.*gateway\s+run\b', "start gateway outside systemd (use 'systemctl --user restart hermes-gateway')"),
-    # Self-termination protection: prevent agent from killing its own process
-    (r'\b(pkill|killall)\b.*\b(hermes|gateway|cli\.py)\b', "kill hermes/gateway process (self-termination)"),
-    # Self-termination via kill + command substitution (pgrep/pidof).
-    # The name-based pattern above catches `pkill hermes` but not
-    # `kill -9 $(pgrep -f hermes)` because the substitution is opaque
-    # to regex at detection time. Catch the structural pattern instead.
-    # `pidof` is the BSD/Linux alternative to `pgrep` and is equally
-    # opaque, so include it in the same alternation.
-    (r'\bkill\b.*\$\(\s*(pgrep|pidof)\b', "kill process via pgrep/pidof expansion (self-termination)"),
-    (r'\bkill\b.*`\s*(pgrep|pidof)\b', "kill process via backtick pgrep/pidof expansion (self-termination)"),
+    # Self-termination protection (kill hermes/gateway process, incl. via
+    # pgrep/pidof command-substitution) moved to HARDLINE_PATTERNS (Tarea I,
+    # 19 Jul 2026) — the name-based form was silently pre-approved via
+    # command_allowlist before today's fix.
     # launchctl-driven gateway stop/restart on macOS. The agent can bypass
     # the `hermes gateway stop|restart` pattern above by driving launchd
     # directly against the service label (commonly `ai.hermes.gateway`).
@@ -714,20 +762,12 @@ DANGEROUS_PATTERNS = [
     # /private/etc/ mirror).
     (rf'\b(cp|mv|install)\b.*\s{_SYSTEM_CONFIG_PATH}', "copy/move file into system config path"),
     (rf'\b(cp|mv|install)\b.*\s["\']?{_PROJECT_SENSITIVE_WRITE_TARGET}["\']?{_COMMAND_TAIL}', "overwrite project env/config file"),
-    # cp/mv/install OVERWRITING a sensitive credential/SSH/shell-rc/Hermes file.
-    # The tee/redirection patterns above already gate _SENSITIVE_WRITE_TARGET
-    # (~/.ssh/*, ~/.netrc/.pgpass/.npmrc/.pypirc, shell rc files,
-    # ~/.hermes/config.yaml/.env), but cp/mv/install was only paired for /etc and
-    # project-relative env/config — so `cp evil ~/.ssh/authorized_keys` (key
-    # implant), `cp creds ~/.netrc`, and `cp evil ~/.bashrc` (login-time command
-    # injection) slipped through with auto-approve. Same unpaired-door rationale
-    # as #14639 / the sed-tee-redirect pairing on these targets.
-    # Anchor the sensitive target to the command tail so this fires on the
-    # DESTINATION (last arg) only — `cp evil ~/.ssh/authorized_keys` is gated,
-    # but reading OUT of a sensitive path (`cp ~/.ssh/config /tmp/x`) stays safe.
-    # The trailing `[^\s"\']*` consumes the rest of the destination filename
-    # (e.g. `authorized_keys` after the `~/.ssh/` fragment).
-    (rf'\b(cp|mv|install)\b.*\s["\']?{_SENSITIVE_WRITE_TARGET}[^\s"\']*["\']?{_COMMAND_TAIL}', "copy/move file into sensitive credential/SSH/shell-rc path"),
+    # "copy/move file into sensitive credential/SSH/shell-rc path" (e.g.
+    # `cp evil ~/.ssh/authorized_keys` key implant, `cp creds ~/.netrc`, `cp
+    # evil ~/.bashrc`) moved to HARDLINE_PATTERNS (Tarea I, 19 Jul 2026) —
+    # this was the exact pattern silently pre-approved via config.yaml's
+    # command_allowlist before today's fix (the textbook SSH-key-implant
+    # scenario this pattern exists to catch was going straight through).
     # In-place edits mutate the target file directly, bypassing redirection,
     # tee, and copy/move/install coverage. Gate the same user-controlled
     # startup/credential files so `sed -i ... ~/.bashrc` and `perl -i ...
@@ -752,8 +792,9 @@ DANGEROUS_PATTERNS = [
     # anywhere in the args, not just the first token — `perl -e '...'` (code
     # eval, no -i) does not trip because it has no `-...i` flag token.
     (rf'\b(?:perl|ruby)\b.*(?:^|\s)-[^\s]*i\b.*(?:{_HERMES_CONFIG_PATH}|{_HERMES_ENV_PATH})', "in-place edit of Hermes config/env (perl/ruby)"),
-    # Interpreter heredocs are handled by _execution_flag_findings() alongside
-    # inline-exec flags; keep only shell heredocs regex-based here.
+    # Interpreter heredocs ("script execution via heredoc") are handled by
+    # _execution_flag_findings() / HARDLINE_PATTERNS above; keep only shell
+    # heredocs regex-based here.
     # Shell execution via heredoc — `bash <<'EOF' ... EOF` runs arbitrary
     # shell commands without triggering the `bash -c` pattern above. The
     # inner commands may not individually match any dangerous pattern (e.g.

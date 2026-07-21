@@ -593,6 +593,97 @@ def _get_hermes_config_resolved() -> str | None:
     return _hermes_config_resolved
 
 
+_hermes_litellm_dir_resolved: str | None = None
+_hermes_litellm_dir_resolved_loaded = False
+
+
+def _get_hermes_litellm_dir_resolved() -> str | None:
+    """Return the resolved absolute path of ~/.hermes/litellm/ (cached).
+
+    This directory holds custom_hooks.py, which controls per-provider
+    max_tokens caps and other request-shaping logic loaded by
+    litellm.service. It has no config.yaml-style filename to match on, so
+    it needs its own resolved-prefix check rather than an exact match —
+    same security rationale as the Hermes config file: a prompt-injected
+    or overly-eager agent could silently rewrite provider routing/limits
+    here with no approval prompt at all otherwise.
+    """
+    global _hermes_litellm_dir_resolved, _hermes_litellm_dir_resolved_loaded
+    if _hermes_litellm_dir_resolved_loaded:
+        return _hermes_litellm_dir_resolved
+    _hermes_litellm_dir_resolved_loaded = True
+    try:
+        from hermes_constants import get_hermes_home
+        _hermes_litellm_dir_resolved = str((get_hermes_home() / "litellm").resolve())
+    except Exception:
+        try:
+            _hermes_litellm_dir_resolved = str(Path(_expand_tilde("~/.hermes/litellm")).resolve())
+        except Exception:
+            _hermes_litellm_dir_resolved = None
+    return _hermes_litellm_dir_resolved
+
+
+_hermes_agent_dir_resolved: str | None = None
+_hermes_agent_dir_resolved_loaded = False
+
+
+def _get_hermes_agent_dir_resolved() -> str | None:
+    """Return the resolved absolute path of ~/.hermes/hermes-agent/ (cached).
+
+    This is the framework's own source tree -- including this very module
+    (file_tools.py) and tools/approval.py, the security code itself. With no
+    protection here an agent with the ``file`` toolset could rewrite its own
+    guardrails with zero gate (Tarea I, 19 Jul 2026).
+    """
+    global _hermes_agent_dir_resolved, _hermes_agent_dir_resolved_loaded
+    if _hermes_agent_dir_resolved_loaded:
+        return _hermes_agent_dir_resolved
+    _hermes_agent_dir_resolved_loaded = True
+    try:
+        from hermes_constants import get_hermes_home
+        _hermes_agent_dir_resolved = str((get_hermes_home() / "hermes-agent").resolve())
+    except Exception:
+        try:
+            _hermes_agent_dir_resolved = str(Path(_expand_tilde("~/.hermes/hermes-agent")).resolve())
+        except Exception:
+            _hermes_agent_dir_resolved = None
+    return _hermes_agent_dir_resolved
+
+
+_hermes_sensitive_files_resolved: frozenset[str] | None = None
+_hermes_sensitive_files_resolved_loaded = False
+
+
+def _get_hermes_sensitive_files_resolved() -> frozenset[str]:
+    """Return resolved absolute paths of exact-match sensitive Hermes files.
+
+    auth.json (platform credentials), kanban.db and state.db (structured
+    data meant to be mutated only through their own tool APIs -- kanban_tools
+    / memory_tool -- never by direct file/SQL writes, per HAS project
+    convention). Previously enforced only by convention, not technically
+    (Tarea I, 19 Jul 2026).
+    """
+    global _hermes_sensitive_files_resolved, _hermes_sensitive_files_resolved_loaded
+    if _hermes_sensitive_files_resolved_loaded:
+        return _hermes_sensitive_files_resolved or frozenset()
+    _hermes_sensitive_files_resolved_loaded = True
+    names = ("auth.json", "kanban.db", "state.db")
+    resolved: set[str] = set()
+    try:
+        from hermes_constants import get_hermes_home
+        home = get_hermes_home()
+        for name in names:
+            resolved.add(str((home / name).resolve()))
+    except Exception:
+        for name in names:
+            try:
+                resolved.add(str(Path(_expand_tilde(f"~/.hermes/{name}")).resolve()))
+            except Exception:
+                pass
+    _hermes_sensitive_files_resolved = frozenset(resolved)
+    return _hermes_sensitive_files_resolved
+
+
 def _check_sensitive_path(filepath: str, task_id: str = "default") -> str | None:
     """Return an error message if the path targets a sensitive system location."""
     try:
@@ -619,6 +710,44 @@ def _check_sensitive_path(filepath: str, task_id: str = "default") -> str | None
             f"Refusing to write to Hermes config file: {filepath}\n"
             "Agent cannot modify security-sensitive configuration. "
             "Edit ~/.hermes/config.yaml directly or use 'hermes config' instead."
+        )
+    # Same rationale as the config.yaml block above: ~/.hermes/litellm/ holds
+    # custom_hooks.py (provider max_tokens caps, request-shaping) which is
+    # loaded by litellm.service. Unlike config.yaml this has no single
+    # filename to exact-match, so gate the whole directory by prefix.
+    litellm_dir = _get_hermes_litellm_dir_resolved()
+    if litellm_dir and (
+        resolved == litellm_dir or resolved.startswith(litellm_dir + os.sep)
+        or normalized == litellm_dir or normalized.startswith(litellm_dir + os.sep)
+    ):
+        return (
+            f"Refusing to write to Hermes litellm framework directory: {filepath}\n"
+            "Agent cannot modify provider routing/limits code directly. "
+            "Report the diagnosis and proposed diff to Arturo instead."
+        )
+    # Tarea I (19 Jul 2026): the framework's own source tree, including this
+    # file and tools/approval.py -- the security code itself. No legitimate
+    # reason for the agent to rewrite its own guardrails.
+    agent_dir = _get_hermes_agent_dir_resolved()
+    if agent_dir and (
+        resolved == agent_dir or resolved.startswith(agent_dir + os.sep)
+        or normalized == agent_dir or normalized.startswith(agent_dir + os.sep)
+    ):
+        return (
+            f"Refusing to write to Hermes framework source code: {filepath}\n"
+            "Agent cannot modify its own framework/security code directly. "
+            "Report the diagnosis and proposed diff to Arturo instead."
+        )
+    # Tarea I (19 Jul 2026): auth.json/kanban.db/state.db must be mutated
+    # only through their own tool APIs (memory_tool.py, kanban_tools.py),
+    # never by direct file/SQL writes -- previously only a convention.
+    if (resolved in _get_hermes_sensitive_files_resolved()
+            or normalized in _get_hermes_sensitive_files_resolved()):
+        return (
+            f"Refusing to write directly to Hermes data file: {filepath}\n"
+            "Use the dedicated tool API for this file (memory_tool.py for "
+            "state.db, kanban tools for kanban.db) instead of direct "
+            "writes."
         )
     return None
 
