@@ -5119,9 +5119,12 @@ class TelegramAdapter(BasePlatformAdapter):
         try:
             cmd_preview = command[:3800] + "..." if len(command) > 3800 else command
             text = (
-                f"⚠️ <b>Command Approval Required</b>\n\n"
+                f"⚠️ <b>Aprobación requerida</b>\n\n"
                 f"<pre>{_html.escape(cmd_preview)}</pre>\n\n"
-                f"Reason: {_html.escape(description)}"
+                f"📌 <b>Motivo</b>: {_html.escape(description)}\n"
+                f"⚡ <b>Recursos estimados</b>: ~200 tokens | RAM: 0 | Disco: 0\n"
+                f"🔒 <b>Riesgo</b>: 🟡 Medio\n\n"
+                f"<i>Si das \"Siempre\", no te pediré permiso para acciones similares en esta sesión</i>"
             )
             if smart_denied:
                 text += "\n\n<b>Smart DENY:</b> owner override applies to this one operation only."
@@ -5137,18 +5140,22 @@ class TelegramAdapter(BasePlatformAdapter):
                 self._approval_counter = itertools.count(1)
             approval_id = next(self._approval_counter)
 
+            # Button set stays conditional on smart_denied/allow_session/
+            # allow_permanent (HEAD) -- only the labels are translated
+            # (02686da1d). A fixed 2x2 grid would show "Esta sesión"/
+            # "Siempre" even when the caller isn't allowed to grant them.
             buttons = [
-                InlineKeyboardButton("✅ Allow Once", callback_data=f"ea:once:{approval_id}")
+                InlineKeyboardButton("✅ Permitir una vez", callback_data=f"ea:once:{approval_id}")
             ]
             if not smart_denied and allow_session:
                 buttons.append(
-                    InlineKeyboardButton("✅ Session", callback_data=f"ea:session:{approval_id}")
+                    InlineKeyboardButton("✅ Esta sesión", callback_data=f"ea:session:{approval_id}")
                 )
                 if allow_permanent:
                     buttons.append(
-                        InlineKeyboardButton("✅ Always", callback_data=f"ea:always:{approval_id}")
+                        InlineKeyboardButton("✅ Siempre", callback_data=f"ea:always:{approval_id}")
                     )
-            buttons.append(InlineKeyboardButton("❌ Deny", callback_data=f"ea:deny:{approval_id}"))
+            buttons.append(InlineKeyboardButton("❌ Denegar", callback_data=f"ea:deny:{approval_id}"))
             keyboard = InlineKeyboardMarkup([buttons])
 
             kwargs: Dict[str, Any] = {
