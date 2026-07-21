@@ -11327,7 +11327,12 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         # consumed as update answers instead of being dispatched normally.
         _quick_key = self._session_key_for_source(source)
         _update_prompts = getattr(self, "_update_prompt_pending", {})
-        if _update_prompts.get(_quick_key):
+        # Guard agregado 20 Jul 2026 (mismo patron de la causa raiz de
+        # Tarea E, ver reporte_incidente_deepseek_no_autorizado_19-20jul.md):
+        # un evento interno/sintetico (Tarea D/E) reusa la session_key real
+        # y, sin este guard, su texto reenviado podia consumirse aqui como
+        # si fuera la respuesta del usuario a un prompt de /update pendiente.
+        if _update_prompts.get(_quick_key) and not event.internal:
             raw = (event.text or "").strip()
             # Accept /approve and /deny as shorthand for yes/no
             cmd = event.get_command()
@@ -11406,7 +11411,13 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             )
         except Exception:
             _pending_clarify = None
-        if _pending_clarify is not None and _clarify_mod is not None:
+        # Guard agregado 20 Jul 2026 (mismo patron que el update-prompt de
+        # arriba y la causa raiz de Tarea E): sin `not event.internal`, un
+        # turno sintetico interno reenviando texto libre podia "contestar"
+        # una clarify pendiente por su cuenta -- clarify acepta texto libre
+        # abierto, asi que el riesgo aqui es mayor que en Tarea E (cualquier
+        # texto cuenta como respuesta valida, no solo si/no).
+        if _pending_clarify is not None and _clarify_mod is not None and not event.internal:
             _raw_clarify_reply = (event.text or "").strip()
             # Skip slash commands — the user clearly wanted to issue a
             # command, not answer the clarify.  Leave the clarify pending
@@ -11459,7 +11470,10 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             _tool_approval_live = has_blocking_approval(_quick_key)
         except Exception:
             _tool_approval_live = False
-        if _pending_confirm and not _tool_approval_live:
+        # Guard agregado 20 Jul 2026 (mismo patron, ver arriba): un evento
+        # interno no debe poder resolver un /reload-mcp u otra confirmacion
+        # destructiva pendiente en nombre del usuario.
+        if _pending_confirm and not _tool_approval_live and not event.internal:
             _raw_reply = (event.text or "").strip()
             # Accept bang-prefixed replies (`!always`, `!cancel`) verbatim.
             # Slack/Matrix instruction text shows the `!` prefix (typed `/`
