@@ -6600,10 +6600,17 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
     # error or warning. Surface it loudly instead. See #38798.
     try:
         from toolsets import validate_toolset
-        from hermes_cli.toolset_validation import validate_platform_toolsets
+        from hermes_cli.toolset_validation import (
+            validate_kanban_gate_consistency,
+            validate_platform_toolsets,
+        )
 
+        _raw_cfg_for_ts = read_raw_config()
         ts_warnings = validate_platform_toolsets(
-            read_raw_config().get("platform_toolsets"), validate_toolset
+            _raw_cfg_for_ts.get("platform_toolsets"), validate_toolset
+        )
+        ts_warnings += validate_kanban_gate_consistency(
+            _raw_cfg_for_ts.get("platform_toolsets"), _raw_cfg_for_ts.get("toolsets")
         )
         for w in ts_warnings:
             results["warnings"].append(w)

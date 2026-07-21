@@ -6,7 +6,10 @@ tool registry nor a running Hermes.
 
 import pytest
 
-from hermes_cli.toolset_validation import validate_platform_toolsets
+from hermes_cli.toolset_validation import (
+    validate_kanban_gate_consistency,
+    validate_platform_toolsets,
+)
 
 # A representative set of real toolset names. `hermes` is deliberately absent —
 # that is the corruption #38798 reported (`hermes-cli` rewritten to `hermes`).
@@ -89,3 +92,30 @@ def test_real_validate_toolset_treats_hermes_cli_valid_and_hermes_invalid():
     assert validate_toolset("hermes") is False
     warnings = validate_platform_toolsets({"cli": ["hermes"]}, validate_toolset)
     assert any("did you mean 'hermes-cli'?" in w for w in warnings)
+
+
+def test_kanban_gate_consistency_both_set_no_warning():
+    warnings = validate_kanban_gate_consistency(
+        {"cli": ["kanban"], "telegram": ["kanban"]}, ["kanban"]
+    )
+    assert warnings == []
+
+
+def test_kanban_gate_consistency_neither_set_no_warning():
+    warnings = validate_kanban_gate_consistency({"cli": ["terminal"]}, [])
+    assert warnings == []
+
+
+def test_kanban_gate_consistency_platform_only_warns():
+    # The exact regression this guards against: kanban enabled per-platform
+    # but the top-level toolsets: list was reverted, assuming it wasn't needed.
+    warnings = validate_kanban_gate_consistency({"cli": ["kanban"]}, [])
+    assert len(warnings) == 1
+    assert "missing from the top-level 'toolsets:' list" in warnings[0]
+    assert "cli" in warnings[0]
+
+
+def test_kanban_gate_consistency_top_level_only_warns():
+    warnings = validate_kanban_gate_consistency({"cli": ["terminal"]}, ["kanban"])
+    assert len(warnings) == 1
+    assert "missing from platform_toolsets for every platform" in warnings[0]

@@ -72,3 +72,49 @@ def validate_platform_toolsets(
             "have no tools. Run `hermes tools` to reconfigure."
         )
     return warnings
+
+
+def validate_kanban_gate_consistency(
+    platform_toolsets: object,
+    toolsets: object,
+) -> List[str]:
+    """Warn when kanban's two independent gates disagree.
+
+    Kanban tools require BOTH gates to be set to work: ``kanban`` in the
+    top-level ``toolsets:`` list (checked by ``_check_kanban_mode`` in
+    ``tools/kanban_tools.py``, gates each individual tool call) AND
+    ``kanban`` in a platform's ``platform_toolsets.<platform>`` list
+    (checked by ``_get_platform_tools`` in ``hermes_cli/tools_config.py``,
+    gates whether the tool schema is even offered to that platform). They
+    are independent gates, not alternatives — setting only one silently
+    half-enables kanban with no error (tools appear in the schema but
+    every call is rejected, or tools never appear in the schema at all).
+    Reverting one gate while assuming the other is sufficient is a real
+    mistake that was made and only caught by reading transcripts.
+    """
+    warnings: List[str] = []
+    top_level_has_kanban = isinstance(toolsets, list) and "kanban" in toolsets
+
+    plat_map = platform_toolsets if isinstance(platform_toolsets, dict) else {}
+    platforms_with_kanban = sorted(
+        platform
+        for platform, raw in plat_map.items()
+        if isinstance(raw, list) and "kanban" in raw
+    )
+
+    if platforms_with_kanban and not top_level_has_kanban:
+        warnings.append(
+            "kanban is enabled in platform_toolsets for "
+            f"{', '.join(platforms_with_kanban)} but missing from the "
+            "top-level 'toolsets:' list — kanban tools will appear in the "
+            "schema but every call will be rejected. Add 'kanban' to "
+            "toolsets: as well."
+        )
+    elif top_level_has_kanban and not platforms_with_kanban:
+        warnings.append(
+            "kanban is enabled in the top-level 'toolsets:' list but is "
+            "missing from platform_toolsets for every platform — kanban "
+            "tools will never appear in the schema for any platform. Add "
+            "'kanban' to platform_toolsets.<platform> as well."
+        )
+    return warnings
