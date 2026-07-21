@@ -11316,7 +11316,214 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                     # Record rate limit so subsequent messages are silently ignored
                     self.pairing_store._record_rate_limit(platform_name, source.user_id)
             return None
-        
+
+        # Tarea D (HAS): autorizacion manual y puntual de DeepSeek sobre un
+        # mensaje ya en mensajes_pendientes. Determinístico (sin LLM) --
+        # debe correr ANTES de cualquier intento de llamar a Gemini/Groq,
+        # ya que ese es precisamente el momento en que ambos estan
+        # agotados. Colocado despues de la autorizacion de usuario (arriba)
+        # para que un remitente no autorizado no pueda gastar DeepSeek.
+        try:
+            _deepseek_reply = await self._maybe_handle_deepseek_pending_authorization(
+                event, source,
+            )
+        except Exception:
+            logger.exception("Fallo en el detector de autorizacion de DeepSeek (Tarea D)")
+            _deepseek_reply = None
+        if _deepseek_reply is not None:
+            return _deepseek_reply
+
+        # Tarea E (HAS, 19 Jul 2026): respuesta a una oferta pendiente de
+        # razonamiento profundo (chat-reasoning/deepseek-v4-pro), si existe
+        # para esta sesion. Determinístico (sin LLM), mismo principio de
+        # seguridad que Tarea D arriba: jamas escala en silencio, y
+        # cualquier fallo interno se trata como "no aplica" (mensaje
+        # normal), nunca como autorizacion.
+        #
+        # CAUSA RAIZ REAL encontrada 20 Jul 2026 (investigacion externa +
+        # lectura de codigo, ver addendum 5/6 del reporte): a diferencia del
+        # bloque de Tarea D justo arriba (linea ~7205, `if event.internal or
+        # self._session_db is None: return None`), este bloque NUNCA excluyo
+        # eventos internos/sinteticos. Confirmado con codigo real que SI
+        # existen eventos con internal=True que comparten la MISMA
+        # session_key que la conversacion real del usuario: el propio
+        # despacho de Tarea D (`adapter.handle_message(synthetic_event)`,
+        # linea ~7394, `internal=True`, reusa `source_for_turn` con el
+        # user_id/chat_id real) y el despacho (ex-activo) de esta misma
+        # Tarea E. Cualquiera de esos turnos sinteticos, si corre mientras
+        # hay una oferta pendiente para esa sesion, pasaba por aqui con el
+        # texto reenviado (la pregunta original, NO un "si"/"no") y --
+        # aunque normalmente eso solo cancela la oferta (texto no es
+        # sí/no) -- es exactamente el tipo de "mensaje que no deberia
+        # contar" que el endurecimiento del 19 Jul no cubria, porque
+        # nunca se filtro la fuente del evento, solo su texto. Se corrige
+        # aqui replicando el guard ya establecido y probado de Tarea D.
+        if event.internal:
+            _te_result = None
+        else:
+            try:
+                from agent.complexity_detector import check_pending_reply
+
+                _te_session_key = self._session_key_for_source(source)
+                _te_raw_text = event.text or ""
+                _te_result = check_pending_reply(_te_session_key, _te_raw_text)
+                if _te_result is not None:
+                    # Diagnostico permanente (no solo mientras el despacho
+                    # esta desactivado): registra CADA vez que esta funcion
+                    # resuelve una oferta pendiente, con el texto EXACTO que
+                    # disparo el resultado -- necesario porque el incidente
+                    # del 19 Jul (cargo real de DeepSeek sin "si" real) se
+                    # repitio incluso con el endurecimiento de "solo el
+                    # mensaje inmediato siguiente" ya puesto, y sin esto no
+                    # hay forma de saber que texto vio realmente esta
+                    # funcion en cada ocurrencia.
+                    logger.warning(
+                        "Tarea E: check_pending_reply resolvio -- session_key=%r "
+                        "answer=%r categoria=%r trigger_text=%r "
+                        "event.internal=%r event.reply_to_message_id=%r",
+                        _te_session_key, _te_result.get("answer"),
+                        _te_result.get("category"), _te_raw_text,
+                        getattr(event, "internal", None),
+                        getattr(event, "reply_to_message_id", None),
+                    )
+            except Exception:
+                logger.exception("Fallo en el detector de oferta de razonamiento (Tarea E)")
+                _te_result = None
+
+        if _te_result is not None and _te_result.get("answer") is False:
+            return (
+                "👍 Entendido, sigo con el modelo normal. No vuelvo a "
+                "ofrecer razonamiento profundo para este mismo tipo de "
+                "pregunta el resto de esta sesión."
+            )
+
+        if _te_result is not None and _te_result.get("answer") is True:
+            # REACTIVADO 20 Jul 2026, tercera vez, con 2 fixes reales
+            # aplicados a la causa mas probable (investigacion externa +
+            # lectura de codigo, no solo una prueba limpia -- ver addendum
+            # 6/7 del reporte):
+            #
+            # 1) Este mismo bloque (arriba, linea ~8521) ahora excluye
+            #    event.internal, igual que Tarea D ya hacia (linea ~7205)
+            #    -- un turno sintetico despachado (Tarea D o esta misma
+            #    Tarea E) comparte la MISMA session_key que la conversacion
+            #    real, y sin ese guard podia tocar el estado pendiente de
+            #    una oferta que el usuario real todavia no habia contestado.
+            #    Confirmado con prueba real (test_internal_guard.py):
+            #    sin el guard, un evento interno cancelaba silenciosamente
+            #    una oferta viva. Es el mismo campo que ya se logueaba aqui
+            #    desde el incidente anterior, precisamente por sospecha de
+            #    esto.
+            # 2) agent/turn_finalizer.py ya NO registra una oferta nueva
+            #    cuando el turno que acaba de correr fue el propio despacho
+            #    forzado (agent.model in {"chat-reasoning","chat-fallback2"})
+            #    -- antes, la respuesta de razonamiento profundo podia
+            #    disparar su propia oferta de "mas razonamiento" para la
+            #    misma sesion, dejando un estado pendiente vivo que un
+            #    mensaje del usuario totalmente distinto, llegando poco
+            #    despues, terminaba resolviendo por pura cercania temporal.
+            #
+            # Diagnostico permanente arriba se queda activo (no se retira)
+            # -- si el disparo falso vuelve a pasar con estos 2 fixes
+            # puestos, el log ya tiene trigger_text/event.internal/
+            # reply_to_message_id de cada resolucion para seguir
+            # investigando con evidencia real, no suposicion.
+            logger.warning(
+                "Tarea E: despachando chat-reasoning (real, reactivado 20 Jul) "
+                "-- session_key=%r categoria=%r pending_message=%r trigger_text=%r",
+                _te_session_key, _te_result.get("category"),
+                (_te_result.get("message") or "")[:150],
+                (event.text or "")[:150],
+            )
+            # Red de seguridad (20 Jul 2026, pedida por Arturo tras el
+            # incidente de $0.15 no autorizados): notifica INMEDIATO por
+            # Telegram, ANTES de intentar el despacho real, para que se
+            # entere en el momento -- incluso si el despacho falla despues
+            # o si el disparo resulta ser otro falso positivo. Envuelto en
+            # try/except propio (ver el metodo): un fallo aqui nunca debe
+            # bloquear el despacho real.
+            _te_spend_before = await self._te_notify_deepseek_dispatch(
+                source,
+                mechanism="chat-reasoning (Tarea E)",
+                reason=(_te_result.get("message") or event.text or "")[:200],
+                authorized=(
+                    "confirmaste \"sí\" a la oferta pendiente (mensaje real, "
+                    "no evento interno -- verificado por el guard del 20 Jul)"
+                ),
+            )
+            _te_synthetic_event = None
+            try:
+                from hermes_cli.config import load_config
+
+                cfg = load_config()
+                custom_provs = (cfg.get("custom_providers") if isinstance(cfg, dict) else None) or []
+                litellm_entry = next(
+                    (p for p in custom_provs if isinstance(p, dict) and p.get("name") == "LiteLLM"),
+                    None,
+                )
+                if litellm_entry is None:
+                    raise RuntimeError("custom_providers entry 'LiteLLM' no encontrada en config.yaml")
+
+                def _te_expand_env_var(value: str) -> str:
+                    return re.sub(
+                        r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}",
+                        lambda m: os.environ.get(m.group(1), ""),
+                        value,
+                    )
+
+                _te_resolved_base_url = _te_expand_env_var(str(litellm_entry.get("base_url", "")))
+                _te_resolved_api_key = _te_expand_env_var(str(litellm_entry.get("api_key", "")))
+                if not _te_resolved_base_url or not _te_resolved_api_key:
+                    raise RuntimeError(
+                        "base_url o api_key vacios tras resolver ${VAR} -- revisar .env"
+                    )
+
+                _te_synthetic_event = MessageEvent(
+                    text=_te_result.get("message") or (event.text or ""),
+                    message_type=MessageType.TEXT,
+                    source=source,
+                    internal=True,
+                    timestamp=datetime.now(),
+                )
+                _te_synthetic_event._moa_restore_override = self._session_model_overrides.get(_te_session_key)
+                self._session_model_overrides[_te_session_key] = {
+                    "model": "chat-reasoning",
+                    "provider": "custom:litellm",
+                    "api_key": _te_resolved_api_key,
+                    "base_url": _te_resolved_base_url,
+                    "api_mode": "chat_completions",
+                }
+                self._evict_cached_agent(_te_session_key)
+                _te_synthetic_event._moa_disable_after_turn = True
+
+                adapter = self.adapters.get(source.platform)
+                if adapter is None:
+                    raise RuntimeError("adaptador de plataforma no disponible")
+                await adapter.handle_message(_te_synthetic_event)
+                await self._te_notify_deepseek_dispatch_done(
+                    source, mechanism="chat-reasoning (Tarea E)",
+                    spend_before=_te_spend_before,
+                )
+                return None
+            except Exception:
+                # Mismo patron de defensa que Tarea D (linea ~7396): si el
+                # despacho fallo antes de que el turno arrancara, el
+                # restore-en-finally que vive DENTRO del turno nunca corre
+                # -- se restaura aqui a mano para no dejar la sesion pegada
+                # en chat-reasoning.
+                _te_restore = getattr(_te_synthetic_event, "_moa_restore_override", None)
+                if _te_restore is None:
+                    self._session_model_overrides.pop(_te_session_key, None)
+                else:
+                    self._session_model_overrides[_te_session_key] = _te_restore
+                self._evict_cached_agent(_te_session_key)
+                logger.exception("Tarea E: fallo despachando el turno real de chat-reasoning")
+            return (
+                "⚠️ Confirmaste que quieres razonamiento profundo, pero algo "
+                "falló preparando la conexión real a chat-reasoning — no se "
+                "hizo ningún gasto. Puedes volver a preguntar."
+            )
+
         # Intercept messages that are responses to a pending /update prompt.
         # The update process (detached) wrote .update_prompt.json; the watcher
         # forwarded it to the user; now the user's reply goes back via
