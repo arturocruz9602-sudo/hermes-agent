@@ -131,7 +131,10 @@ _PATTERNS: List[Tuple[str, str, str]] = [
     (r'(update|modify|edit|write|change|append|add\s+to)\s+[^\n]{0,2048}\.hermes/(config\.yaml|SOUL\.md)', "hermes_config_mod", "strict"),
 
     # ── Hardcoded secrets ────────────────────────────────────────────
-    (r'(?:api[_-]?key|token|secret|password)\s*[=:]\s*["\'][A-Za-z0-9+/=_-]{20,}', "hardcoded_secret", "strict"),
+    # Quotes are optional (21 Jul 2026 fix) -- the original pattern required
+    # a literal quote right after `=`/`:`, so a bare `API_KEY=sk-...` pasted
+    # into chat (no quotes, the common real-world shape) went undetected.
+    (r'(?:api[_-]?key|token|secret|password)\s*[=:]\s*["\']?[A-Za-z0-9+/=_-]{20,}', "hardcoded_secret", "strict"),
 ]
 
 # Invisible / bidirectional unicode characters used in injection attacks.
