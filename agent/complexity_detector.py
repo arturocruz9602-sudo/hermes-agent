@@ -115,6 +115,271 @@ def detect_categories(text: str) -> List[str]:
 
 
 # =============================================================================
+# Bloque L (22 Jul 2026) -- clasificador de complejidad GENUINA, reemplaza
+# detect_categories() como disparador real de la oferta de Tarea E.
+#
+# Motivo (feedback directo de Arturo, 22 Jul 2026): el disparador viejo
+# (detect_categories, puro match de frases como "razona paso a paso") se
+# activa con aritmética trivial con tal de que la frase aparezca -- en la
+# práctica, Gemini ya contestaba bien "2+2" y LUEGO Hermes ofrecía razonar
+# con DeepSeek para lo mismo, pidiendo autorización y gastando dinero real
+# en repetir una respuesta ya correcta. Nada de esto sirve en el uso diario.
+#
+# classify_complexity() evalua 3 criterios de complejidad REAL, en orden de
+# prioridad, como funcion (no como lista de palabras):
+#   (a) el mensaje trae un bloque de codigo real o pide depurar/revisar
+#       codigo con una señal real de error (traceback, excepcion) -- no
+#       solo la palabra "depura" suelta.
+#   (b) la tarea tiene multiples variables dependientes entre si (dominio
+#       ejemplo: trading -- correlacion entre posiciones, gestion de
+#       riesgo con varios factores) -- exige un termino de dominio
+#       multi-variable Y al menos 2 valores numericos/tickers en el mismo
+#       mensaje, no solo la palabra sola.
+#   (c) Gemini ya contesto y su propia respuesta muestra señales reales de
+#       incertidumbre: respuesta corta a una pregunta que pedia
+#       profundidad, lenguaje de baja confianza repetido, o el usuario
+#       reformula/vuelve a preguntar lo mismo (la respuesta anterior no
+#       basto).
+#
+# Mismo invariante de seguridad que detect_categories(): esto es una SEÑAL,
+# nunca una instruccion de escalar. Fail-safe en cualquier error interno.
+# =============================================================================
+
+_CODE_FENCE_RE = re.compile(r"```")
+_TRACEBACK_SIGNAL_RE = re.compile(
+    r"\btraceback\b|\bstack trace\b|\bexception\b\s*:|\berror\s*:|"
+    r"\bsyntaxerror\b|\btypeerror\b|\bvalueerror\b|\bnullpointerexception\b|"
+    r"\bat line \d+\b|\ben la linea \d+\b",
+    re.IGNORECASE,
+)
+_DEBUG_REQUEST_RE = re.compile(
+    r"\b(depura|debuggea|arregla|corrige|revisa)\b[^.!?\n]{0,60}"
+    r"\b(codigo|error|bug|excepcion|traceback|funcion|script)\b",
+    re.IGNORECASE,
+)
+_DESIGN_COMPLEXITY_RE = re.compile(
+    r"\b(arquitectura|diseñ[ao] el sistema|optimiza el rendimiento|"
+    r"algoritmo|refactoriza|concurrencia|race condition|escalabilidad|"
+    r"migra la base de datos|interaccion entre)\b",
+    re.IGNORECASE,
+)
+_DEF_CLASS_NAME_RE = re.compile(r"\b(?:def|class|function)\s+(\w+)")
+_TRACEBACK_FILE_RE = re.compile(r'file\s+"([^"]+)"')
+
+
+def _has_code_or_debug_signal(user_message: str) -> bool:
+    """Criterio (a), REDEFINIDO Bloque M (22 Jul 2026) tras un falso
+    positivo real confirmado: un bug de una linea con causa obvia
+    (operador de resta en vez de suma) disparaba la oferta solo por
+    traer un bloque de codigo, aunque Gemini ya lo hubiera diagnosticado
+    y corregido perfecto -- gasto real innecesario de $0.0006 USD.
+
+    Ya NO dispara con cualquier codigo/traceback. Exige señal de
+    complejidad real:
+      - vocabulario de diseño/arquitectura/rendimiento/algoritmia, O
+      - 2+ funciones/clases DISTINTAS definidas o nombradas (sugiere
+        interaccion entre componentes, no un bug aislado de una sola
+        funcion), O
+      - un traceback con frames en 2+ archivos distintos (el error
+        cruza modulos, no es local a un solo archivo).
+    Un pedido de "revisa/corrige" sin ninguna de estas señales adicionales
+    ya no cuenta -- ver tambien _response_already_resolved_with_confidence,
+    el segundo filtro (M.2) que ademas suprime la oferta si Gemini ya
+    resolvio el caso con confianza, aunque esta funcion diera True.
+
+    NOTA (22 Jul 2026, encontrado probando M.4 en producción real): el
+    chequeo de "2+ funciones distintas" ya NO exige que el mensaje traiga
+    ``` (code fence) primero -- el texto real que llega de Telegram NO
+    conserva los ``` literales que Arturo escribe (el cliente los
+    convierte a su propio formato antes de que Hermes vea el texto plano;
+    confirmado leyendo el mensaje real tal como quedó en state.db, sin
+    backticks). Exigir el fence de entrada hacía que este criterio NUNCA
+    disparara con mensajes reales de Telegram que sí tenían 2+ funciones.
+    Las respuestas de Gemini SÍ conservan los ``` (vienen del modelo, no
+    pasan por el parser de texto de Telegram) -- por eso
+    _response_already_resolved_with_confidence no tiene este problema.
+    """
+    folded = _strip_accents(user_message).lower()
+    if _DESIGN_COMPLEXITY_RE.search(folded):
+        return True
+
+    distinct_names = set(_DEF_CLASS_NAME_RE.findall(user_message))
+    if len(distinct_names) >= 2:
+        return True
+
+    if _TRACEBACK_SIGNAL_RE.search(folded):
+        distinct_files = set(_TRACEBACK_FILE_RE.findall(folded))
+        if len(distinct_files) >= 2:
+            return True
+
+    return False
+
+
+_DECISIVE_DIAGNOSIS_RE = re.compile(
+    r"\b(el error es que|el error se debe a|la causa (del error )?es|"
+    r"el problema es que|esta mal en la linea|esta invertid[oa]|"
+    r"deberia ser|se debe a que)\b",
+    re.IGNORECASE,
+)
+_HEDGE_LANGUAGE_RE = re.compile(
+    r"\b(podria ser|prueba con|no estoy seguro|posible causa|"
+    r"podria deberse a|quiza|tal vez|puede que|una de las causas|"
+    r"varias posibles causas|no tengo suficiente informacion)\b",
+    re.IGNORECASE,
+)
+
+
+def _response_already_resolved_with_confidence(gemini_response: str) -> bool:
+    """Bloque M.2: si Gemini ya entrego una respuesta completa y segura
+    (bloque de codigo completo + diagnostico decisivo + sin lenguaje de
+    duda), no ofrecer DeepSeek aunque el criterio (a) haya dado True --
+    caso real que motivo esto: Gemini identifico y corrigio un bug de una
+    linea perfecto, y la version vieja de este criterio ofrecia igual
+    solo por haber un bloque de codigo en la respuesta."""
+    if not gemini_response:
+        return False
+    has_complete_code_block = bool(_CODE_FENCE_RE.search(gemini_response))
+    folded = _strip_accents(gemini_response).lower()
+    decisive = bool(_DECISIVE_DIAGNOSIS_RE.search(folded))
+    hedged = bool(_HEDGE_LANGUAGE_RE.search(folded))
+    return has_complete_code_block and decisive and not hedged
+
+
+_MULTI_VAR_DOMAIN_TERMS = [
+    "correlacion", "posiciones", "cartera", "portafolio",
+    "gestion de riesgo", "hedge", "cobertura", "stop loss",
+    "apalancamiento", "diversificacion", "riesgo beneficio",
+    "asignacion de capital", "gestion de capital",
+]
+_NUMERIC_TOKEN_RE = re.compile(r"\b\d+(?:[.,]\d+)?%?\b")
+_TICKER_LIKE_RE = re.compile(r"\b[A-Z]{2,6}(?:USDT?|MXN|BTC|ETH)?\b")
+
+
+def _has_multi_variable_signal(user_message: str) -> bool:
+    """Criterio (b): termino de dominio multi-variable Y >= 2 valores
+    numericos/tickers en el mismo mensaje -- ni la palabra sola ni un
+    numero suelto bastan por separado."""
+    folded = _strip_accents(user_message).lower()
+    if not any(term in folded for term in _MULTI_VAR_DOMAIN_TERMS):
+        return False
+    numeric_hits = len(_NUMERIC_TOKEN_RE.findall(user_message))
+    ticker_hits = len(_TICKER_LIKE_RE.findall(user_message))
+    return (numeric_hits + ticker_hits) >= 2
+
+
+_DEPTH_REQUEST_RE = re.compile(
+    r"\b(analiza|compara|opinas|recomiendas|deberia|conviene|evalua|"
+    r"que piensas|que harias)\b",
+    re.IGNORECASE,
+)
+_UNCERTAINTY_MARKERS = [
+    "no estoy seguro", "no tengo suficiente informacion", "podria ser",
+    "es dificil saber", "no puedo confirmar", "no puedo asegurar",
+    "dependeria de", "sin mas contexto no",
+]
+_SHORT_RESPONSE_CHARS = 100
+
+
+def _has_uncertainty_signal(
+    user_message: str, gemini_response: str, previous_user_message: Optional[str],
+) -> bool:
+    """Criterio (c): la respuesta ya dada muestra señales reales de no
+    haber bastado -- corta cuando se pidio profundidad, lenguaje de baja
+    confianza repetido, o el usuario esta reformulando la misma pregunta."""
+    if not gemini_response:
+        return False
+    folded_resp = _strip_accents(gemini_response).lower()
+    folded_user = _strip_accents(user_message).lower()
+
+    asked_for_depth = bool(_DEPTH_REQUEST_RE.search(folded_user))
+    short_response = len(gemini_response.strip()) < _SHORT_RESPONSE_CHARS
+    if asked_for_depth and short_response:
+        return True
+
+    marker_hits = sum(1 for m in _UNCERTAINTY_MARKERS if m in folded_resp)
+    if marker_hits >= 2:
+        return True
+
+    # NOTA (22 Jul 2026): la señal de "reformulación" (comparar el mensaje
+    # actual contra el anterior por solapamiento de tokens) se probo en
+    # produccion real y se retiro -- causo un falso positivo confirmado:
+    # dos mensajes de prueba triviales con la MISMA plantilla ("razona
+    # paso a paso ¿cuánto es N+N?", solo cambiando el número) comparten
+    # casi todas las palabras sin que el usuario este insatisfecho con
+    # nada, disparando la oferta igual. Un heurístico de solapamiento de
+    # texto no distingue eso de una reformulación real -- se necesitaria
+    # algo mas fino que un match de tokens (fuera de alcance de un
+    # heurístico determinista). *previous_user_message* se deja como
+    # parametro por si se retoma esto mas adelante con una señal mejor.
+    return False
+
+
+def classify_complexity(
+    user_message: str,
+    gemini_response: str = "",
+    previous_user_message: Optional[str] = None,
+) -> Optional[str]:
+    """Clasificador de complejidad genuina (Bloque L, con el gate de
+    Bloque M). Devuelve la categoria si algun criterio real aplica -- y,
+    para el criterio de codigo, solo si Gemini NO lo resolvio ya con
+    confianza -- o None. SIGNAL only -- ver nota de modulo. Fail-safe:
+    cualquier error interno -> None.
+    """
+    if not user_message:
+        return None
+    try:
+        if _has_code_or_debug_signal(user_message):
+            # Bloque M.2: gate de "ya resuelto" -- si Gemini ya dio una
+            # respuesta completa y decisiva, no ofrecer DeepSeek aunque
+            # el criterio (a) haya matcheado.
+            if not _response_already_resolved_with_confidence(gemini_response):
+                return "2_programacion"
+        if _has_multi_variable_signal(user_message):
+            return "3_multivariable"
+        if _has_uncertainty_signal(user_message, gemini_response, previous_user_message):
+            return "1_incertidumbre"
+    except Exception:
+        return None
+    return None
+
+
+def fetch_context_summary(query: str, *, max_results: int = 3) -> Optional[str]:
+    """Bloque L.2: consulta gratuita (Brave Search, via tools.web_tools --
+    ya configurado como backend "brave-free" cuando BRAVE_SEARCH_API_KEY
+    existe) para traer datos actuales ANTES de ofrecer DeepSeek a Arturo.
+    Devuelve un resumen corto (titulos + descripciones, recortado) o None
+    si la busqueda no esta disponible o no trajo nada -- nunca lanza, un
+    fallo aqui degrada a "sin resumen", no bloquea la oferta.
+    """
+    if not query:
+        return None
+    try:
+        import json as _json
+
+        from tools.web_tools import web_search_tool
+
+        raw = web_search_tool(query, limit=max_results)
+        parsed = _json.loads(raw)
+        if not parsed.get("success"):
+            return None
+        results = ((parsed.get("data") or {}).get("web")) or []
+        if not results:
+            return None
+        parts = []
+        for r in results[:max_results]:
+            title = (r.get("title") or "").strip()
+            desc = (r.get("description") or "").strip()
+            if title:
+                parts.append(f"{title}: {desc}" if desc else title)
+        if not parts:
+            return None
+        summary = " | ".join(parts)
+        return summary[:400]
+    except Exception:
+        return None
+
+
+# =============================================================================
 # Integration layer: throttle, per-category block, offer text, reply parsing
 # =============================================================================
 #
@@ -145,6 +410,10 @@ CATEGORY_LABELS: Dict[str, str] = {
     "1_razonamiento": "una decisión o análisis complejo",
     "2_programacion": "un problema técnico no trivial",
     "4_diagnostico": "un diagnóstico técnico",
+    # Bloque L (22 Jul 2026) -- categorías del clasificador nuevo, ver
+    # classify_complexity() abajo.
+    "3_multivariable": "una decisión con varias variables dependientes entre sí",
+    "1_incertidumbre": "algo donde mi primera respuesta no fue suficiente",
 }
 
 OFFER_THROTTLE_SECONDS = 30 * 60  # decisión 1: máximo una oferta cada 30 min
@@ -174,6 +443,7 @@ def _get_state(session_key: str) -> Dict[str, object]:
         "pending_category": None,
         "pending_message": None,
         "pending_ts": 0.0,
+        "pending_context_data": "",
     })
 
 
@@ -206,13 +476,19 @@ def should_offer(
 
 def register_offer(
     session_key: str, category: str, original_message: str = "",
-    now: Optional[float] = None,
+    now: Optional[float] = None, context_data: str = "",
 ) -> None:
     """Record that an offer was made -- starts the throttle and the pending window.
 
     *original_message* is the user's message that triggered the offer --
     stored so that, if Arturo confirms "si", the caller knows WHAT to
     re-ask chat-reasoning (the reply itself is just "si", not the question).
+
+    *context_data* (Bloque L, 22 Jul 2026): the free-lookup summary (Brave
+    Search / etc) already fetched BEFORE the offer was sent, so the real
+    despacho after "si" can reuse it instead of searching again, and so it
+    builds a MINIMAL request (current message + this data) instead of
+    replaying the full session history.
     """
     try:
         now = now if now is not None else time.time()
@@ -221,13 +497,14 @@ def register_offer(
         state["pending_category"] = category
         state["pending_message"] = original_message
         state["pending_ts"] = now
+        state["pending_context_data"] = context_data
     except Exception:
         pass  # fail-safe: worst case, the next message can offer again
 
 
 def build_offer_text(
     category: str, monthly_spend_usd: float, budget_mxn: float = 100.0,
-    *, standalone: bool = False,
+    *, standalone: bool = False, context_summary: Optional[str] = None,
 ) -> str:
     """Build the plain-text offer.
 
@@ -243,11 +520,18 @@ def build_offer_text(
     runs). False (default) keeps the old leading separator, for the
     fallback path where no callback exists (e.g. CLI) and the text is
     still appended directly to final_response.
+
+    *context_summary* (Bloque L, 22 Jul 2026): short summary of what a free
+    lookup (Brave Search / etc) already found about the topic, shown to
+    Arturo BEFORE he decides -- so the offer says "ya tengo X, ¿le entro
+    con DeepSeek?" instead of asking blind.
     """
     label = CATEGORY_LABELS.get(category, "algo complejo")
+    context_line = f"\nYa tengo esto: {context_summary}\n" if context_summary else ""
     body = (
         f"🤔 Esto se ve como {label}. Gasto acumulado este mes: "
         f"${monthly_spend_usd:.2f} USD (de tu tope de ${budget_mxn:.0f} MXN). "
+        f"{context_line}"
         f"¿Uso razonamiento profundo (deepseek-v4-pro) para esto? Responde "
         f"sí/no -- si no contesto en un rato sigo normal, sin costo extra."
     )
@@ -320,13 +604,19 @@ def check_pending_reply(
             # design today -- out of scope for this pass.
             state["pending_category"] = None
             state["pending_message"] = None
+            state["pending_context_data"] = ""
             return None
         pending_message = state.get("pending_message") or ""
+        pending_context_data = state.get("pending_context_data") or ""
         state["pending_category"] = None
         state["pending_message"] = None
+        state["pending_context_data"] = ""
         if answer is False:
             blocked: Set[str] = state["blocked_categories"]  # type: ignore[assignment]
             blocked.add(pending_category)
-        return {"answer": answer, "category": pending_category, "message": pending_message}
+        return {
+            "answer": answer, "category": pending_category, "message": pending_message,
+            "context_data": pending_context_data,
+        }
     except Exception:
         return None

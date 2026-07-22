@@ -696,53 +696,87 @@ def finalize_turn(
     _te_dispatched_models = {"chat-reasoning", "chat-fallback2"}
     if final_response and not interrupted and agent.model not in _te_dispatched_models:
         try:
+            # Bloque L (22 Jul 2026): classify_complexity() reemplaza
+            # detect_categories() como disparador real -- evalua señales de
+            # complejidad genuina (codigo con error real, multiples
+            # variables dependientes, o la propia respuesta mostrando
+            # incertidumbre) en vez de match de frases ("razona paso a
+            # paso" ya no dispara por si sola con aritmetica trivial).
             from agent.complexity_detector import (
-                build_offer_text, detect_categories, register_offer,
-                should_offer,
+                build_offer_text, classify_complexity, fetch_context_summary,
+                register_offer, should_offer,
             )
             from tools.approval import get_current_session_key
 
             _te_session_key = get_current_session_key()
-            _te_categories = detect_categories(original_user_message or "")
-            _te_offer_category = should_offer(_te_session_key, _te_categories)
+
+            _te_previous_user_message = None
+            _te_seen_current = False
+            for _te_msg in reversed(messages or []):
+                if not isinstance(_te_msg, dict) or _te_msg.get("role") != "user":
+                    continue
+                if not _te_seen_current:
+                    _te_seen_current = True  # el propio mensaje de este turno
+                    continue
+                _te_previous_user_message = _te_msg.get("content")
+                if not isinstance(_te_previous_user_message, str):
+                    _te_previous_user_message = None
+                break
+
+            _te_category = classify_complexity(
+                original_user_message or "",
+                gemini_response=final_response or "",
+                previous_user_message=_te_previous_user_message,
+            )
+            _te_offer_category = should_offer(
+                _te_session_key, [_te_category] if _te_category else [],
+            )
             if _te_offer_category:
+                # Bloque I (mismo fix que las notificaciones de despacho):
+                # InsightsEngine/sessions.actual_cost_usd no reflejaba el
+                # gasto real de DeepSeek via el proxy local -- se usa el
+                # ledger real que litellm mismo escribe por llamada.
                 _te_monthly_spend = 0.0
                 try:
-                    import datetime as _te_dt
+                    import sys as _te_sys
 
-                    from agent.insights import InsightsEngine
-                    from hermes_state import SessionDB
+                    if "/home/arturo/.hermes/scripts" not in _te_sys.path:
+                        _te_sys.path.insert(0, "/home/arturo/.hermes/scripts")
+                    from deepseek_cost_ledger import read_month_total as _te_read_ledger
 
-                    _te_today = _te_dt.date.today()
-                    _te_days = (_te_today - _te_today.replace(day=1)).days + 1
-                    _te_db = SessionDB()
-                    try:
-                        _te_report = InsightsEngine(_te_db).generate(days=_te_days)
-                    finally:
-                        _te_db.close()
-                    _te_overview = _te_report.get("overview") or {}
-                    _te_monthly_spend = float(
-                        _te_overview.get("actual_cost")
-                        or _te_overview.get("estimated_cost")
-                        or 0.0
-                    )
+                    _te_monthly_spend = _te_read_ledger("deepseek")
                 except Exception:
                     logger.debug(
                         "Tarea E: no se pudo calcular el gasto del mes, "
                         "se ofrece con $0.00", exc_info=True,
                     )
+
+                # Bloque L.2: consulta gratuita ANTES de ofrecer, para que la
+                # oferta diga "ya tengo X" en vez de preguntar en blanco.
+                _te_context_summary = None
+                try:
+                    _te_context_summary = fetch_context_summary(original_user_message or "")
+                except Exception:
+                    logger.debug(
+                        "Tarea E: fetch_context_summary fallo, oferta sin resumen",
+                        exc_info=True,
+                    )
+
                 _te_bg_cb = getattr(agent, "background_review_callback", None)
                 if callable(_te_bg_cb):
                     _te_bg_cb(build_offer_text(
                         _te_offer_category, _te_monthly_spend, standalone=True,
+                        context_summary=_te_context_summary,
                     ))
                 else:
                     final_response = final_response + build_offer_text(
                         _te_offer_category, _te_monthly_spend,
+                        context_summary=_te_context_summary,
                     )
                 register_offer(
                     _te_session_key, _te_offer_category,
                     original_message=original_user_message or "",
+                    context_data=_te_context_summary or "",
                 )
         except Exception:
             logger.warning(

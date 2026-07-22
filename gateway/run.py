@@ -11546,7 +11546,6 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                     "no evento interno -- verificado por el guard del 20 Jul)"
                 ),
             )
-            _te_synthetic_event = None
             try:
                 from hermes_cli.config import load_config
 
@@ -11573,45 +11572,91 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                         "base_url o api_key vacios tras resolver ${VAR} -- revisar .env"
                     )
 
-                _te_synthetic_event = MessageEvent(
-                    text=_te_result.get("message") or (event.text or ""),
-                    message_type=MessageType.TEXT,
-                    source=source,
-                    internal=True,
-                    timestamp=datetime.now(),
+                # Bloque L.3 (22 Jul 2026): despacho MINIMO real, ya NO
+                # reusa la sesion completa via adapter.handle_message()
+                # (eso mandaba el historial entero + definiciones de TODAS
+                # las herramientas -- un despacho real llego a 373,553
+                # tokens con una sola suma trivial de "prueba". Confirmado
+                # comportamiento por diseño de la version vieja, no bug --
+                # ver reporte de la sesion 22-jul). El request ahora es
+                # solo: la pregunta real + los datos que ya trajo la
+                # busqueda gratuita antes de ofrecer (Bloque L.2) -- nunca
+                # el historial de la conversacion ni las herramientas.
+                _te_user_question = _te_result.get("message") or (event.text or "")
+                _te_context_data = _te_result.get("context_data") or ""
+                _te_minimal_content = _te_user_question
+                if _te_context_data:
+                    _te_minimal_content = (
+                        f"Datos actuales relevantes (búsqueda web, ya obtenidos): "
+                        f"{_te_context_data}\n\nPregunta de Arturo: {_te_user_question}"
+                    )
+                _te_minimal_messages = [
+                    {
+                        "role": "system",
+                        "content": (
+                            "Eres el modo de razonamiento profundo de Hermes, el "
+                            "asistente personal de Arturo. Responde directo a su "
+                            "pregunta, usando los datos ya provistos si aplican. "
+                            "No tienes acceso a herramientas ni al historial de la "
+                            "conversación -- solo a este mensaje. Responde en "
+                            "español, directo, sin rodeos."
+                        ),
+                    },
+                    {"role": "user", "content": _te_minimal_content},
+                ]
+
+                # Confirma el tamaño ANTES de mandar (L.3) -- estimado
+                # simple caracteres/4, sin dependencia nueva de tokenizer.
+                _te_char_count = sum(len(m["content"]) for m in _te_minimal_messages)
+                _te_est_tokens = _te_char_count // 4
+                _te_token_cap = 5000
+                logger.warning(
+                    "Tarea E: despacho minimo -- ~%d tokens estimados (tope %d) "
+                    "context_data=%s",
+                    _te_est_tokens, _te_token_cap, bool(_te_context_data),
                 )
-                _te_synthetic_event._moa_restore_override = self._session_model_overrides.get(_te_session_key)
-                self._session_model_overrides[_te_session_key] = {
-                    "model": "chat-reasoning",
-                    "provider": "custom:litellm",
-                    "api_key": _te_resolved_api_key,
-                    "base_url": _te_resolved_base_url,
-                    "api_mode": "chat_completions",
-                }
-                self._evict_cached_agent(_te_session_key)
-                _te_synthetic_event._moa_disable_after_turn = True
+                if _te_est_tokens > _te_token_cap:
+                    logger.warning(
+                        "Tarea E: el despacho minimo supera el tope de %d tokens "
+                        "(~%d) -- se manda de todos modos porque la pregunta o el "
+                        "resumen de busqueda son legítimamente largos, no por "
+                        "arrastrar historial (ya no se arrastra historial en este "
+                        "camino).", _te_token_cap, _te_est_tokens,
+                    )
+
+                import httpx
+
+                async with httpx.AsyncClient(timeout=120.0) as _te_client:
+                    _te_http_resp = await _te_client.post(
+                        _te_resolved_base_url.rstrip("/") + "/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {_te_resolved_api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": "chat-reasoning",
+                            "messages": _te_minimal_messages,
+                            "max_tokens": 4000,
+                        },
+                    )
+                    _te_http_resp.raise_for_status()
+                    _te_body = _te_http_resp.json()
+                _te_answer = (
+                    (_te_body.get("choices") or [{}])[0]
+                    .get("message", {})
+                    .get("content", "")
+                ) or "(chat-reasoning no devolvió texto)"
 
                 adapter = self.adapters.get(source.platform)
                 if adapter is None:
                     raise RuntimeError("adaptador de plataforma no disponible")
-                await adapter.handle_message(_te_synthetic_event)
+                await adapter.send(str(source.chat_id), _te_answer)
                 await self._te_notify_deepseek_dispatch_done(
                     source, mechanism="chat-reasoning (Tarea E)",
                     spend_before=_te_spend_before,
                 )
                 return None
             except Exception:
-                # Mismo patron de defensa que Tarea D (linea ~7396): si el
-                # despacho fallo antes de que el turno arrancara, el
-                # restore-en-finally que vive DENTRO del turno nunca corre
-                # -- se restaura aqui a mano para no dejar la sesion pegada
-                # en chat-reasoning.
-                _te_restore = getattr(_te_synthetic_event, "_moa_restore_override", None)
-                if _te_restore is None:
-                    self._session_model_overrides.pop(_te_session_key, None)
-                else:
-                    self._session_model_overrides[_te_session_key] = _te_restore
-                self._evict_cached_agent(_te_session_key)
                 logger.exception("Tarea E: fallo despachando el turno real de chat-reasoning")
             return (
                 "⚠️ Confirmaste que quieres razonamiento profundo, pero algo "
