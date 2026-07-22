@@ -4281,22 +4281,26 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         """
         _spend_before: Optional[float] = None
         try:
-            import datetime as _te_dt
+            # Bloque I (22 Jul 2026): InsightsEngine/sessions.actual_cost_usd
+            # nunca reflejaba el gasto real de DeepSeek -- resolve_billing_route
+            # (agent/usage_pricing.py) trata cualquier llamada via el proxy
+            # local (localhost:4000) como billing_mode="unknown" y nunca
+            # resuelve el alias del proxy ("chat-reasoning") al modelo real
+            # (deepseek/deepseek-v4-pro), asi que el costo salia siempre $0
+            # pese a que el gasto real si ocurria (confirmado contra el CSV
+            # oficial de DeepSeek: $0.1631 USD el 22-jul, contador interno
+            # mostraba $0.00). Fuente real ahora: el ledger que litellm mismo
+            # escribe por cada llamada (ya conoce el costo real, incluye
+            # cache-hit/miss/output correctos de DeepSeek) -- ver
+            # ~/.hermes/scripts/deepseek_cost_ledger.py y
+            # ~/.hermes/litellm/custom_hooks.py (CostLedgerHook).
+            import sys as _te_sys
 
-            from agent.insights import InsightsEngine
-            from hermes_state import SessionDB
+            if "/home/arturo/.hermes/scripts" not in _te_sys.path:
+                _te_sys.path.insert(0, "/home/arturo/.hermes/scripts")
+            from deepseek_cost_ledger import read_month_total as _te_read_ledger
 
-            _today = _te_dt.date.today()
-            _days = (_today - _today.replace(day=1)).days + 1
-            _db = SessionDB()
-            try:
-                _report = InsightsEngine(_db).generate(days=_days)
-            finally:
-                _db.close()
-            _overview = _report.get("overview") or {}
-            _spend_before = float(
-                _overview.get("actual_cost") or _overview.get("estimated_cost") or 0.0
-            )
+            _spend_before = _te_read_ledger("deepseek")
         except Exception:
             logger.debug(
                 "Tarea E/D: no se pudo calcular el gasto ANTES del despacho",
@@ -4341,22 +4345,30 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                     f"si quieres el número exacto).",
                 )
                 return
-            import datetime as _te_dt
+            # Bloque I: mismo ledger real que la primera mitad (ver arriba).
+            # El callback de litellm que escribe la fila corre async del lado
+            # del proxy -- un primer intento con tope de 5s (10x0.5s) resulto
+            # insuficiente en produccion real: un despacho real de 204,306
+            # tokens (sesion larga) tardo 16s completos entre el dispatch y
+            # que la fila quedara escrita en el ledger (verificado comparando
+            # el timestamp del log "Tarea E: despachando" contra el ts de la
+            # fila real en el ledger) -- probablemente porque litellm tarda
+            # mas en cerrar su contabilidad interna cuanto mas grande es el
+            # contexto. Tope ahora en ~30s (30 x 1s), con margen holgado
+            # sobre el peor caso observado, sin bloquear indefinidamente si
+            # el callback de litellm de verdad fallo.
+            import sys as _te_sys
 
-            from agent.insights import InsightsEngine
-            from hermes_state import SessionDB
+            if "/home/arturo/.hermes/scripts" not in _te_sys.path:
+                _te_sys.path.insert(0, "/home/arturo/.hermes/scripts")
+            from deepseek_cost_ledger import read_month_total as _te_read_ledger
 
-            _today = _te_dt.date.today()
-            _days = (_today - _today.replace(day=1)).days + 1
-            _db = SessionDB()
-            try:
-                _report = InsightsEngine(_db).generate(days=_days)
-            finally:
-                _db.close()
-            _overview = _report.get("overview") or {}
-            _spend_after = float(
-                _overview.get("actual_cost") or _overview.get("estimated_cost") or 0.0
-            )
+            _spend_after = _te_read_ledger("deepseek")
+            for _ in range(30):  # hasta ~30s en total (30 x 1s)
+                if _spend_after > spend_before:
+                    break
+                await asyncio.sleep(1.0)
+                _spend_after = _te_read_ledger("deepseek")
             _delta = max(0.0, _spend_after - spend_before)
             await adapter.send(
                 str(source.chat_id),
