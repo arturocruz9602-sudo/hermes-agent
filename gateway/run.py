@@ -2611,6 +2611,89 @@ async def _probe_audio_duration(path: str) -> Optional[str]:
     return None
 
 
+async def _probe_audio_duration_seconds(path: str) -> Optional[float]:
+    """Best-effort duration probe in raw seconds (for threshold decisions like chunking)."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", path,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
+        if proc.returncode == 0:
+            return float(stdout.decode().strip())
+    except Exception:
+        pass
+    return None
+
+
+async def _transcribe_audio_chunked(
+    path: str, threshold_seconds: float = 120, chunk_seconds: float = 90
+) -> Dict[str, Any]:
+    """Wraps ``transcribe_audio`` with duration-based chunking for long clips.
+
+    Audio at or under *threshold_seconds* goes straight to ``transcribe_audio``
+    (unchanged fast path, same as before this existed). Longer clips are split
+    with ffmpeg into *chunk_seconds* segments and transcribed one at a time,
+    concatenating the successful transcripts -- so a single STT provider call
+    never has to swallow an arbitrarily long voice note. Returns the same
+    ``{"success", "transcript", "error"?, "provider"?}`` shape as
+    ``transcribe_audio`` so callers don't need to know chunking happened.
+    Platform-agnostic -- used by ``_enrich_message_with_transcription`` for
+    every adapter (Telegram, Discord, Slack, ...), not just one.
+    """
+    import shutil
+
+    from tools.transcription_tools import transcribe_audio
+
+    duration = await _probe_audio_duration_seconds(path)
+    if duration is None or duration <= threshold_seconds:
+        return await asyncio.to_thread(transcribe_audio, path)
+
+    if shutil.which("ffmpeg") is None:
+        logger.warning(
+            "Audio is %.0fs (>%ds) but ffmpeg is unavailable to chunk it -- "
+            "transcribing the whole file in one call instead.",
+            duration, threshold_seconds,
+        )
+        return await asyncio.to_thread(transcribe_audio, path)
+
+    with tempfile.TemporaryDirectory(prefix="hermes_audio_chunks_") as tmp_dir:
+        ext = os.path.splitext(path)[1] or ".ogg"
+        chunk_pattern = os.path.join(tmp_dir, f"chunk_%03d{ext}")
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-y", "-i", path,
+            "-f", "segment", "-segment_time", str(int(chunk_seconds)),
+            "-c", "copy", chunk_pattern,
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            logger.warning(
+                "ffmpeg failed to split long audio (%s) -- transcribing the "
+                "whole file in one call instead.",
+                stderr.decode(errors="replace")[-300:],
+            )
+            return await asyncio.to_thread(transcribe_audio, path)
+
+        chunk_paths = sorted(Path(tmp_dir).glob(f"chunk_*{ext}"))
+        if not chunk_paths:
+            return {"success": False, "transcript": "", "error": "audio split produced no chunks"}
+
+        parts: List[str] = []
+        provider = None
+        for chunk_path in chunk_paths:
+            result = await asyncio.to_thread(transcribe_audio, str(chunk_path))
+            if result.get("success"):
+                text = (result.get("transcript") or "").strip()
+                if text:
+                    parts.append(text)
+                provider = provider or result.get("provider")
+        if not parts:
+            return {"success": False, "transcript": "", "error": "all chunks failed to transcribe"}
+        return {"success": True, "transcript": " ".join(parts), "provider": provider}
+
+
 def _dequeue_pending_event(adapter, session_key: str) -> MessageEvent | None:
     """Consume and return the full pending event for a session.
 
@@ -18341,14 +18424,12 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 return f"{prefix}\n\n{user_text}", []
             return prefix, []
 
-        from tools.transcription_tools import transcribe_audio
-
         enriched_parts = []
         successful_transcripts: List[str] = []
         for path in audio_paths:
             try:
                 logger.debug("Transcribing user voice: %s", path)
-                result = await asyncio.to_thread(transcribe_audio, path)
+                result = await _transcribe_audio_chunked(path)
                 if result["success"]:
                     transcript = result["transcript"]
                     successful_transcripts.append(transcript)
