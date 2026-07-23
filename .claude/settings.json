@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push fork:*)",
+      "Bash(pytest:*)",
+      "Bash(venv/bin/pytest:*)",
+      "Bash(tests/e2e/hermes_harness.py:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(venv/bin/python:*)",
+      "Bash(venv/bin/python3:*)",
+      "Bash(venv/bin/pip:*)",
+      "Bash(sqlite3 *.db \"SELECT*)",
+      "Bash(systemctl --user status hermes-gateway.service)",
+      "Bash(systemctl --user status litellm.service)",
+      "Bash(systemctl --user restart hermes-gateway.service)",
+      "Bash(systemctl --user restart litellm.service)",
+      "Bash(journalctl --user -u hermes-gateway.service*)",
+      "Bash(journalctl --user -u litellm.service*)"
+    ],
+    "deny": [
+      "Bash(sudo *)",
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(git push origin*)",
+      "Bash(*DROP TABLE*)",
+      "Bash(*DELETE FROM*)",
+      "Edit(//home/arturo/.hermes/.env*)",
+      "Edit(//home/arturo/.hermes/hermes-agent/.env*)",
+      "Write(//home/arturo/.hermes/.env*)",
+      "Write(//home/arturo/.hermes/hermes-agent/.env*)"
+    ]
+  }
+}
