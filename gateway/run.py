@@ -11457,11 +11457,33 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             _te_result = None
         else:
             try:
-                from agent.complexity_detector import check_pending_reply
+                from agent.complexity_detector import check_pending_reply, parse_urgent_shortcut
 
                 _te_session_key = self._session_key_for_source(source)
                 _te_raw_text = event.text or ""
-                _te_result = check_pending_reply(_te_session_key, _te_raw_text)
+
+                # Bloque O.5 (22 Jul 2026): único atajo válido para saltarse
+                # la oferta -- comando explícito "urgente con deepseek: ..."
+                # o "/deepseek ...", con la autorización incluida en el
+                # mismo mensaje. Se resuelve aquí como si fuera un "sí"
+                # inmediato a una oferta (misma mecánica de despacho
+                # abajo), sin depender de que exista una oferta pendiente.
+                _te_urgent_task = parse_urgent_shortcut(_te_raw_text)
+                if _te_urgent_task:
+                    logger.warning(
+                        "Tarea E: atajo urgente disparado -- session_key=%r "
+                        "tarea=%r", _te_session_key, _te_urgent_task[:150],
+                    )
+                    _te_result = {
+                        "answer": True, "category": "urgente_o5",
+                        "message": _te_urgent_task, "context_data": "",
+                        "auth_text": (
+                            "comando explícito \"urgente con deepseek\" / \"/deepseek\" "
+                            "(Bloque O.5) -- autorización incluida en el mismo mensaje"
+                        ),
+                    }
+                else:
+                    _te_result = check_pending_reply(_te_session_key, _te_raw_text)
                 if _te_result is not None:
                     # Diagnostico permanente (no solo mientras el despacho
                     # esta desactivado): registra CADA vez que esta funcion
@@ -11541,7 +11563,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 source,
                 mechanism="chat-reasoning (Tarea E)",
                 reason=(_te_result.get("message") or event.text or "")[:200],
-                authorized=(
+                authorized=_te_result.get("auth_text") or (
                     "confirmaste \"sí\" a la oferta pendiente (mensaje real, "
                     "no evento interno -- verificado por el guard del 20 Jul)"
                 ),

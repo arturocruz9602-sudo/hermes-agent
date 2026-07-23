@@ -115,233 +115,11 @@ def detect_categories(text: str) -> List[str]:
 
 
 # =============================================================================
-# Bloque L (22 Jul 2026) -- clasificador de complejidad GENUINA, reemplaza
-# detect_categories() como disparador real de la oferta de Tarea E.
-#
-# Motivo (feedback directo de Arturo, 22 Jul 2026): el disparador viejo
-# (detect_categories, puro match de frases como "razona paso a paso") se
-# activa con aritmética trivial con tal de que la frase aparezca -- en la
-# práctica, Gemini ya contestaba bien "2+2" y LUEGO Hermes ofrecía razonar
-# con DeepSeek para lo mismo, pidiendo autorización y gastando dinero real
-# en repetir una respuesta ya correcta. Nada de esto sirve en el uso diario.
-#
-# classify_complexity() evalua 3 criterios de complejidad REAL, en orden de
-# prioridad, como funcion (no como lista de palabras):
-#   (a) el mensaje trae un bloque de codigo real o pide depurar/revisar
-#       codigo con una señal real de error (traceback, excepcion) -- no
-#       solo la palabra "depura" suelta.
-#   (b) la tarea tiene multiples variables dependientes entre si (dominio
-#       ejemplo: trading -- correlacion entre posiciones, gestion de
-#       riesgo con varios factores) -- exige un termino de dominio
-#       multi-variable Y al menos 2 valores numericos/tickers en el mismo
-#       mensaje, no solo la palabra sola.
-#   (c) Gemini ya contesto y su propia respuesta muestra señales reales de
-#       incertidumbre: respuesta corta a una pregunta que pedia
-#       profundidad, lenguaje de baja confianza repetido, o el usuario
-#       reformula/vuelve a preguntar lo mismo (la respuesta anterior no
-#       basto).
-#
-# Mismo invariante de seguridad que detect_categories(): esto es una SEÑAL,
-# nunca una instruccion de escalar. Fail-safe en cualquier error interno.
+# Bloque O (22 Jul 2026): deroga los criterios (a)/(b)/(c) de Bloque L y el
+# gate de Bloque M como código Python heurístico -- ver assess_data_need()
+# y self_assess_response() más abajo (autoevaluación real via Gemini).
+# fetch_context_summary() sigue viva, reutilizada por O.1.
 # =============================================================================
-
-_CODE_FENCE_RE = re.compile(r"```")
-_TRACEBACK_SIGNAL_RE = re.compile(
-    r"\btraceback\b|\bstack trace\b|\bexception\b\s*:|\berror\s*:|"
-    r"\bsyntaxerror\b|\btypeerror\b|\bvalueerror\b|\bnullpointerexception\b|"
-    r"\bat line \d+\b|\ben la linea \d+\b",
-    re.IGNORECASE,
-)
-_DEBUG_REQUEST_RE = re.compile(
-    r"\b(depura|debuggea|arregla|corrige|revisa)\b[^.!?\n]{0,60}"
-    r"\b(codigo|error|bug|excepcion|traceback|funcion|script)\b",
-    re.IGNORECASE,
-)
-_DESIGN_COMPLEXITY_RE = re.compile(
-    r"\b(arquitectura|diseñ[ao] el sistema|optimiza el rendimiento|"
-    r"algoritmo|refactoriza|concurrencia|race condition|escalabilidad|"
-    r"migra la base de datos|interaccion entre)\b",
-    re.IGNORECASE,
-)
-_DEF_CLASS_NAME_RE = re.compile(r"\b(?:def|class|function)\s+(\w+)")
-_TRACEBACK_FILE_RE = re.compile(r'file\s+"([^"]+)"')
-
-
-def _has_code_or_debug_signal(user_message: str) -> bool:
-    """Criterio (a), REDEFINIDO Bloque M (22 Jul 2026) tras un falso
-    positivo real confirmado: un bug de una linea con causa obvia
-    (operador de resta en vez de suma) disparaba la oferta solo por
-    traer un bloque de codigo, aunque Gemini ya lo hubiera diagnosticado
-    y corregido perfecto -- gasto real innecesario de $0.0006 USD.
-
-    Ya NO dispara con cualquier codigo/traceback. Exige señal de
-    complejidad real:
-      - vocabulario de diseño/arquitectura/rendimiento/algoritmia, O
-      - 2+ funciones/clases DISTINTAS definidas o nombradas (sugiere
-        interaccion entre componentes, no un bug aislado de una sola
-        funcion), O
-      - un traceback con frames en 2+ archivos distintos (el error
-        cruza modulos, no es local a un solo archivo).
-    Un pedido de "revisa/corrige" sin ninguna de estas señales adicionales
-    ya no cuenta -- ver tambien _response_already_resolved_with_confidence,
-    el segundo filtro (M.2) que ademas suprime la oferta si Gemini ya
-    resolvio el caso con confianza, aunque esta funcion diera True.
-
-    NOTA (22 Jul 2026, encontrado probando M.4 en producción real): el
-    chequeo de "2+ funciones distintas" ya NO exige que el mensaje traiga
-    ``` (code fence) primero -- el texto real que llega de Telegram NO
-    conserva los ``` literales que Arturo escribe (el cliente los
-    convierte a su propio formato antes de que Hermes vea el texto plano;
-    confirmado leyendo el mensaje real tal como quedó en state.db, sin
-    backticks). Exigir el fence de entrada hacía que este criterio NUNCA
-    disparara con mensajes reales de Telegram que sí tenían 2+ funciones.
-    Las respuestas de Gemini SÍ conservan los ``` (vienen del modelo, no
-    pasan por el parser de texto de Telegram) -- por eso
-    _response_already_resolved_with_confidence no tiene este problema.
-    """
-    folded = _strip_accents(user_message).lower()
-    if _DESIGN_COMPLEXITY_RE.search(folded):
-        return True
-
-    distinct_names = set(_DEF_CLASS_NAME_RE.findall(user_message))
-    if len(distinct_names) >= 2:
-        return True
-
-    if _TRACEBACK_SIGNAL_RE.search(folded):
-        distinct_files = set(_TRACEBACK_FILE_RE.findall(folded))
-        if len(distinct_files) >= 2:
-            return True
-
-    return False
-
-
-_DECISIVE_DIAGNOSIS_RE = re.compile(
-    r"\b(el error es que|el error se debe a|la causa (del error )?es|"
-    r"el problema es que|esta mal en la linea|esta invertid[oa]|"
-    r"deberia ser|se debe a que)\b",
-    re.IGNORECASE,
-)
-_HEDGE_LANGUAGE_RE = re.compile(
-    r"\b(podria ser|prueba con|no estoy seguro|posible causa|"
-    r"podria deberse a|quiza|tal vez|puede que|una de las causas|"
-    r"varias posibles causas|no tengo suficiente informacion)\b",
-    re.IGNORECASE,
-)
-
-
-def _response_already_resolved_with_confidence(gemini_response: str) -> bool:
-    """Bloque M.2: si Gemini ya entrego una respuesta completa y segura
-    (bloque de codigo completo + diagnostico decisivo + sin lenguaje de
-    duda), no ofrecer DeepSeek aunque el criterio (a) haya dado True --
-    caso real que motivo esto: Gemini identifico y corrigio un bug de una
-    linea perfecto, y la version vieja de este criterio ofrecia igual
-    solo por haber un bloque de codigo en la respuesta."""
-    if not gemini_response:
-        return False
-    has_complete_code_block = bool(_CODE_FENCE_RE.search(gemini_response))
-    folded = _strip_accents(gemini_response).lower()
-    decisive = bool(_DECISIVE_DIAGNOSIS_RE.search(folded))
-    hedged = bool(_HEDGE_LANGUAGE_RE.search(folded))
-    return has_complete_code_block and decisive and not hedged
-
-
-_MULTI_VAR_DOMAIN_TERMS = [
-    "correlacion", "posiciones", "cartera", "portafolio",
-    "gestion de riesgo", "hedge", "cobertura", "stop loss",
-    "apalancamiento", "diversificacion", "riesgo beneficio",
-    "asignacion de capital", "gestion de capital",
-]
-_NUMERIC_TOKEN_RE = re.compile(r"\b\d+(?:[.,]\d+)?%?\b")
-_TICKER_LIKE_RE = re.compile(r"\b[A-Z]{2,6}(?:USDT?|MXN|BTC|ETH)?\b")
-
-
-def _has_multi_variable_signal(user_message: str) -> bool:
-    """Criterio (b): termino de dominio multi-variable Y >= 2 valores
-    numericos/tickers en el mismo mensaje -- ni la palabra sola ni un
-    numero suelto bastan por separado."""
-    folded = _strip_accents(user_message).lower()
-    if not any(term in folded for term in _MULTI_VAR_DOMAIN_TERMS):
-        return False
-    numeric_hits = len(_NUMERIC_TOKEN_RE.findall(user_message))
-    ticker_hits = len(_TICKER_LIKE_RE.findall(user_message))
-    return (numeric_hits + ticker_hits) >= 2
-
-
-_DEPTH_REQUEST_RE = re.compile(
-    r"\b(analiza|compara|opinas|recomiendas|deberia|conviene|evalua|"
-    r"que piensas|que harias)\b",
-    re.IGNORECASE,
-)
-_UNCERTAINTY_MARKERS = [
-    "no estoy seguro", "no tengo suficiente informacion", "podria ser",
-    "es dificil saber", "no puedo confirmar", "no puedo asegurar",
-    "dependeria de", "sin mas contexto no",
-]
-_SHORT_RESPONSE_CHARS = 100
-
-
-def _has_uncertainty_signal(
-    user_message: str, gemini_response: str, previous_user_message: Optional[str],
-) -> bool:
-    """Criterio (c): la respuesta ya dada muestra señales reales de no
-    haber bastado -- corta cuando se pidio profundidad, lenguaje de baja
-    confianza repetido, o el usuario esta reformulando la misma pregunta."""
-    if not gemini_response:
-        return False
-    folded_resp = _strip_accents(gemini_response).lower()
-    folded_user = _strip_accents(user_message).lower()
-
-    asked_for_depth = bool(_DEPTH_REQUEST_RE.search(folded_user))
-    short_response = len(gemini_response.strip()) < _SHORT_RESPONSE_CHARS
-    if asked_for_depth and short_response:
-        return True
-
-    marker_hits = sum(1 for m in _UNCERTAINTY_MARKERS if m in folded_resp)
-    if marker_hits >= 2:
-        return True
-
-    # NOTA (22 Jul 2026): la señal de "reformulación" (comparar el mensaje
-    # actual contra el anterior por solapamiento de tokens) se probo en
-    # produccion real y se retiro -- causo un falso positivo confirmado:
-    # dos mensajes de prueba triviales con la MISMA plantilla ("razona
-    # paso a paso ¿cuánto es N+N?", solo cambiando el número) comparten
-    # casi todas las palabras sin que el usuario este insatisfecho con
-    # nada, disparando la oferta igual. Un heurístico de solapamiento de
-    # texto no distingue eso de una reformulación real -- se necesitaria
-    # algo mas fino que un match de tokens (fuera de alcance de un
-    # heurístico determinista). *previous_user_message* se deja como
-    # parametro por si se retoma esto mas adelante con una señal mejor.
-    return False
-
-
-def classify_complexity(
-    user_message: str,
-    gemini_response: str = "",
-    previous_user_message: Optional[str] = None,
-) -> Optional[str]:
-    """Clasificador de complejidad genuina (Bloque L, con el gate de
-    Bloque M). Devuelve la categoria si algun criterio real aplica -- y,
-    para el criterio de codigo, solo si Gemini NO lo resolvio ya con
-    confianza -- o None. SIGNAL only -- ver nota de modulo. Fail-safe:
-    cualquier error interno -> None.
-    """
-    if not user_message:
-        return None
-    try:
-        if _has_code_or_debug_signal(user_message):
-            # Bloque M.2: gate de "ya resuelto" -- si Gemini ya dio una
-            # respuesta completa y decisiva, no ofrecer DeepSeek aunque
-            # el criterio (a) haya matcheado.
-            if not _response_already_resolved_with_confidence(gemini_response):
-                return "2_programacion"
-        if _has_multi_variable_signal(user_message):
-            return "3_multivariable"
-        if _has_uncertainty_signal(user_message, gemini_response, previous_user_message):
-            return "1_incertidumbre"
-    except Exception:
-        return None
-    return None
-
 
 def fetch_context_summary(query: str, *, max_results: int = 3) -> Optional[str]:
     """Bloque L.2: consulta gratuita (Brave Search, via tools.web_tools --
@@ -369,6 +147,11 @@ def fetch_context_summary(query: str, *, max_results: int = 3) -> Optional[str]:
         for r in results[:max_results]:
             title = (r.get("title") or "").strip()
             desc = (r.get("description") or "").strip()
+            # Bloque O.3: los snippets de Brave a veces traen markup HTML
+            # crudo (ej. "<strong>...</strong>") -- se limpia porque el
+            # formato de oferta exige "resumen sin snippets crudos".
+            desc = re.sub(r"<[^>]+>", "", desc)
+            title = re.sub(r"<[^>]+>", "", title)
             if title:
                 parts.append(f"{title}: {desc}" if desc else title)
         if not parts:
@@ -620,3 +403,543 @@ def check_pending_reply(
         }
     except Exception:
         return None
+
+
+# =============================================================================
+# Bloque O (22 Jul 2026) -- Tarea E v2. Deroga los criterios a/b/c de Bloque L
+# y el gate de Bloque M como codigo Python heuristico -- reemplazados por
+# autoevaluacion real via una llamada barata a Gemini. Ver
+# assess_data_need() (compuerta 1, PRE-respuesta) y
+# self_assess_response() (compuerta 2, POST-respuesta) mas abajo.
+# =============================================================================
+
+def _resolve_litellm_credentials() -> "tuple[str, str]":
+    """Mismo mecanismo real usado en el resto del proyecto (fase2_extract_
+    candidates.py, gateway/run.py) -- custom_providers['LiteLLM'] +
+    expansion manual de ${VAR}, porque hermes_cli.model_switch no expande
+    esos placeholders."""
+    import os as _os
+    from hermes_cli.config import load_config
+    from hermes_cli.env_loader import load_hermes_dotenv
+
+    load_hermes_dotenv()
+    cfg = load_config()
+    custom_provs = (cfg.get("custom_providers") if isinstance(cfg, dict) else None) or []
+    entry = next(
+        (p for p in custom_provs if isinstance(p, dict) and p.get("name") == "LiteLLM"),
+        None,
+    )
+    if entry is None:
+        raise RuntimeError("custom_providers entry 'LiteLLM' no encontrada en config.yaml")
+
+    def expand(value: str) -> str:
+        return re.sub(
+            r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}",
+            lambda m: _os.environ.get(m.group(1), ""),
+            value,
+        )
+
+    base_url = expand(str(entry.get("base_url", "")))
+    api_key = expand(str(entry.get("api_key", "")))
+    if not base_url or not api_key:
+        raise RuntimeError("base_url o api_key vacios tras resolver ${VAR}")
+    return base_url, api_key
+
+
+def _call_cheap_model_json(prompt: str, *, max_tokens: int = 300) -> Optional[dict]:
+    """Llama chat-primary (Gemini, barato) pidiendo JSON, parsea la
+    respuesta. None en cualquier fallo -- nunca lanza."""
+    try:
+        import json as _json
+        import urllib.request as _ur
+
+        base_url, api_key = _resolve_litellm_credentials()
+        payload = {
+            "model": "chat-primary",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": 0,
+        }
+        req = _ur.Request(
+            base_url.rstrip("/") + "/chat/completions",
+            data=_json.dumps(payload).encode("utf-8"),
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            method="POST",
+        )
+        with _ur.urlopen(req, timeout=25) as resp:
+            body = _json.loads(resp.read().decode("utf-8"))
+        raw = (body.get("choices") or [{}])[0].get("message", {}).get("content", "")
+        raw = raw.strip()
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw)
+        parsed = _json.loads(raw)
+        return parsed if isinstance(parsed, dict) else None
+    except Exception:
+        return None
+
+
+_DATA_NEED_RUBRIC = """Responde SOLO con JSON valido, sin texto extra, con esta forma exacta:
+{{"necesita_datos": true|false, "fuentes": ["brave"|"coingecko", ...]}}
+
+necesita_datos=true SOLO si el mensaje pide informacion que cambia con el tiempo
+y que tu (Gemini) no puedes saber con certeza sin buscar: precios de mercado o
+criptomonedas actuales, noticias recientes, datos externos que cambian.
+necesita_datos=false para todo lo demas: aritmetica, explicaciones de codigo,
+conceptos generales, conversacion normal, preguntas sobre el propio sistema.
+
+fuentes (solo si necesita_datos=true): "coingecko" para precios de
+criptomonedas/mercado, "brave" para cualquier otra busqueda web (noticias,
+hechos actuales).
+
+Mensaje del usuario: {user_message}"""
+
+
+def assess_data_need(user_message: str) -> dict:
+    """Bloque O.1 -- compuerta 1 (PRE-respuesta). Llamada barata a Gemini
+    con rubrica fija. Devuelve {"necesita_datos": bool, "fuentes": [...]}.
+    Fail-safe: cualquier error -> necesita_datos=False (nunca bloquea la
+    respuesta normal por un fallo aqui)."""
+    default = {"necesita_datos": False, "fuentes": []}
+    if not user_message:
+        return default
+    parsed = _call_cheap_model_json(
+        _DATA_NEED_RUBRIC.format(user_message=user_message), max_tokens=150,
+    )
+    if not parsed:
+        return default
+    necesita = bool(parsed.get("necesita_datos"))
+    fuentes = parsed.get("fuentes") or []
+    if not isinstance(fuentes, list):
+        fuentes = []
+    fuentes = [f for f in fuentes if f in ("brave", "coingecko")]
+    return {"necesita_datos": necesita, "fuentes": fuentes}
+
+
+_COINGECKO_IDS = {
+    "btc": "bitcoin", "bitcoin": "bitcoin",
+    "eth": "ethereum", "ethereum": "ethereum",
+    "sol": "solana", "solana": "solana",
+    "bnb": "binancecoin",
+    "xrp": "ripple", "ripple": "ripple",
+    "doge": "dogecoin", "dogecoin": "dogecoin",
+    "ada": "cardano", "cardano": "cardano",
+}
+_COIN_MENTION_RE = re.compile(
+    r"\b(btc|bitcoin|eth|ethereum|sol|solana|bnb|xrp|ripple|doge|dogecoin|ada|cardano)\b",
+    re.IGNORECASE,
+)
+
+
+def fetch_coingecko_prices(user_message: str) -> Optional[dict]:
+    """Bloque O.1 -- precio real y actual desde CoinGecko (API publica, sin
+    key) para cualquier moneda mencionada en el mensaje. Devuelve
+    {"bitcoin": 65000.0, ...} en USD, o None si no se detecto ninguna
+    moneda conocida o la consulta fallo. Nunca lanza."""
+    try:
+        import json as _json
+        import urllib.request as _ur
+
+        mentions = {m.lower() for m in _COIN_MENTION_RE.findall(user_message)}
+        ids = sorted({_COINGECKO_IDS[m] for m in mentions if m in _COINGECKO_IDS})
+        if not ids:
+            return None
+        url = (
+            "https://api.coingecko.com/api/v3/simple/price?ids="
+            + ",".join(ids) + "&vs_currencies=usd"
+        )
+        req = _ur.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; HermesAgent/1.0)"})
+        with _ur.urlopen(req, timeout=15) as resp:
+            body = _json.loads(resp.read().decode("utf-8"))
+        prices = {coin_id: data.get("usd") for coin_id, data in body.items() if isinstance(data, dict)}
+        return prices or None
+    except Exception:
+        return None
+
+
+_PRICE_MENTION_RE = re.compile(r"\$\s?([\d,]+(?:\.\d+)?)")
+
+
+def gather_pre_response_context(user_message: str) -> Optional[str]:
+    """Bloque O.1 completo: clasifica, busca si hace falta, reconcilia
+    conflictos entre fuentes, y arma el bloque de contexto a inyectar
+    ANTES de que el modelo principal responda (via el hook pre_llm_call).
+    Devuelve None si no hace falta nada o todo fallo -- fail-safe, nunca
+    bloquea la respuesta normal.
+    """
+    try:
+        # Bloque O.6: chequeo determinista PRIMERO (no depende del
+        # clasificador de O.1) -- si el usuario está pidiendo verificar un
+        # incidente/fallo pasado, corre el script real y fuerza esa
+        # evidencia al contexto antes de que el modelo pueda especular.
+        if looks_like_incident_check(user_message):
+            return run_incident_verification()
+
+        assessment = assess_data_need(user_message)
+        if not assessment.get("necesita_datos"):
+            return None
+        fuentes = assessment.get("fuentes") or ["brave"]
+
+        coingecko_prices = None
+        if "coingecko" in fuentes:
+            coingecko_prices = fetch_coingecko_prices(user_message)
+
+        brave_summary = None
+        if "brave" in fuentes or not coingecko_prices:
+            # Bloque O -- bug real encontrado en producción: mandar el
+            # mensaje completo del usuario (multi-línea, largo) como query
+            # de Brave devolvía 422 Unprocessable Entity. Brave espera
+            # queries cortas tipo buscador, no un párrafo -- se colapsa a
+            # una sola línea y se trunca.
+            _brave_query = re.sub(r"\s+", " ", user_message).strip()[:150]
+            brave_summary = fetch_context_summary(_brave_query)
+
+        parts = []
+        if coingecko_prices:
+            price_lines = ", ".join(f"{coin}: ${price:,.2f} USD" for coin, price in coingecko_prices.items())
+            parts.append(f"Precio real y actual (CoinGecko, ahora mismo): {price_lines}")
+
+        if brave_summary:
+            # Regla de conflicto de datos (O.1): si el resumen de busqueda
+            # trae una cifra en dolares que difiere >5% del precio real de
+            # CoinGecko, señalarlo explicitamente en vez de dejar que el
+            # modelo elija una cifra vieja sin avisar -- caso real que
+            # motivo esto: ETH $1,917 vs $1,736 presentados sin avisar del
+            # conflicto en el mismo mensaje.
+            if coingecko_prices:
+                mentioned = [float(m.replace(",", "")) for m in _PRICE_MENTION_RE.findall(brave_summary)]
+                for coin, real_price in coingecko_prices.items():
+                    for mentioned_price in mentioned:
+                        if real_price and abs(mentioned_price - real_price) / real_price > 0.05:
+                            parts.append(
+                                f"AVISO: los resultados de búsqueda mencionan una cifra "
+                                f"(${mentioned_price:,.2f}) que difiere más de 5% del precio "
+                                f"real actual de {coin} (${real_price:,.2f}, CoinGecko en vivo) "
+                                f"-- probablemente una noticia vieja con un precio desactualizado. "
+                                f"Usa el precio real de CoinGecko, y si mencionas la cifra de la "
+                                f"búsqueda dile a Arturo explícitamente que es una cifra vieja/"
+                                f"distinta, nunca las presentes como si coincidieran."
+                            )
+                            break
+            parts.append(f"Resultados de búsqueda web (Brave, ahora mismo): {brave_summary}")
+
+        if not parts:
+            return None
+        return (
+            "[Datos actuales obtenidos ANTES de responder -- intégralos en tu "
+            "respuesta en español, no los ignores ni respondas sin ellos]\n"
+            + "\n".join(parts)
+        )
+    except Exception:
+        return None
+
+
+_SELF_ASSESS_RUBRIC = """Acabas de responder un mensaje de un usuario. Evalúa tu PROPIA
+respuesta con honestidad. Responde SOLO con JSON valido, sin texto extra, con esta
+forma exacta:
+{{"resolvi_con_confianza": true|false, "multivariable": true|false, "que_me_falto": "..."|null}}
+
+resolvi_con_confianza=true SOLO si diste una respuesta completa, decisiva, sin
+lenguaje de duda ("podría ser", "prueba con", "no estoy seguro") y sin presentar
+múltiples causas/opciones sin decidirte por una.
+
+multivariable=true si la pregunta involucraba múltiples factores/variables
+dependientes entre sí que interactúan de forma no trivial (ej. varias posiciones
+financieras, interacción entre varios componentes de un sistema).
+
+que_me_falto: si tu respuesta se quedó corta en algo real (no aplica si
+resolvi_con_confianza=true Y multivariable=false), describe en una frase corta
+QUÉ te faltó resolver. null si no te faltó nada.
+
+Pregunta del usuario: {user_message}
+
+Tu respuesta: {gemini_response}"""
+
+
+def self_assess_response(user_message: str, gemini_response: str) -> dict:
+    """Bloque O.2 -- compuerta 2 (POST-respuesta). Reemplaza los criterios
+    a/b/c de Bloque L y el gate de Bloque M (código Python heurístico) con
+    autoevaluación real: la misma llamada barata a Gemini que se usa en
+    O.1, ahora pidiéndole que evalúe su PROPIA respuesta.
+    Devuelve {"resolvi_con_confianza": bool, "multivariable": bool,
+    "que_me_falto": str|None}. Fail-safe: cualquier error ->
+    resolvi_con_confianza=True (no ofrecer, nunca por defecto)."""
+    default = {"resolvi_con_confianza": True, "multivariable": False, "que_me_falto": None}
+    if not user_message or not gemini_response:
+        return default
+    parsed = _call_cheap_model_json(
+        _SELF_ASSESS_RUBRIC.format(
+            user_message=user_message[:2000], gemini_response=gemini_response[:3000],
+        ),
+        max_tokens=300,
+    )
+    if not parsed:
+        return default
+    resolvi = parsed.get("resolvi_con_confianza")
+    multivar = parsed.get("multivariable")
+    falto = parsed.get("que_me_falto")
+    return {
+        "resolvi_con_confianza": True if resolvi is None else bool(resolvi),
+        "multivariable": bool(multivar),
+        "que_me_falto": falto if isinstance(falto, str) and falto.strip() else None,
+    }
+
+
+def should_offer_v2(assessment: dict) -> bool:
+    """Bloque O.2: regla de decisión sobre el resultado de
+    self_assess_response(). Ofrece SOLO si resolvi_con_confianza=false, O
+    (multivariable=true Y que_me_falto no es null)."""
+    if not assessment.get("resolvi_con_confianza", True):
+        return True
+    if assessment.get("multivariable") and assessment.get("que_me_falto"):
+        return True
+    return False
+
+
+_OFFER_DAILY_CAP = 3
+
+
+def offers_today_count(session_key: str) -> int:
+    """Bloque O.2, anti-spam: cuenta ofertas ya hechas HOY (fecha local)
+    para esta sesión, vía state.db (tabla mensajes_pendientes reutilizada
+    como bitácora simple -- ver register_offer_v2). Fail-safe: error -> 0
+    (no bloquea la primera oferta del día por un fallo de conteo)."""
+    try:
+        import sqlite3
+        import time as _time
+
+        today = _time.strftime("%Y-%m-%d")
+        con = sqlite3.connect("/home/arturo/.hermes/state.db")
+        try:
+            cur = con.execute(
+                "SELECT COUNT(*) FROM tarea_e_ofertas WHERE session_key = ? AND fecha = ?",
+                (session_key, today),
+            )
+            row = cur.fetchone()
+            return int(row[0]) if row else 0
+        finally:
+            con.close()
+    except Exception:
+        return 0
+
+
+def register_offer_v2(session_key: str) -> None:
+    """Bloque O.2: registra una oferta hecha HOY para el conteo anti-spam.
+    Crea la tabla si no existe. Fail-safe: nunca lanza."""
+    try:
+        import sqlite3
+        import time as _time
+
+        today = _time.strftime("%Y-%m-%d")
+        con = sqlite3.connect("/home/arturo/.hermes/state.db")
+        try:
+            con.execute(
+                "CREATE TABLE IF NOT EXISTS tarea_e_ofertas ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, session_key TEXT NOT NULL, "
+                "fecha TEXT NOT NULL, ts REAL NOT NULL)"
+            )
+            con.execute(
+                "INSERT INTO tarea_e_ofertas (session_key, fecha, ts) VALUES (?, ?, ?)",
+                (session_key, today, _time.time()),
+            )
+            con.commit()
+        finally:
+            con.close()
+    except Exception:
+        pass
+
+
+# Tasa de referencia USD->MXN (Bloque O.3, 22 Jul 2026). No hay API de tipo
+# de cambio ya integrada en el proyecto -- valor fijo conservador, revisar
+# si Arturo confirma un valor real distinto. Solo afecta el texto informativo
+# de la oferta, nunca un cálculo de facturación real (el costo real siempre
+# sale del ledger real de litellm en USD).
+_MXN_PER_USD = 18.5
+
+
+def build_offer_text_v2(
+    *, motivo: str, resumen: Optional[str], que_me_falto: Optional[str],
+    monthly_spend_usd: float, est_cost_usd: float = 0.01,
+) -> str:
+    """Bloque O.3: formato de oferta FIJO, máximo 4 líneas, en español,
+    gasto mostrado en MXN (convertido). Reemplaza el build_offer_text
+    variable de Bloque L."""
+    spend_mxn = monthly_spend_usd * _MXN_PER_USD
+    cost_mxn = est_cost_usd * _MXN_PER_USD
+    lines = [f"🤔 Esto se ve {motivo}."]
+    if resumen:
+        lines.append(f"Ya tengo: {resumen[:200]}")
+    lines.append(f"Mi respuesta se quedó corta en: {que_me_falto or 'no fue lo bastante completa'}.")
+    lines.append(
+        f"¿Le entro con DeepSeek? (~${cost_mxn:.2f} MXN, gasto acumulado del mes: "
+        f"${spend_mxn:.2f} MXN) sí/no — si no contestas, sigo normal sin costo."
+    )
+    return "\n".join(lines)
+
+
+# =============================================================================
+# Bloque O.4 (22 Jul 2026): enforcement de español en toda respuesta.
+# =============================================================================
+
+_SPANISH_STOPWORDS = {
+    "de", "la", "que", "el", "en", "y", "a", "los", "del", "se", "las", "por",
+    "un", "para", "con", "no", "una", "su", "al", "es", "lo", "como", "mas",
+    "pero", "sus", "le", "ya", "o", "este", "si", "porque", "esta", "entre",
+    "cuando", "muy", "sin", "sobre", "tambien", "me", "hasta", "donde", "quien",
+}
+_ENGLISH_STOPWORDS = {
+    "the", "of", "and", "to", "in", "is", "you", "that", "it", "was", "for",
+    "on", "are", "as", "with", "his", "they", "at", "be", "this", "have",
+    "from", "or", "had", "by", "but", "not", "what", "all", "were", "we",
+    "when", "your", "can", "there", "use", "each", "which", "she", "how",
+    "their", "will", "up", "other", "about", "out", "many", "then", "them",
+    "these", "would", "like", "into", "has", "more", "these",
+}
+
+
+def response_looks_like_english(text: str) -> bool:
+    """Bloque O.4: heurístico barato (sin llamada a modelo) para detectar
+    si una respuesta salió en inglés en vez de español -- conteo de
+    stopwords conocidas. Requiere un mínimo de palabras para no disparar
+    con textos cortos (ej. "OK", nombres de variables) y un margen claro
+    (más hits en inglés que en español, y al menos 5 hits en inglés) para
+    evitar falsos positivos con código/nombres técnicos mezclados."""
+    if not text:
+        return False
+    words = re.findall(r"[a-zA-ZáéíóúñÁÉÍÓÚÑ]+", text.lower())
+    if len(words) < 20:
+        return False
+    es_hits = sum(1 for w in words if w in _SPANISH_STOPWORDS)
+    en_hits = sum(1 for w in words if w in _ENGLISH_STOPWORDS)
+    return en_hits >= 5 and en_hits > es_hits
+
+
+def regenerate_in_spanish(text: str) -> Optional[str]:
+    """Bloque O.4: si la respuesta salió en inglés, se manda UNA vez más
+    a Gemini pidiendo la misma respuesta en español, preservando
+    contenido/formato. None si falla -- el caller decide el fallback."""
+    if not text:
+        return None
+    prompt = (
+        "Traduce/reescribe el siguiente texto completo al español, "
+        "conservando exactamente el mismo contenido, formato, bloques de "
+        "código (sin traducir el código en sí, solo comentarios/prosa), y "
+        "estructura. Responde SOLO con el texto reescrito, sin comentarios "
+        "adicionales:\n\n" + text
+    )
+    try:
+        import json as _json
+        import urllib.request as _ur
+
+        base_url, api_key = _resolve_litellm_credentials()
+        payload = {
+            "model": "chat-primary",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 4000,
+            "temperature": 0,
+        }
+        req = _ur.Request(
+            base_url.rstrip("/") + "/chat/completions",
+            data=_json.dumps(payload).encode("utf-8"),
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            method="POST",
+        )
+        with _ur.urlopen(req, timeout=30) as resp:
+            body = _json.loads(resp.read().decode("utf-8"))
+        text_out = (body.get("choices") or [{}])[0].get("message", {}).get("content", "")
+        return text_out.strip() or None
+    except Exception:
+        return None
+
+
+# =============================================================================
+# Bloque O.5 (22 Jul 2026): único atajo válido para saltarse la oferta.
+# =============================================================================
+
+_URGENT_SHORTCUT_RE = re.compile(
+    r"^\s*(?:urgente\s+con\s+deepseek\s*:\s*|/deepseek\s+)(.+)$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def parse_urgent_shortcut(text: str) -> Optional[str]:
+    """Bloque O.5: único atajo válido para despachar DeepSeek sin pasar
+    por la oferta -- comando EXPLÍCITO del usuario, con la autorización
+    incluida en el mismo mensaje ("urgente con deepseek: ..." o
+    "/deepseek ..."). Devuelve el texto de la tarea si matchea, None si
+    no. El sistema NUNCA inicia DeepSeek sin que el usuario lo haya
+    pedido explícitamente de una forma u otra (oferta+sí, o este atajo) --
+    esto NO es un camino silencioso, es la autorización puntual explícita
+    que pide Bloque O.5."""
+    if not text:
+        return None
+    m = _URGENT_SHORTCUT_RE.match(text.strip())
+    if not m:
+        return None
+    task = m.group(1).strip()
+    return task or None
+
+
+# =============================================================================
+# Bloque O.6 (22 Jul 2026): disparo AUTOMATICO de verificar_incidente.py.
+# Encontrado en pruebas reales: solo tener la skill en disco NO basta --
+# el modelo no siempre la invoca por su cuenta (caso real reproducido en
+# esta misma sesion: Hermes inventó un timestamp "18:33:24" que no
+# correspondía a nada real en vez de correr el script). Igual que O.1,
+# esto se fuerza inyectando el resultado REAL antes de que el modelo
+# responda, para que nunca tenga la oportunidad de especular sin la
+# evidencia real ya puesta enfrente.
+# =============================================================================
+
+_INCIDENT_CHECK_RE = re.compile(
+    r"\b(verifica|revisa|checa)\b[^.!?\n]{0,40}\b(fallo|error|incidente)\b"
+    r"|\bque\s+(fallo|paso|pas[oó])\b"
+    r"|\bpor\s+qu[ée]\s+fall[oó]\b"
+    r"|\bverifica(?:r)?\s+(?:el\s+)?incidente\b",
+    re.IGNORECASE,
+)
+
+
+def looks_like_incident_check(user_message: str) -> bool:
+    """Bloque O.6: heurístico determinista (sin llamada a modelo, para
+    ser rápido y confiable) que detecta si el usuario está pidiendo
+    investigar un fallo/incidente pasado."""
+    if not user_message:
+        return False
+    folded = _strip_accents(user_message).lower()
+    return bool(_INCIDENT_CHECK_RE.search(folded))
+
+
+def run_incident_verification(window_minutes: int = 10) -> str:
+    """Bloque O.6: corre verificar_incidente.py con "ahora" como
+    timestamp aproximado (ventana amplia -- el usuario normalmente
+    pregunta poco después de que algo falló) y arma el bloque de
+    contexto con instrucciones estrictas: solo citar lo real, decir
+    "sin evidencia" si no hay nada, nunca inventar."""
+    try:
+        import subprocess
+        import time as _time
+
+        now_str = _time.strftime("%Y-%m-%d %H:%M:%S")
+        result = subprocess.run(
+            [
+                "/home/arturo/.hermes/hermes-agent/venv/bin/python3",
+                "/home/arturo/.hermes/scripts/verificar_incidente.py",
+                now_str, "--ventana-min", str(window_minutes),
+            ],
+            capture_output=True, text=True, timeout=30,
+        )
+        output = result.stdout.strip() or result.stderr.strip() or "(sin salida del script)"
+        return (
+            "[Verificación de incidente -- evidencia REAL obtenida con "
+            "verificar_incidente.py, ventana ±{}min desde ahora. REGLA "
+            "ESTRICTA: cita SOLO lo que aparece aquí abajo, con las líneas "
+            "reales. Si 'hay_evidencia_real' es false, dilo explícitamente "
+            "-- PROHIBIDO inventar timestamps, causas, o líneas de log que "
+            "no estén en este bloque.]\n{}"
+        ).format(window_minutes, output)
+    except Exception as e:
+        return (
+            "[Verificación de incidente: el script determinista falló al "
+            f"correr ({e}). Dile a Arturo que no se pudo verificar "
+            "automáticamente -- NUNCA inventes una causa sin esta evidencia.]"
+        )

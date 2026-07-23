@@ -1095,6 +1095,30 @@ def build_turn_context(
                 else _gateway_notes
             )
 
+    # Bloque O.1 (22 Jul 2026) -- compuerta 1, PRE-respuesta: clasificador
+    # barato (Gemini) decide si el mensaje necesita datos actuales
+    # (precios, noticias) antes de responder; si si, busca PRIMERO (Brave/
+    # CoinGecko, con reconciliacion de conflictos entre fuentes) y el
+    # resultado se inyecta en el mensaje del usuario -- la respuesta
+    # principal ya sale con los datos integrados, en una sola pasada, en
+    # vez de responder primero y ofrecer DeepSeek despues para lo mismo.
+    # agent._te_pre_response_data_summary guarda el resultado (o None) para
+    # que la oferta de Tarea E (turn_finalizer.py, Bloque O.3) lo pueda
+    # referenciar sin buscar de nuevo. Fail-safe: cualquier error aqui
+    # nunca debe bloquear el turno normal.
+    agent._te_pre_response_data_summary = None
+    try:
+        from agent.complexity_detector import gather_pre_response_context
+
+        _te_pre_ctx = gather_pre_response_context(original_user_message or "")
+        if _te_pre_ctx:
+            agent._te_pre_response_data_summary = _te_pre_ctx
+            plugin_user_context = (
+                f"{plugin_user_context}\n\n{_te_pre_ctx}" if plugin_user_context else _te_pre_ctx
+            )
+    except Exception as exc:
+        logger.warning("Bloque O.1 (gather_pre_response_context) failed: %s", exc)
+
     # Per-turn file-mutation verifier state.
     agent._turn_failed_file_mutations = {}
     agent._turn_file_mutation_paths = set()

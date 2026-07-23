@@ -119,6 +119,24 @@ def _strip_accents_for_match(text: str) -> str:
     )
 
 
+_CODE_FENCE_BLOCK_RE = re.compile(r"```.*?```", re.DOTALL)
+
+
+def _strip_code_blocks_for_fabrication_check(text: str) -> str:
+    """Remove fenced code blocks before scanning for a fabricated-success
+    claim (Bloque O.0, 22 Jul 2026 -- real false positive found in
+    production: a code EXAMPLE Gemini wrote contained the English comment
+    ``# print(f"Cache updated for '{clave}'")`` inside a normal, correct
+    explanation of a real bug -- the word "updated" inside that code
+    comment matched _FABRICATED_SUCCESS_RE and replaced a perfectly good
+    answer with the no-fabrication fallback. Code examples routinely
+    contain words like created/saved/updated/deleted in comments,
+    variable names, or print statements without the ASSISTANT claiming
+    to have done anything -- only the assistant's own prose (outside
+    code fences) is a meaningful signal here."""
+    return _CODE_FENCE_BLOCK_RE.sub(" ", text)
+
+
 def _turn_has_successful_tool_call(messages: list) -> bool:
     """True if a non-error tool result exists in the CURRENT turn.
 
@@ -593,7 +611,8 @@ def finalize_turn(
     # _FABRICATED_SUCCESS_RE for why this is framework-level, not a second
     # system-prompt instruction.
     if final_response and not interrupted:
-        if _FABRICATED_SUCCESS_RE.search(_strip_accents_for_match(final_response)):
+        _no_fab_check_text = _strip_code_blocks_for_fabrication_check(final_response)
+        if _FABRICATED_SUCCESS_RE.search(_strip_accents_for_match(_no_fab_check_text)):
             if not _turn_has_successful_tool_call(messages):
                 logger.warning(
                     "Blocked a fabricated success claim (no successful "
@@ -601,6 +620,57 @@ def finalize_turn(
                     final_response[:200],
                 )
                 final_response = _NO_FABRICATION_FALLBACK
+
+    # Bloque O.4 (22 Jul 2026): enforcement de español. Corre despues del
+    # backstop anti-fabricacion (para no re-traducir el mensaje de
+    # fallback, que ya esta en español) y antes de Tarea E (para que la
+    # autoevaluacion de la respuesta opere sobre el texto final real que
+    # se le va a entregar a Arturo).
+    if final_response and not interrupted:
+        try:
+            from agent.complexity_detector import (
+                regenerate_in_spanish, response_looks_like_english,
+            )
+
+            if response_looks_like_english(final_response):
+                logger.warning(
+                    "Bloque O.4: respuesta parece estar en ingles, "
+                    "regenerando en español: %r", final_response[:150],
+                )
+                _es_response = regenerate_in_spanish(final_response)
+                if _es_response:
+                    final_response = _es_response
+                else:
+                    # Bloque O.4 -- hallazgo real en producción: cuando la
+                    # regeneración falla Y el texto original ya se veía
+                    # incompleto/roto (cortado a media oración, sin
+                    # puntuación final -- señal real de una respuesta
+                    # truncada, no solo "en inglés"), mandar el texto
+                    # original de todos modos expone razonamiento interno
+                    # crudo al usuario (visto en vivo: texto en inglés tipo
+                    # "Okay, the user is asking... Let me check...",
+                    # cortado a media palabra). Mejor un aviso claro que
+                    # texto roto.
+                    _looks_truncated = not final_response.rstrip().endswith((".", "!", "?", "```", ":", ")"))
+                    if _looks_truncated:
+                        logger.warning(
+                            "Bloque O.4: regenerate_in_spanish fallo Y la "
+                            "respuesta se ve truncada/rota -- se reemplaza "
+                            "por un aviso en vez de mandar texto crudo: %r",
+                            final_response[:150],
+                        )
+                        final_response = (
+                            "⚠️ Tuve un problema generando una respuesta clara "
+                            "para esto. Intenta de nuevo, por favor."
+                        )
+                    else:
+                        logger.warning(
+                            "Bloque O.4: regenerate_in_spanish fallo -- se "
+                            "manda la respuesta original (posiblemente en "
+                            "inglés, pero no se ve truncada)",
+                        )
+        except Exception:
+            logger.warning("Bloque O.4: fallo el enforcement de español", exc_info=True)
 
     # Plugin hook: post_llm_call
     # Fired once per turn after the tool-calling loop completes.
@@ -696,42 +766,34 @@ def finalize_turn(
     _te_dispatched_models = {"chat-reasoning", "chat-fallback2"}
     if final_response and not interrupted and agent.model not in _te_dispatched_models:
         try:
-            # Bloque L (22 Jul 2026): classify_complexity() reemplaza
-            # detect_categories() como disparador real -- evalua señales de
-            # complejidad genuina (codigo con error real, multiples
-            # variables dependientes, o la propia respuesta mostrando
-            # incertidumbre) en vez de match de frases ("razona paso a
-            # paso" ya no dispara por si sola con aritmetica trivial).
+            # Bloque O (22 Jul 2026): deroga los criterios (a)/(b)/(c) de
+            # Bloque L y el gate de Bloque M como código Python heurístico.
+            # self_assess_response() le pide a Gemini que evalúe su PROPIA
+            # respuesta (autoevaluación real, no regex) -- should_offer_v2()
+            # decide si eso amerita ofrecer DeepSeek.
             from agent.complexity_detector import (
-                build_offer_text, classify_complexity, fetch_context_summary,
-                register_offer, should_offer,
+                build_offer_text_v2, offers_today_count, register_offer,
+                register_offer_v2, self_assess_response, should_offer,
+                should_offer_v2, _OFFER_DAILY_CAP,
             )
             from tools.approval import get_current_session_key
 
             _te_session_key = get_current_session_key()
+            _te_category = "tarea_e_v2"  # ya no hay taxonomia -- una sola categoria fija
 
-            _te_previous_user_message = None
-            _te_seen_current = False
-            for _te_msg in reversed(messages or []):
-                if not isinstance(_te_msg, dict) or _te_msg.get("role") != "user":
-                    continue
-                if not _te_seen_current:
-                    _te_seen_current = True  # el propio mensaje de este turno
-                    continue
-                _te_previous_user_message = _te_msg.get("content")
-                if not isinstance(_te_previous_user_message, str):
-                    _te_previous_user_message = None
-                break
+            _te_assessment = self_assess_response(
+                original_user_message or "", final_response or "",
+            )
+            _te_wants_offer = should_offer_v2(_te_assessment)
+            # Doble anti-spam: el throttle de 30 min ya existente (should_offer)
+            # SIGUE aplicando, mas el tope diario nuevo de Bloque O.2.
+            _te_offer_category = (
+                should_offer(_te_session_key, [_te_category])
+                if _te_wants_offer else None
+            )
+            _te_under_daily_cap = offers_today_count(_te_session_key) < _OFFER_DAILY_CAP
 
-            _te_category = classify_complexity(
-                original_user_message or "",
-                gemini_response=final_response or "",
-                previous_user_message=_te_previous_user_message,
-            )
-            _te_offer_category = should_offer(
-                _te_session_key, [_te_category] if _te_category else [],
-            )
-            if _te_offer_category:
+            if _te_offer_category and _te_under_daily_cap:
                 # Bloque I (mismo fix que las notificaciones de despacho):
                 # InsightsEngine/sessions.actual_cost_usd no reflejaba el
                 # gasto real de DeepSeek via el proxy local -- se usa el
@@ -751,33 +813,32 @@ def finalize_turn(
                         "se ofrece con $0.00", exc_info=True,
                     )
 
-                # Bloque L.2: consulta gratuita ANTES de ofrecer, para que la
-                # oferta diga "ya tengo X" en vez de preguntar en blanco.
-                _te_context_summary = None
-                try:
-                    _te_context_summary = fetch_context_summary(original_user_message or "")
-                except Exception:
-                    logger.debug(
-                        "Tarea E: fetch_context_summary fallo, oferta sin resumen",
-                        exc_info=True,
-                    )
+                _te_motivo = (
+                    "una decisión con varias variables dependientes entre sí"
+                    if _te_assessment.get("multivariable")
+                    else "algo que no resolví del todo con confianza"
+                )
+                _te_offer_text = build_offer_text_v2(
+                    motivo=_te_motivo,
+                    # Bloque O.1: si la compuerta pre-respuesta ya trajo
+                    # datos (Brave/CoinGecko), la oferta los referencia en
+                    # vez de repetir un snippet crudo de la propia respuesta.
+                    resumen=getattr(agent, "_te_pre_response_data_summary", None),
+                    que_me_falto=_te_assessment.get("que_me_falto"),
+                    monthly_spend_usd=_te_monthly_spend,
+                )
 
                 _te_bg_cb = getattr(agent, "background_review_callback", None)
                 if callable(_te_bg_cb):
-                    _te_bg_cb(build_offer_text(
-                        _te_offer_category, _te_monthly_spend, standalone=True,
-                        context_summary=_te_context_summary,
-                    ))
+                    _te_bg_cb(_te_offer_text)
                 else:
-                    final_response = final_response + build_offer_text(
-                        _te_offer_category, _te_monthly_spend,
-                        context_summary=_te_context_summary,
-                    )
+                    final_response = final_response + "\n\n---\n" + _te_offer_text
                 register_offer(
                     _te_session_key, _te_offer_category,
                     original_message=original_user_message or "",
-                    context_data=_te_context_summary or "",
+                    context_data="",
                 )
+                register_offer_v2(_te_session_key)
         except Exception:
             logger.warning(
                 "Tarea E: fallo agregando la oferta de razonamiento profundo "
