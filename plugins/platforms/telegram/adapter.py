@@ -5200,11 +5200,11 @@ class TelegramAdapter(BasePlatformAdapter):
 
             keyboard = InlineKeyboardMarkup([
                 [
-                    InlineKeyboardButton("✅ Approve Once", callback_data=f"sc:once:{confirm_id}"),
-                    InlineKeyboardButton("🔒 Always Approve", callback_data=f"sc:always:{confirm_id}"),
+                    InlineKeyboardButton("✅ Permitir una vez", callback_data=f"sc:once:{confirm_id}"),
+                    InlineKeyboardButton("🔒 Siempre", callback_data=f"sc:always:{confirm_id}"),
                 ],
                 [
-                    InlineKeyboardButton("❌ Cancel", callback_data=f"sc:cancel:{confirm_id}"),
+                    InlineKeyboardButton("❌ Cancelar", callback_data=f"sc:cancel:{confirm_id}"),
                 ],
             ])
 

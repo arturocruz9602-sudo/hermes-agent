@@ -1565,6 +1565,96 @@ CREATE TRIGGER IF NOT EXISTS messages_fts_trigram_update AFTER UPDATE ON message
 END;
 """
 
+_VAULT_REDACTED_PLACEHOLDER = "[bóveda: acción realizada, contenido redactado]"
+
+
+def _msg_calls_vault(msg: Dict[str, Any]) -> bool:
+    if msg.get("tool_name") == "vault":
+        return True
+    for call in msg.get("tool_calls") or []:
+        fn = (call or {}).get("function", {}) if isinstance(call, dict) else {}
+        if fn.get("name") == "vault":
+            return True
+    return False
+
+
+def _vault_result_has_value(msg: Dict[str, Any]) -> bool:
+    """True for a 'tool' role vault result that actually carries a
+    credential value (a successful 'get') -- the specific case where the
+    assistant's OWN following reply is likely to echo that value back."""
+    if msg.get("role") != "tool" or msg.get("tool_name") != "vault":
+        return False
+    content = msg.get("content")
+    if not isinstance(content, str):
+        return False
+    try:
+        parsed = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    return isinstance(parsed, dict) and parsed.get("success") and "valor" in parsed
+
+
+def _redact_vault_turns(messages: List[Dict[str, Any]]) -> None:
+    """Bloque T (23 Jul 2026): scrub vault passphrases/credential values out
+    of the conversation window BEFORE it is replayed into any future turn's
+    model context -- mutates ``messages`` in place.
+
+    Motivation, found in real live testing the same day: the passphrase
+    Arturo types is still sitting in this same conversation's history once
+    the vault call is done, so on a LATER turn (e.g. he mistypes the
+    passphrase) the model can just read the correct one out of its own
+    context and repeat it back -- defeating the entire point of gating
+    retrieval on a passphrase. A prompt-level instruction alone (see
+    tools/vault_tool.py's VAULT_SCHEMA) is not a hard guarantee; this is
+    the hard guarantee -- once a vault turn is more than the CURRENT
+    exchange, it is no longer readable by the model at all.
+
+    Redacts, for every vault tool_call found:
+      - the assistant message that issued the tool_call (its arguments
+        carry the passphrase and/or the credential value),
+      - the tool-role result message (a successful 'get' carries the
+        value in plain in its JSON),
+      - the nearest preceding 'user' message (Arturo's own raw text,
+        where the passphrase/value were typed),
+      - the assistant's NEXT reply immediately after a successful 'get'
+        result (it very likely echoes the value back in prose).
+
+    Only touches messages this session actually produced for a vault call
+    -- a conversation with no vault usage pays zero cost here beyond the
+    scan itself.
+    """
+    last_user_idx: Optional[int] = None
+    redact_idx: set = set()
+    pending_value_echo = False
+
+    for i, msg in enumerate(messages):
+        role = msg.get("role")
+        if role == "user":
+            last_user_idx = i
+            if pending_value_echo:
+                # A new user turn started before the assistant replied --
+                # nothing to redact as an "echo" anymore this round.
+                pending_value_echo = False
+
+        if _msg_calls_vault(msg):
+            redact_idx.add(i)
+            if last_user_idx is not None:
+                redact_idx.add(last_user_idx)
+            if _vault_result_has_value(msg):
+                pending_value_echo = True
+        elif role == "assistant" and pending_value_echo:
+            redact_idx.add(i)
+            pending_value_echo = False
+
+    for i in redact_idx:
+        msg = messages[i]
+        if isinstance(msg.get("content"), str):
+            msg["content"] = _VAULT_REDACTED_PLACEHOLDER
+        for call in msg.get("tool_calls") or []:
+            fn = (call or {}).get("function", {}) if isinstance(call, dict) else {}
+            if fn.get("name") == "vault":
+                fn["arguments"] = _VAULT_REDACTED_PLACEHOLDER
+
 
 class SessionDB:
     """
@@ -6892,6 +6982,12 @@ class SessionDB:
                     repaired,
                     session_id,
                 )
+        # Bloque T (bóveda): redacta los turnos de vault_save/vault_get de la
+        # ventana que se manda al modelo -- la passphrase quedaba visible en
+        # el historial activo, permitiendo que el modelo la revelara ante un
+        # intento fallido. Va al final para redactar la estructura ya
+        # reparada, no una vista previa a repair_message_sequence.
+        _redact_vault_turns(messages)
         return messages
 
     def get_resume_conversations(

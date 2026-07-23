@@ -1156,6 +1156,12 @@ def run_conversation(
         # repair_message_sequence_with_cursor also recomputes the SessionDB
         # flush cursor (_last_flushed_db_idx) when repair compacts the list,
         # so the turn-end flush doesn't skip the assistant/tool chain (#44837).
+        _current_turn_user_msg_obj = (
+            messages[current_turn_user_idx]
+            if 0 <= current_turn_user_idx < len(messages)
+            else None
+        )
+
         from agent.agent_runtime_helpers import repair_message_sequence_with_cursor
         repaired_seq = repair_message_sequence_with_cursor(agent, messages)
         if repaired_seq > 0:
@@ -1164,6 +1170,29 @@ def run_conversation(
                 repaired_seq,
                 agent.session_id or "-",
             )
+            # Bloque Q.1 (22 Jul 2026): repair_message_sequence_with_cursor can
+            # shrink `messages` in place, which invalidates the once-computed
+            # current_turn_user_idx (agent/turn_context.py) -- root cause found
+            # in Bloque P for why O.1/O.6's injected context silently never
+            # reached the API call. Repair preserves object identity for
+            # surviving messages (same guarantee the DB flush-cursor fix above
+            # already relies on), so relocate by identity instead of trusting
+            # the stale index.
+            if _current_turn_user_msg_obj is not None:
+                _relocated = False
+                for _i, _m in enumerate(messages):
+                    if _m is _current_turn_user_msg_obj:
+                        current_turn_user_idx = _i
+                        _relocated = True
+                        break
+                if not _relocated:
+                    # The current-turn message itself was merged away (e.g.
+                    # repair's consecutive-user-message merge folded it into
+                    # the prior user message) -- the stale pre-repair index
+                    # may now point at an unrelated message. Point it out of
+                    # range so the injection below is skipped rather than
+                    # silently landing on the wrong message.
+                    current_turn_user_idx = -1
 
         api_messages = []
         for idx, msg in enumerate(messages):

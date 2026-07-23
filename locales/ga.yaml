@@ -102,6 +102,7 @@ gateway:
     aborted:               "⚠️ Cuireadh deireadh leis an dlúthú ({error}). Níor baineadh aon teachtaireacht — tá an comhrá gan athrú. Rith /compress chun é a thriail arís, /reset le haghaidh seisiún glan, nó seiceáil do chumraíocht samhla auxiliary.compression."
     aux_failed:            "ℹ️ Theip ar an tsamhail dlúthúcháin chumraithe `{model}` ({error}). Aisghafa ag baint úsáide as do phríomhshamhail — tá an comhthéacs slán — ach b'fhéidir gur mhaith leat `auxiliary.compression.model` i config.yaml a sheiceáil."
     failed:                "Theip ar dhlúthú: {error}"
+    repeated_warning:      "⚠️  Session compressed {count} times — accuracy may degrade. Consider /new to start fresh (your full history stays saved)."
 
   debug:
     upload_failed:         "✗ Theip ar uaslódáil tuairisce dífhabhtaithe: {error}"
@@ -231,6 +232,25 @@ gateway:
     item_with_desc:        "    - {name}: {desc}"
     item_no_desc:          "    - {name}"
     failed:                "❌ Theip ar athlódáil scileanna: {error}"
+
+  destructive_confirm:
+    prompt:                "⚠️ **Confirm /{command}**
+
+{detail}
+
+Choose:
+• **Approve Once** — proceed this time only
+• **Always Approve** — proceed and silence this prompt permanently
+• **Cancel** — keep current conversation
+
+_Text fallback: reply `{prefix}approve`, `{prefix}always`, or `{prefix}cancel`._"
+    cancelled:             "🟡 /{command} cancelled. Conversation unchanged."
+    always_note:           "
+
+ℹ️ Future /clear, /new, /reset, and /undo will run without confirmation. Re-enable via `approvals.destructive_slash_confirm: true` in config.yaml."
+    detail_new:            "This starts a fresh session. Your full history (messages, learned facts, memory) is NOT deleted -- only the active window sent to the model starts empty."
+    detail_undo_one:       "This removes the last user/assistant exchange from the active conversation (your full history in memory is untouched)."
+    detail_undo_n:         "This removes the last {n} user turns from the active conversation (your full history in memory is untouched)."
 
   reset:
     header_default:        "✨ Seisiún athshocraithe! Ag tosú as an nua."

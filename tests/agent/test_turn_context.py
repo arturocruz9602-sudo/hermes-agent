@@ -481,3 +481,165 @@ def test_expired_cooldown_allows_preflight(tmp_path):
     assert isinstance(ctx, TurnContext)
     agent._emit_status.assert_called_once()
     agent._compress_context.assert_called()
+
+
+# ===========================================================================
+# Bloque S / E11 (23 Jul 2026) -- conversation-size hygiene.
+#
+# Real incident that motivated this: a live Telegram conversation grew to
+# 263,966 tokens without ever triggering compression, because the existing
+# compressor's threshold is computed against the PRIMARY model's context
+# window (Gemini, ~1,048,576 tokens) -- comfortably under its ~50% threshold
+# even though the request already broke every fallback provider in the
+# escalation chain (Groq 128k, OpenRouter 262,144). These tests exercise the
+# new absolute, primary-model-independent thresholds
+# (ESCALATION_SAFE_TRIGGER_TOKENS / ESCALATION_HARD_CAP_TOKENS) added to
+# close that gap.
+# ===========================================================================
+
+_TOKENS_PER_CHAR = 0.25  # matches the fake estimator below
+
+
+def _msg(role: str, tokens: int) -> dict:
+    """A synthetic message whose estimated size is exactly ``tokens``."""
+    return {"role": role, "content": "x" * int(tokens / _TOKENS_PER_CHAR)}
+
+
+def _fake_token_estimate(messages, **_kwargs) -> int:
+    return sum(int(len(m.get("content") or "") * _TOKENS_PER_CHAR) for m in messages)
+
+
+class _FakeCompressor:
+    """Stand-in for ``ContextCompressor`` sized like the real primary-model
+    bug: a huge ``threshold_tokens`` (Gemini-sized), so ``should_compress``
+    alone would never fire for a 300k-token conversation."""
+
+    def __init__(self, protect_first_n=2, protect_last_n=20):
+        self.protect_first_n = protect_first_n
+        self.protect_last_n = protect_last_n
+        self.context_length = 1_048_576
+        self.threshold_tokens = 524_288  # 50% of Gemini's real context window
+        self.last_prompt_tokens = -1
+        self.last_real_prompt_tokens = 0
+        self.compression_count = 0
+
+    def should_compress(self, prompt_tokens: int) -> bool:
+        return prompt_tokens >= self.threshold_tokens
+
+
+class _CompressingFakeAgent(_FakeAgent):
+    """``_FakeAgent`` plus a working (fake) compression pipeline.
+
+    ``_compress_context`` mimics real compression well enough to test
+    control flow: collapse everything outside the protected first/last
+    ranges into one small summary message, honoring whatever
+    ``context_compressor.protect_last_n`` is set to *at call time* (Bloque
+    S.1's hard-cap path temporarily lowers it mid-turn).
+    """
+
+    def __init__(self, big_tail_tokens: int = 0):
+        super().__init__()
+        self.compression_enabled = True
+        self.context_compressor = _FakeCompressor()
+        self._compress_calls = 0
+        self._emitted = []
+        self._big_tail_tokens = big_tail_tokens
+
+    def _compress_context(self, messages, system_message, *, approx_tokens=None, task_id=None):
+        self._compress_calls += 1
+        c = self.context_compressor
+        first_n = c.protect_first_n
+        last_n = c.protect_last_n
+        if len(messages) <= first_n + last_n + 1:
+            return messages, system_message  # nothing left to compress
+        head = messages[:first_n]
+        tail = messages[-last_n:] if last_n else []
+        summary = [_msg("user", 500)]  # one small summary of the compressed middle
+        return head + summary + tail, system_message
+
+    def _emit_status(self, msg):
+        self._emitted.append(msg)
+
+
+def _build_big_conversation(n_messages: int, tokens_each: int, big_tail_tokens: int = 0) -> list:
+    history = [_msg("user" if i % 2 == 0 else "assistant", tokens_each) for i in range(n_messages)]
+    if big_tail_tokens:
+        # Put the oversized message inside the default protect_last_n=20
+        # window so normal compression alone can't shrink it away.
+        history[-5] = _msg("assistant", big_tail_tokens)
+    return history
+
+
+def test_escalation_trigger_fires_when_primary_threshold_would_not():
+    """A 300k-token conversation must compress even though it is far below
+    the primary model's own (huge) compression threshold (524,288)."""
+    agent = _CompressingFakeAgent()
+    history = _build_big_conversation(n_messages=300, tokens_each=1_000)  # ~300,000 tokens
+
+    with patch("agent.turn_context.estimate_request_tokens_rough", side_effect=_fake_token_estimate), \
+         patch("agent.turn_context.estimate_messages_tokens_rough", side_effect=_fake_token_estimate):
+        ctx = _build(agent, conversation_history=history)
+
+    assert agent._compress_calls >= 1, "escalation trigger never invoked _compress_context"
+    final_tokens = _fake_token_estimate(ctx.messages)
+    assert final_tokens < 30_000, (
+        f"compressed conversation still ~{final_tokens} tokens -- "
+        "escalation trigger should have collapsed it well under 30k"
+    )
+    # The one-time size notice (S.4) must have fired exactly once.
+    notices = [m for m in agent._emitted if "empiezo fresco" not in m and "ya está larga" in m]
+    assert len(notices) == 1
+
+
+def test_escalation_notice_sent_only_once_per_agent():
+    agent = _CompressingFakeAgent()
+    history = _build_big_conversation(n_messages=300, tokens_each=1_000)
+
+    with patch("agent.turn_context.estimate_request_tokens_rough", side_effect=_fake_token_estimate), \
+         patch("agent.turn_context.estimate_messages_tokens_rough", side_effect=_fake_token_estimate):
+        _build(agent, conversation_history=history)
+        # Second turn in the same (still oversized) conversation.
+        history2 = _build_big_conversation(n_messages=300, tokens_each=1_000)
+        _build(agent, conversation_history=history2)
+
+    size_notices = [m for m in agent._emitted if "ya está larga" in m]
+    assert len(size_notices) == 1, f"size notice should fire once per agent, got {len(size_notices)}"
+
+
+def test_hard_cap_forces_extra_trim_when_normal_pass_is_not_enough():
+    """S.1: a message so large it survives inside the normally-protected
+    tail must still get trimmed if the turn is above the 40k hard cap after
+    the first compression pass."""
+    agent = _CompressingFakeAgent()
+    # One message inside the protected last-20 window is 60,000 tokens on
+    # its own -- normal compression (which leaves protect_last_n intact)
+    # cannot get this turn under the 40k hard cap without the S.1 fallback
+    # that temporarily shrinks protect_last_n.
+    history = _build_big_conversation(n_messages=300, tokens_each=1_000, big_tail_tokens=60_000)
+
+    with patch("agent.turn_context.estimate_request_tokens_rough", side_effect=_fake_token_estimate), \
+         patch("agent.turn_context.estimate_messages_tokens_rough", side_effect=_fake_token_estimate):
+        ctx = _build(agent, conversation_history=history)
+
+    final_tokens = _fake_token_estimate(ctx.messages)
+    assert final_tokens <= 40_000, (
+        f"turn still ~{final_tokens} tokens after the hard-cap pass -- "
+        "S.1's protect_last_n fallback did not engage correctly"
+    )
+    # protect_last_n must be restored to its original value afterwards,
+    # regardless of whether the hard-cap path ran.
+    assert agent.context_compressor.protect_last_n == 20
+
+
+def test_short_conversation_never_triggers_compression():
+    """Sanity check: normal-sized conversations are untouched -- Bloque S
+    must not make the agent compress every turn."""
+    agent = _CompressingFakeAgent()
+    history = _build_big_conversation(n_messages=10, tokens_each=200)  # ~2,000 tokens
+
+    with patch("agent.turn_context.estimate_request_tokens_rough", side_effect=_fake_token_estimate), \
+         patch("agent.turn_context.estimate_messages_tokens_rough", side_effect=_fake_token_estimate):
+        _build(agent, conversation_history=history)
+
+    assert agent._compress_calls == 0
+    assert agent._emitted == []

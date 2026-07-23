@@ -135,6 +135,21 @@ _PATTERNS: List[Tuple[str, str, str]] = [
     # a literal quote right after `=`/`:`, so a bare `API_KEY=sk-...` pasted
     # into chat (no quotes, the common real-world shape) went undetected.
     (r'(?:api[_-]?key|token|secret|password)\s*[=:]\s*["\']?[A-Za-z0-9+/=_-]{20,}', "hardcoded_secret", "strict"),
+
+    # Bloque T.6 (23 Jul 2026): known real provider key FORMATS, matched
+    # regardless of surrounding words. The keyword-context pattern above
+    # requires "api_key"/"token"/"secret"/"password" right next to the
+    # value -- verified against the real 4-jul incident text ("la clave
+    # es: AQ.Ab8...", no English keyword nearby) that it does NOT catch,
+    # since "clave" isn't in that keyword list. Format-based matching
+    # catches the actual secret shape instead of hoping for an English
+    # label next to it. Prefixes are public, documented provider formats,
+    # not anything specific to this deployment.
+    (r'\bAQ\.Ab8[A-Za-z0-9_-]{40,}', "hardcoded_secret", "strict"),       # Gemini AI Studio
+    (r'\bAIzaSy[A-Za-z0-9_-]{33}\b', "hardcoded_secret", "strict"),       # Google API key (legacy format)
+    (r'\bgsk_[A-Za-z0-9]{20,}\b', "hardcoded_secret", "strict"),          # Groq
+    (r'\bsk-or-v1-[A-Za-z0-9]{20,}\b', "hardcoded_secret", "strict"),     # OpenRouter
+    (r'\bsk-[A-Za-z0-9]{32,}\b', "hardcoded_secret", "strict"),           # OpenAI/DeepSeek-style
 ]
 
 # Invisible / bidirectional unicode characters used in injection attacks.

@@ -98,6 +98,7 @@ gateway:
     aborted:               "⚠️ Compresión abortada ({error}). No se eliminó ningún mensaje — la conversación está intacta. Ejecuta /compress para reintentar, /reset para una sesión limpia, o revisa la configuración de tu modelo auxiliary.compression."
     aux_failed:            "ℹ️ El modelo de compresión configurado `{model}` falló ({error}). Recuperado con tu modelo principal — el contexto está intacto — pero quizá quieras revisar `auxiliary.compression.model` en config.yaml."
     failed:                "Compresión fallida: {error}"
+    repeated_warning:      "⚠️  Sesión comprimida {count} veces — la precisión puede degradarse. Considera /new para empezar fresco (tu historial completo sigue guardado)."
 
   debug:
     upload_failed:         "✗ No se pudo subir el informe de depuración: {error}"
@@ -228,8 +229,16 @@ gateway:
     item_no_desc:          "    - {name}"
     failed:                "❌ Falló la recarga de skills: {error}"
 
+  destructive_confirm:
+    prompt:                "⚠️ **Confirmar /{command}**\n\n{detail}\n\nElige:\n• **Aprobar una vez** — procede solo esta vez\n• **Aprobar siempre** — procede y no vuelve a preguntar\n• **Cancelar** — deja la conversación como está\n\n_Alternativa por texto: responde `{prefix}approve`, `{prefix}always`, o `{prefix}cancel`._"
+    cancelled:             "🟡 /{command} cancelado. La conversación sigue igual."
+    always_note:           "\n\nℹ️ De ahora en adelante /clear, /new, /reset y /undo correrán sin pedir confirmación. Puedes reactivarla con `approvals.destructive_slash_confirm: true` en config.yaml."
+    detail_new:            "Esto inicia una sesión nueva. Tu historial completo (mensajes, hechos aprendidos, memoria) NO se borra -- solo empieza vacía la ventana activa que se manda al modelo."
+    detail_undo_one:       "Esto quita el último intercambio usuario/asistente de la conversación activa (tu historial completo en memoria no se toca)."
+    detail_undo_n:         "Esto quita los últimos {n} turnos de usuario de la conversación activa (tu historial completo en memoria no se toca)."
+
   reset:
-    header_default:        "✨ ¡Sesión reiniciada! Empezando de nuevo."
+    header_default:        "✨ Listo, empiezo fresco — tu historial completo sigue guardado."
     header_new:            "✨ ¡Nueva sesión iniciada!"
     header_titled:         "✨ Nueva sesión iniciada: {title}"
     title_rejected:        "\n⚠️ Título rechazado: {error}"

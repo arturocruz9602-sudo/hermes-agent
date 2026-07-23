@@ -672,6 +672,37 @@ def finalize_turn(
         except Exception:
             logger.warning("Bloque O.4: fallo el enforcement de español", exc_info=True)
 
+    # Bloque T.6 (23 Jul 2026): escáner de secretos en la salida. Corre
+    # después del enforcement de español (para escanear el texto REAL que
+    # se va a entregar) y antes de Tarea E. Motivo real, no teórico: Hermes
+    # ya repitió API keys reales en sus propias respuestas dos veces en
+    # este proyecto (4-jul, 20-jul -- ver docs/HISTORIAL.md). Reutiliza el
+    # mismo escáner de patrones que ya usan memory_tool.py/skills install
+    # (tools/threat_patterns.py), scope="strict" (incluye hardcoded_secret).
+    if final_response and not interrupted:
+        try:
+            from tools.threat_patterns import scan_for_threats
+
+            _secret_findings = [
+                f for f in scan_for_threats(final_response, scope="strict")
+                if f == "hardcoded_secret"
+            ]
+            if _secret_findings:
+                logger.warning(
+                    "Bloque T.6: respuesta bloqueada -- parece contener un "
+                    "secreto/credencial real (%s). Texto original NO se "
+                    "manda. Primeros 80 chars (para diagnóstico en logs, no "
+                    "para el usuario): %r",
+                    _secret_findings, final_response[:80],
+                )
+                final_response = (
+                    "⚠️ Bloqueé mi propia respuesta porque parecía contener "
+                    "una credencial o secreto real. No se envió. Si esto es "
+                    "un falso positivo, dime y lo reviso."
+                )
+        except Exception:
+            logger.warning("Bloque T.6: fallo el escáner de salida", exc_info=True)
+
     # Plugin hook: post_llm_call
     # Fired once per turn after the tool-calling loop completes.
     # Plugins can use this to persist conversation data (e.g. sync

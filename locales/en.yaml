@@ -113,6 +113,7 @@ gateway:
     aborted:               "⚠️ Compression aborted ({error}). No messages were dropped — conversation is unchanged. Run /compress to retry, /reset for a clean session, or check your auxiliary.compression model configuration."
     aux_failed:            "ℹ️ Configured compression model `{model}` failed ({error}). Recovered using your main model — context is intact — but you may want to check `auxiliary.compression.model` in config.yaml."
     failed:                "Compression failed: {error}"
+    repeated_warning:      "⚠️  Session compressed {count} times — accuracy may degrade. Consider /new to start fresh (your full history stays saved)."
 
   debug:
     upload_failed:         "✗ Failed to upload debug report: {error}"
@@ -242,6 +243,14 @@ gateway:
     item_with_desc:        "    - {name}: {desc}"
     item_no_desc:          "    - {name}"
     failed:                "❌ Skills reload failed: {error}"
+
+  destructive_confirm:
+    prompt:                "⚠️ **Confirm /{command}**\n\n{detail}\n\nChoose:\n• **Approve Once** — proceed this time only\n• **Always Approve** — proceed and silence this prompt permanently\n• **Cancel** — keep current conversation\n\n_Text fallback: reply `{prefix}approve`, `{prefix}always`, or `{prefix}cancel`._"
+    cancelled:             "🟡 /{command} cancelled. Conversation unchanged."
+    always_note:           "\n\nℹ️ Future /clear, /new, /reset, and /undo will run without confirmation. Re-enable via `approvals.destructive_slash_confirm: true` in config.yaml."
+    detail_new:            "This starts a fresh session. Your full history (messages, learned facts, memory) is NOT deleted -- only the active window sent to the model starts empty."
+    detail_undo_one:       "This removes the last user/assistant exchange from the active conversation (your full history in memory is untouched)."
+    detail_undo_n:         "This removes the last {n} user turns from the active conversation (your full history in memory is untouched)."
 
   reset:
     header_default:        "✨ Session reset! Starting fresh."

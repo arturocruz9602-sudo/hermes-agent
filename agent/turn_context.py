@@ -234,6 +234,25 @@ def _compression_warrants_another_preflight_pass(
     )
 
 
+# Bloque S (E11, 23 Jul 2026): higiene de tamaño de conversación.
+#
+# La compresión de arriba usa threshold_tokens = context_length(modelo
+# PRIMARIO) * threshold_percent -- con Gemini como primario eso es
+# ~1,048,576 * 0.50 =~ 524k. La escalera de respaldo real (Groq
+# 128k, OpenRouter 262,144) nunca entra en ese cálculo. Caso real que
+# confirmó el bug: conversación de Telegram real (22-23 Jul) llegó a
+# 263,966 tokens sin disparar compresión (muy por debajo de 524k), y
+# cuando Gemini agotó su cuota diaria NINGÚN proveedor de respaldo pudo
+# recibirla completa -- Groq la descartó de plano (128k < 263,966) y
+# OpenRouter la rechazó por apenas 1,822 tokens de más.
+#
+# Estos dos valores son deliberadamente absolutos, no un porcentaje del
+# modelo activo -- deben proteger contra el proveedor más chico de la
+# escalera sin importar cuál sea el primario en un momento dado.
+ESCALATION_SAFE_TRIGGER_TOKENS = 30_000
+ESCALATION_HARD_CAP_TOKENS = 40_000
+
+
 def _should_run_preflight_estimate(
     messages: List[Dict[str, Any]],
     protect_first_n: int,
@@ -712,7 +731,10 @@ def build_turn_context(
         messages,
         agent.context_compressor.protect_first_n,
         agent.context_compressor.protect_last_n,
-        agent.context_compressor.threshold_tokens,
+        # Bloque S: never let the cheap pre-check skip the real estimate just
+        # because the primary model's threshold is huge -- gate on whichever
+        # is smaller, the model's own threshold or the escalation-safe cap.
+        min(agent.context_compressor.threshold_tokens, ESCALATION_SAFE_TRIGGER_TOKENS),
     ):
         _preflight_tokens = estimate_request_tokens_rough(
             messages,
@@ -770,6 +792,7 @@ def build_turn_context(
 
         _should_compress_now = False
         _compress_block_reason = None
+        _escalation_triggered = False
         if _preflight_deferred:
             logger.info(
                 "Skipping preflight compression: rough estimate ~%s >= %s, "
@@ -797,7 +820,18 @@ def build_turn_context(
                 getattr(agent, "codex_app_server_auto_compaction", "native"),
             )
         else:
-            _should_compress_now = _compressor.should_compress(_preflight_tokens)
+            # Bloque S (E11, 23 Jul 2026): compress even below the primary
+            # model's own threshold once the ABSOLUTE size crosses what the
+            # smallest backup provider in the fallback ladder can hold — see
+            # ESCALATION_SAFE_TRIGGER_TOKENS above for the real incident.
+            _should_compress_now = (
+                _compressor.should_compress(_preflight_tokens)
+                or _preflight_tokens >= ESCALATION_SAFE_TRIGGER_TOKENS
+            )
+            _escalation_triggered = (
+                not _compressor.should_compress(_preflight_tokens)
+                and _preflight_tokens >= ESCALATION_SAFE_TRIGGER_TOKENS
+            )
             if not _should_compress_now:
                 # Context is over threshold but compression is blocked
                 # (summary-LLM cooldown or anti-thrashing). Ask should_compress_info
@@ -822,12 +856,24 @@ def build_turn_context(
             if callable(_clear_warn):
                 _clear_warn()
             logger.info(
-                "Preflight compression: ~%s tokens >= %s threshold (model %s, ctx %s)",
+                "Preflight compression: ~%s tokens >= %s threshold (model %s, ctx %s)%s",
                 f"{_preflight_tokens:,}",
                 f"{_compressor.threshold_tokens:,}",
                 agent.model,
                 f"{_compressor.context_length:,}",
+                " [Bloque S: umbral de escalera de respaldo, no del primario]" if _escalation_triggered else "",
             )
+            # Bloque S.4: aviso al usuario, una sola vez por conversación
+            # (agente), cuando la compresión se disparó por el nuevo umbral
+            # de escalera y no por el umbral normal del modelo primario --
+            # es la señal de que la charla realmente se puso larga, no un
+            # ajuste rutinario de compresión.
+            if _escalation_triggered and not getattr(agent, "_bloque_s_size_notice_sent", False):
+                agent._bloque_s_size_notice_sent = True
+                agent._emit_status(
+                    "esta charla ya está larga, jefe; compacté lo viejo para "
+                    "seguir ágil — todo quedó guardado en memoria."
+                )
             _preflight_status = automatic_compaction_status_message(
                 _compressor,
                 phase="preflight",
@@ -896,7 +942,10 @@ def build_turn_context(
                 agent._last_content_with_tools = None
                 agent._last_content_tools_all_housekeeping = False
                 agent._mute_post_response = False
-                if not _compressor.should_compress(_preflight_tokens):
+                if not (
+                    _compressor.should_compress(_preflight_tokens)
+                    or _preflight_tokens >= ESCALATION_SAFE_TRIGGER_TOKENS
+                ):
                     break
                 if not _compression_warrants_another_preflight_pass(
                     _orig_tokens,
@@ -911,6 +960,61 @@ def build_turn_context(
                         f"{_preflight_tokens:,}",
                     )
                     break
+
+            # Bloque S.1 (E11): tope duro absoluto. Si tras 3 pasadas de
+            # compresión normal (resumen vía Gemini + últimos N mensajes
+            # protegidos) el turno SIGUE arriba del tope, es un caso
+            # patológico (p.ej. un solo mensaje/tool-result enorme que la
+            # compresión normal no toca porque cae dentro de protect_last_n).
+            # Último recurso: recorta agresivamente el rango protegido más
+            # antiguo hasta caer bajo el tope, en vez de mandar un request
+            # que rompe hasta el proveedor de respaldo más grande.
+            if _preflight_tokens > ESCALATION_HARD_CAP_TOKENS:
+                logger.warning(
+                    "Bloque S.1: tope duro excedido tras compresión normal "
+                    "(~%s tokens > %s) -- recorte agresivo adicional (protect_last_n bajado temporalmente)",
+                    f"{_preflight_tokens:,}",
+                    f"{ESCALATION_HARD_CAP_TOKENS:,}",
+                )
+                # Caso patológico: el grueso de los tokens vive DENTRO del
+                # rango protegido reciente (p.ej. resultados de web_search
+                # enormes en mensajes recientes), así que la compresión
+                # normal no lo toca. Baja protect_last_n temporalmente para
+                # que la próxima pasada sí pueda resumir esos mensajes, y
+                # restaura el valor original después pase lo que pase.
+                _orig_protect_last_n = _compressor.protect_last_n
+                try:
+                    _compressor.protect_last_n = min(_orig_protect_last_n, 5)
+                    for _hard_pass in range(3):
+                        _orig_len = len(messages)
+                        _orig_tokens = _preflight_tokens
+                        messages, active_system_prompt = agent._compress_context(
+                            messages, system_message, approx_tokens=_preflight_tokens,
+                            task_id=effective_task_id,
+                        )
+                        _preflight_tokens = estimate_request_tokens_rough(
+                            messages,
+                            system_prompt=active_system_prompt or "",
+                            tools=agent.tools or None,
+                        )
+                        if not _compression_made_progress(
+                            _orig_len, len(messages), _orig_tokens, _preflight_tokens
+                        ):
+                            break
+                        conversation_history = conversation_history_after_compression(
+                            agent, messages
+                        )
+                        if _preflight_tokens <= ESCALATION_HARD_CAP_TOKENS:
+                            break
+                finally:
+                    _compressor.protect_last_n = _orig_protect_last_n
+                if _preflight_tokens > ESCALATION_HARD_CAP_TOKENS:
+                    logger.error(
+                        "Bloque S.1: no se pudo bajar del tope duro incluso con "
+                        "recorte agresivo (~%s tokens) -- el turno puede seguir "
+                        "fallando en proveedores de contexto chico",
+                        f"{_preflight_tokens:,}",
+                    )
         elif _compress_block_reason:
             # Context is already over the compression threshold, but compression
             # is blocked (summary LLM cooldown or anti-thrashing). Without a
