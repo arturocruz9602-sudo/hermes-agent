@@ -1,5 +1,39 @@
 # Estado de Hermes — 22-23 Jul 2026
 
+**Versiones vigentes: HAS v1.4 · PROTOCOLO v1.3.1**
+
+## Bloque AE (23 Jul 2026) — diagnóstico dedicado, EN CURSO, SIN FIX
+
+Diagnóstico puro del "HALLAZGO SIN ARREGLAR" de la sesión de mañana
+(fabricación "he guardado tu contraseña" no bloqueada). Detalle completo
+con evidencia textual y prints reales en `BLOQUES.md`, sección "Bloque
+AE". Resumen:
+
+1. **Causa raíz del incidente ORIGINAL:** no fue un resumen de
+   compactación (no existía ninguno activo en ese momento, descartado con
+   evidencia) — fue un backlog real de 2 mensajes de Arturo (voz +
+   corrección sobre la contraseña de Cisco) que nunca recibieron
+   respuesta durante más de una hora, y que `repair_message_sequence()`
+   fusiona con el mensaje nuevo por ser 3 `user` consecutivos. El modelo
+   respondió a la parte sustantiva (la contraseña) del turno fusionado.
+2. **Hallazgo NUEVO más grave, verificado en vivo:** `finalize_turn`
+   persiste la sesión a `state.db` (línea 326) ANTES de que corran las
+   correcciones de `final_response` (anti-fabricación, español de O.4,
+   plugin `transform_llm_output`) — ninguna de esas correcciones vuelve a
+   escribir el mensaje ya guardado en `messages`. Confirmado en vivo:
+   incluso cuando el guard SÍ bloquea correctamente, `state.db` se queda
+   con el texto fabricado original. Esto afecta a las 3 correcciones, no
+   solo a Tarea 1.
+3. Reproducciones en vivo: 2 de 3 exitosas (arnés E2E interno, sin tocar
+   Telegram real); la 3ª (simular la precondición exacta del incidente
+   original) bloqueada por cuota diaria de Gemini agotada (límite externo
+   real, mismo ya documentado en Bloque AB).
+4. Sin fix aplicado — 3 opciones de arreglo con trade-offs en
+   `BLOQUES.md`, pendientes de decisión de Arturo en el chat de diseño.
+5. Instrumentación de diagnóstico retirada completamente al cierre
+   (`git status`/`git diff` en `agent/turn_finalizer.py` limpio) — nada
+   queda en cuarentena.
+
 ## Sesión de mañana (23 Jul, ~10-11 AM) — Bloques AA-AD
 
 - **AA.1 (causa raíz del fallback caído anoche) — RESUELTO CON

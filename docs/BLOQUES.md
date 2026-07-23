@@ -4,6 +4,143 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Bloque AE — Diagnóstico dedicado: fabricación de "guardé tu contraseña" no bloqueada (23 Jul 2026) — EN CURSO, SIN FIX
+
+Estado: **EN CURSO, NO CERRADO**. Diagnóstico puro por instrucción explícita
+(mismo rigor que Bloque H y Bloque P) — ningún fix aplicado todavía.
+Siguiente letra libre confirmada contra este mismo archivo antes de asignar
+(AA-AD ya usadas en la sesión de mañana, ver sección siguiente).
+
+**AE.1 — Reconstrucción del incidente real (state.db, evidencia textual):**
+sesión `20260723_014401_467841eb`, mensaje id 16560 (usuario, 2026-07-23
+04:13:31, `hola Hermes, esto es una prueba del arnes interno`, del arnés
+E2E interno de Bloque V) → respuesta id 16561 (asistente, 04:13:42,
+`tool_calls=None`, `finish_reason='stop'`): *"Perfecto, Arturo. He guardado
+la contraseña **MOTO** para la plataforma **Cisco**, utilizando la palabra
+clave **REDES** para acceder a ella..."* — coincide palabra por palabra con
+el hallazgo ya descrito en `docs/BITACORA_ARTURO.md` ("HALLAZGO SIN
+ARREGLAR" del 23 Jul).
+
+**Precondición real encontrada (no la que se sospechaba):** en `state.db`,
+los 2 mensajes inmediatamente anteriores (id 16558, voz real de Arturo a
+las 02:54:05 pidiendo guardar la contraseña de Cisco/UCISCO; id 16559,
+corrección real de Arturo a las 02:57:33 "la contraseña es MOTO... la
+palabra clave va ser redes") **nunca recibieron una respuesta real** antes
+de que el mensaje de prueba (16560) llegara más de una hora después — son
+3 mensajes `role=user` consecutivos sin ningún `assistant`/`tool` entre
+ellos. **NO había ningún resumen de compactación (`[CONTEXT COMPACTION —
+REFERENCE ONLY]`) activo en la conversación en ese momento** — los
+mensajes con ese marcador en la misma sesión tienen ids MÁS ALTOS
+(16564+), es decir aparecieron DESPUÉS, en repeticiones posteriores del
+mismo arnés, no como precondición del incidente original. **Esto descarta
+la hipótesis literal de Arturo (interacción con el resumen de
+compactación) como causa del incidente raíz** — la precondición real es
+un mensaje sin responder (backlog), no un resumen de compactación.
+
+**AE.2 — Por qué `_turn_has_successful_tool_call()` no depende del bug de
+Bloque P:** confirmado leyendo `agent/turn_finalizer.py` y con print() real
+en vivo (ver AE.4) que esta función NO usa `current_turn_user_idx` ni
+ningún índice precalculado — hace un escaneo hacia atrás en vivo sobre
+`messages` cada vez que se llama, deteniéndose en el primer `role=="user"`
+encontrado. El bug de Bloque P (índice obsoleto tras
+`repair_message_sequence_with_cursor()`) es estructuralmente imposible
+aquí porque no hay índice que se pueda quedar obsoleto. **Confirmado:
+mecanismo DISTINTO al de Bloque P**, no el mismo bug con otro nombre.
+
+**AE.3 — Mecanismo real de fusión de mensajes encontrado (lectura de
+código, `agent/agent_runtime_helpers.py:355` `repair_message_sequence()`):
+la Pasada 2 fusiona mensajes `user` consecutivos en uno solo (unidos con
+`\n\n`)** — así que los 3 mensajes sin responder (16558+16559+16560) muy
+probablemente llegaron al modelo como UN SOLO turno combinado (voz sobre
+Cisco + corrección + "hola, prueba"), y el modelo respondió a la parte
+sustantiva (la contraseña) e ignoró la trivial. Esto también existe a
+nivel de plataforma: `gateway/platforms/base.py`
+(`merge_pending_message_event`, `_pending_messages`) fusiona mensajes de
+texto que llegan mientras el turno anterior sigue ocupado.
+
+**AE.4 — Hallazgo NUEVO, real, verificado EN VIVO con print() (no estaba
+en el mandato original pero es más grave): bug de orden de operaciones en
+`finalize_turn` (`agent/turn_finalizer.py`).** `agent._persist_session()`
+corre en la línea 326 — ANTES de que corran: el hook de plugin
+`transform_llm_output` (línea ~458), el backstop anti-fabricación de
+Tarea 1 (línea ~481), y el enforcement de español de Bloque O.4 (línea
+~532). Los tres SOLO modifican la variable local `final_response`; NINGUNO
+vuelve a escribir `messages[-1]["content"]`. Como `messages[-1]` ya se
+agregó dentro del loop principal (`agent/conversation_loop.py:4916`,
+`messages.append(final_msg)`, con el texto CRUDO del modelo) antes de
+llamar a `finalize_turn`, **la sesión persistida en `state.db` — y por lo
+tanto el historial que el modelo vuelve a leer en turnos futuros — siempre
+contiene el texto SIN corregir**, sin importar si el guard bloqueó o no
+esa entrega puntual.
+
+Verificado en vivo (Bloque AE.5, reproducción #2): con instrumentación
+`print()` real, un mensaje de prueba ("Hermes, guarda en tu memoria que mi
+color favorito de prueba Bloque AE es verde-diagnostico.") hizo match con
+el regex de fabricación y `_turn_has_successful_tool_call()` devolvió
+`False` (bloqueado) — pero el mensaje id 16602 en `state.db` quedó
+guardado con el texto ORIGINAL fabricado ("He guardado en tu memoria que
+tu color favorito..."), no con el mensaje de reemplazo seguro. Confirmado
+que esto NO depende de que el guard falle: pasa incluso cuando el guard
+funciona bien.
+
+**AE.5 — Reproducciones en vivo (arnés E2E interno, `tests/e2e/hermes_harness.py`,
+mismo mecanismo de Bloque V, sin tocar Telegram real):**
+1. Mensaje de prueba sin relación con contraseñas, enviado a la MISMA
+   sesión real del incidente (que en ese momento tenía 4 mensajes de
+   usuario sin responder en cola, incluida una pregunta pendiente real
+   "Hermes sabes en qué se quedó el proyecto de Hermes?"): la respuesta
+   mezcló el saludo de prueba CON una respuesta a la pregunta pendiente no
+   relacionada — reproduce en vivo, ahora mismo, el mecanismo general de
+   "conflación con mensaje sin responder", sin ningún resumen de
+   compactación presente (`compaction_summary_at_idx=[]`).
+2. Mensaje con verbo de acción real ("Hermes, guarda en tu memoria...") en
+   una conversación limpia (sin backlog): el guard SÍ bloqueó
+   correctamente (`_turn_has_successful_tool_call()` → `False`) — caso de
+   control, confirma que el guard no está roto en general. Reveló AE.4 en
+   el proceso (ver arriba).
+3. Intento de simular la precondición exacta del incidente original
+   (mensaje real cancelado a media generación + mensaje trivial
+   inmediatamente después, para simular el "turno perdido" de 16558/16559)
+   — **bloqueado por un límite real externo**: cuota diaria gratuita de
+   Gemini agotada (mismo límite de 20 req/día ya documentado en Bloque
+   AB/X.1-X.4), confirmado con el error HTTP 429 real del proveedor. No se
+   forzó ningún workaround.
+
+**Descarte fundamentado de la hipótesis de compactación:** para el
+incidente RAÍZ (16560→16561) no había resumen de compactación activo —
+descartada como causa de ESE incidente específico. La hipótesis correcta,
+con evidencia, es "mensaje(s) sin responder fusionados con el mensaje
+nuevo por `repair_message_sequence()`/`merge_pending_message_event()`".
+No se descarta que la fusión combinada con un resultado de herramienta
+real-pero-obsoleto (de un intento de bóveda anterior) pueda hacer que
+`_turn_has_successful_tool_call()` encuentre un `role=="tool"` no-error
+dentro de la ventana del turno actual — no se confirmó ni se descartó en
+vivo por el bloqueo de cuota de AE.5.3; queda como hipótesis abierta, no
+como causa confirmada.
+
+**Instrumentación:** los `print()` de diagnóstico (`[BLOQUE_AE_DIAG]`) se
+agregaron a `agent/turn_finalizer.py` y se retiraron completamente al
+cierre (`git checkout -- agent/turn_finalizer.py`, verificado con `git
+status`/`git diff` limpio). Ninguno queda en cuarentena entre sesiones.
+
+**Opciones de arreglo (para el chat de diseño, sin decidir aquí):**
+1. Mover `agent._persist_session()` al FINAL de `finalize_turn`, después
+   de todas las correcciones de `final_response`, y sincronizar
+   `messages[-1]["content"] = final_response` antes de persistir.
+   Trade-off: cambia el orden de un flujo usado en muchos otros bloques
+   (O.4, O.0, plugins) — necesita regresión completa, no solo de Tarea 1.
+2. Además de (1), no fusionar (`repair_message_sequence` Pasada 2) un
+   mensaje de usuario nuevo con un mensaje de usuario viejo que lleva más
+   de N minutos sin respuesta — tratarlos como turnos separados o avisar
+   explícitamente al modelo del backlog. Trade-off: mayor complejidad,
+   posible ruptura de la alternancia de roles que el mismo repair existe
+   para arreglar.
+3. Hacer que `_turn_has_successful_tool_call()` también verifique
+   *recencia* del resultado de herramienta (p. ej. mismo `api_call_count`
+   o un timestamp del turno actual), no solo su posición relativa al
+   último `role=="user"`. Trade-off: requiere pasar más contexto a la
+   función; no resuelve AE.4 (el bug de persistencia) por sí solo.
+
 ## Sesión de mañana (23 Jul, ~10-11 AM) — Bloques AA-AD
 
 Detalle completo con evidencia real en `ESTADO.md`. Resumen: causa raíz

@@ -156,3 +156,45 @@ abruptamente, no confíes en esa afirmación sin verificarla -- pregunta
 
 
 ---
+
+## 23 Jul 2026 — Diagnóstico del hallazgo anterior (Bloque AE): la causa real NO era la compactación
+
+**Actualización del hallazgo de arriba, todavía SIN ARREGLAR.** Investigué
+a fondo qué pasó exactamente. Dos cosas importantes:
+
+**1. No fue la conversación compactándose.** Lo que realmente pasó: le
+mandaste a Hermes un mensaje de voz pidiendo guardar la contraseña de
+Cisco, luego una corrección por texto -- y Hermes nunca te contestó a
+ninguna de las dos (se quedaron "atoradas"). Más de una hora después,
+llegó el mensaje de prueba del arnés interno, y como las 3 cosas
+llegaron sin que Hermes respondiera entre medio, el sistema las juntó en
+un solo turno -- Hermes respondió a lo más importante (la contraseña) e
+ignoró el mensaje trivial que sí acababa de llegar. Dicho simple: si le
+mandas dos cosas seguidas y la primera se queda sin respuesta, Hermes
+puede "recordarla" y actuar sobre ella cuando le mandes algo más, aunque
+para ti sean mensajes separados.
+
+**2. Encontré algo más grave, sin buscarlo:** cuando Hermes SÍ corrige un
+error justo antes de contestarte (el filtro anti-invención funcionando
+bien), lo que te llega a ti puede ser el mensaje correcto y seguro -- pero
+lo que queda GUARDADO en su memoria de esa conversación es la versión
+ORIGINAL, la incorrecta. Es decir: Hermes puede "recordar" haber dicho
+algo que en realidad nunca te llegó a decir. Esto no es solo el problema
+de las contraseñas -- afecta también al filtro que fuerza español y a
+cualquier plugin que corrija una respuesta.
+
+**Qué significa para ti, mientras se arregla:** lo mismo que ya te dije
+arriba sigue aplicando (verifica antes de confiar). Además: si mandas dos
+mensajes seguidos y el primero no recibe respuesta antes de que mandes el
+segundo, trata la conversación con más cuidado -- pregúntale explícitamente
+qué entendió antes de asumir que hizo lo que dijiste en el primero.
+
+**Probé en vivo (arnés interno, sin usar tu Telegram real) y confirmé
+ambas cosas con pruebas reales**, no solo con "se ve bien en el código".
+Tres opciones de arreglo quedaron documentadas para que las decidamos
+juntos -- ninguna aplicada todavía, tal como pediste.
+
+**Notas de Arturo:**
+
+
+---
