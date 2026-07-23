@@ -45,6 +45,8 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
+import sqlite3
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -218,6 +220,101 @@ def vault_list_services(passphrase: str) -> Dict[str, Any]:
     services = [{"servicio": e.get("servicio"), "fecha_agregado": e.get("fecha_agregado")} for e in entries]
     del entries
     return {"success": True, "entries": services}
+
+
+# =============================================================================
+# Bloque W.2 (23 Jul 2026) -- confirmación obligatoria antes de guardar cuando
+# el origen es una transcripción de voz.
+#
+# Real risk this closes: voice-to-text is lossy and Arturo cannot proofread
+# what he said before it's transcribed -- a misheard word could silently
+# become the stored credential value with no chance to catch it. Same lesson
+# as the passphrase-leak fix above: a prompt-only instruction ("ask for
+# confirmation first") is not a hard guarantee, so this is implemented as a
+# real two-turn gate, the same pattern already proven for Tarea E's
+# offer/pending-reply flow (agent/complexity_detector.py) -- register a
+# pending confirmation deterministically, and only allow the real vault_save
+# to go through on a later turn that resolves it, never in the same turn
+# the voice message arrived.
+# =============================================================================
+
+_VOICE_MESSAGE_MARKER_RE = re.compile(r"\[The user sent a voice message", re.IGNORECASE)
+_VAULT_SAVE_INTENT_RE = re.compile(
+    r"\b(guarda|guardar|guárdame|almacena|almacenar)\b[^.!?\n]{0,60}"
+    r"\b(contraseñ|password|clave|credencial|api\s*key|token)\w*",
+    re.IGNORECASE,
+)
+
+
+def looks_like_voice_vault_save_request(user_message: str) -> bool:
+    """True when the CURRENT turn's raw message is a voice transcription
+    AND its text suggests a vault-save intent. Deterministic, no LLM call --
+    same category of check as O.6's looks_like_incident_check()."""
+    if not user_message:
+        return False
+    if not _VOICE_MESSAGE_MARKER_RE.search(user_message):
+        return False
+    return bool(_VAULT_SAVE_INTENT_RE.search(user_message))
+
+
+def _pending_confirm_db_path() -> Path:
+    home = os.environ.get("HERMES_HOME") or os.path.expanduser("~/.hermes")
+    return Path(home) / "state.db"
+
+
+def _ensure_pending_table(con: sqlite3.Connection) -> None:
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS vault_pending_voice_confirm ("
+        "session_key TEXT PRIMARY KEY, transcribed_text TEXT NOT NULL, "
+        "created_at REAL NOT NULL)"
+    )
+
+
+def register_pending_voice_confirm(session_key: str, transcribed_text: str) -> None:
+    con = sqlite3.connect(str(_pending_confirm_db_path()))
+    try:
+        _ensure_pending_table(con)
+        con.execute(
+            "INSERT INTO vault_pending_voice_confirm (session_key, transcribed_text, created_at) "
+            "VALUES (?, ?, ?) ON CONFLICT(session_key) DO UPDATE SET "
+            "transcribed_text=excluded.transcribed_text, created_at=excluded.created_at",
+            (session_key, transcribed_text, time.time()),
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def get_pending_voice_confirm(session_key: str) -> Optional[str]:
+    """Returns the pending transcribed text if one exists and is < 30 min
+    old, else None (also clears stale entries)."""
+    con = sqlite3.connect(str(_pending_confirm_db_path()))
+    try:
+        _ensure_pending_table(con)
+        row = con.execute(
+            "SELECT transcribed_text, created_at FROM vault_pending_voice_confirm WHERE session_key = ?",
+            (session_key,),
+        ).fetchone()
+        if row is None:
+            return None
+        text, created_at = row
+        if time.time() - created_at > 1800:
+            con.execute("DELETE FROM vault_pending_voice_confirm WHERE session_key = ?", (session_key,))
+            con.commit()
+            return None
+        return text
+    finally:
+        con.close()
+
+
+def clear_pending_voice_confirm(session_key: str) -> None:
+    con = sqlite3.connect(str(_pending_confirm_db_path()))
+    try:
+        _ensure_pending_table(con)
+        con.execute("DELETE FROM vault_pending_voice_confirm WHERE session_key = ?", (session_key,))
+        con.commit()
+    finally:
+        con.close()
 
 
 def check_vault_requirements() -> bool:

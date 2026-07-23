@@ -1223,6 +1223,76 @@ def build_turn_context(
     except Exception as exc:
         logger.warning("Bloque O.1 (gather_pre_response_context) failed: %s", exc)
 
+    # Bloque W.2 (23 Jul 2026) -- confirmación obligatoria antes de guardar
+    # en la bóveda cuando el origen es transcripción de voz. Real gate de
+    # dos turnos (mismo patrón que Tarea E), no solo instrucción de prompt --
+    # ver tools/vault_tool.py para el detalle y el motivo.
+    try:
+        from tools.approval import get_current_session_key
+        from tools.vault_tool import (
+            get_pending_voice_confirm,
+            looks_like_voice_vault_save_request,
+            register_pending_voice_confirm,
+        )
+
+        _w2_session_key = get_current_session_key()
+        _w2_raw_msg = original_user_message or ""
+        _w2_pending_text = get_pending_voice_confirm(_w2_session_key)
+
+        if _w2_pending_text:
+            # A confirmation was already asked -- this turn should be its
+            # yes/no answer, resolved deterministically (never guessed) by
+            # the same check_pending_reply-style yes/no parser Tarea E uses.
+            from agent.complexity_detector import parse_yes_no
+
+            _w2_answer = parse_yes_no(_w2_raw_msg)
+            if _w2_answer is True:
+                _w2_ctx = (
+                    "[Bóveda -- confirmación de voz recibida: SÍ. El texto "
+                    "transcrito original que debes guardar ahora, EXACTO, es:\n"
+                    f"{_w2_pending_text}\nProcede a extraer servicio/valor/"
+                    "passphrase de ese texto (pídelos si algo no quedó claro "
+                    "ahí) y llama a vault con action=save. No vuelvas a pedir "
+                    "confirmación por esto.]"
+                )
+                from tools.vault_tool import clear_pending_voice_confirm
+                clear_pending_voice_confirm(_w2_session_key)
+            elif _w2_answer is False:
+                _w2_ctx = (
+                    "[Bóveda -- confirmación de voz recibida: NO. NO llames a "
+                    "vault con action=save para esto. Dile a Arturo que no "
+                    "guardaste nada y pregunta si quiere intentarlo de nuevo "
+                    "o corregir algo.]"
+                )
+                from tools.vault_tool import clear_pending_voice_confirm
+                clear_pending_voice_confirm(_w2_session_key)
+            else:
+                _w2_ctx = (
+                    "[Bóveda -- sigues esperando confirmación sí/no sobre "
+                    "guardar lo transcrito por voz. Este mensaje no se "
+                    "interpretó como sí/no -- vuelve a preguntar claramente, "
+                    "NO llames a vault con action=save todavía.]"
+                )
+            plugin_user_context = (
+                f"{plugin_user_context}\n\n{_w2_ctx}" if plugin_user_context else _w2_ctx
+            )
+        elif looks_like_voice_vault_save_request(_w2_raw_msg):
+            register_pending_voice_confirm(_w2_session_key, _w2_raw_msg)
+            _w2_ctx = (
+                "[Bóveda -- este mensaje es una transcripción de voz que "
+                "parece pedir guardar una credencial. REGLA DURA: NO llames "
+                "a vault con action=save en este turno, sin excepción. "
+                "Primero repite EXACTAMENTE lo que se transcribió (cítalo "
+                "textual) y pregunta explícitamente algo como '¿guardo esto: "
+                "[repite el texto]? sí/no'. Solo procede a guardar en un "
+                "turno futuro, después de que Arturo confirme.]"
+            )
+            plugin_user_context = (
+                f"{plugin_user_context}\n\n{_w2_ctx}" if plugin_user_context else _w2_ctx
+            )
+    except Exception as exc:
+        logger.warning("Bloque W.2 (voice vault confirm gate) failed: %s", exc)
+
     # Per-turn file-mutation verifier state.
     agent._turn_failed_file_mutations = {}
     agent._turn_file_mutation_paths = set()
