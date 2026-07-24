@@ -4,6 +4,83 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Bloque AH — bug real de compactación: mensajes duplicados en state.db + bloqueaba ofertas de Tarea E (24 Jul 2026) — CERRADO
+
+Encontrado sin buscarlo, siguiendo instrucción explícita de Arturo
+("si algo está mal... hay que verificar y solucionar") tras una prueba
+E2E de DeepSeek que no se completó limpiamente (ver Fase 1 más abajo).
+
+**AH.1 — Síntoma real observado (state.db, sesión
+`20260723_014401_467841eb`):** una pregunta compleja real + "sí" (para
+aceptar una oferta de Tarea E) produjo la MISMA pregunta y la MISMA
+respuesta **duplicadas 3 veces**, y el mismo "sí" aparece **4 veces**,
+todas con el timestamp EXACTO original (`10:56:16.978`) — prueba directa
+de que eran re-escrituras de UN SOLO mensaje real, no mensajes nuevos.
+Coincidió con 5 compactaciones seguidas en el mismo turno.
+
+**AH.2 — Causa raíz confirmada (no solo sospecha):**
+`ContextCompressor._prune_old_tool_results()` (`agent/context_compressor.py:1016`)
+hacía `result = [m.copy() for m in messages]` — copiaba TODOS los
+mensajes al entrar, incluidos los de la cola protegida
+(`protect_last_n`/`protect_tail_tokens`) que la función nunca toca.
+`run_agent.py::_flush_messages_to_session_db` deduplica lo que ya se
+guardó en la base de datos **únicamente por identidad de objeto de
+Python** (`id(msg)`, elegido a propósito para sobrevivir a
+`repair_message_sequence`, ver su propio docstring, issue #860) — un
+mensaje ya guardado que de repente tiene un `id()` nuevo se ve como
+"nuevo" y se vuelve a escribir. Cada pasada de compactación generaba
+copias nuevas de TODA la cola protegida, así que cada una producía una
+fila duplicada.
+
+**Efecto secundario real, confirmado:** el "candado" que resuelve una
+oferta de Tarea E (`agent/complexity_detector.py::check_pending_reply`)
+tiene un endurecimiento deliberado post-incidente: "cualquier mensaje
+de por medio cancela la oferta pendiente". Los duplicados fantasma que
+generaba este bug contaban como "mensaje de por medio", cancelando una
+oferta real de DeepSeek recién registrada antes de que el "sí" del
+usuario pudiera resolverla — la prueba E2E de DeepSeek (ver Fase 1) NO
+disparó un despacho real precisamente por esto.
+
+**AH.3 — Fix aplicado, mínimo y quirúrgico:**
+- `_prune_old_tool_results`: `result = [m.copy() for m in messages]` →
+  `result = list(messages)` (copia de LISTA, no de cada diccionario).
+  Seguro porque las 3 pasadas de la función ya modifican con
+  copy-on-write real (`result[i] = {**msg, ...}`, nunca mutación en
+  sitio) — un mensaje jamás tocado conserva su identidad original.
+  Mismo patrón que `_strip_historical_media` ya usa en el mismo
+  archivo ("Shallow copies of touched messages only; input is never
+  mutated").
+- `ContextCompressor.compress()`, Fase 4 (ensamblado final): mismo
+  principio aplicado a las dos pasadas de cabeza/cola — solo copia el
+  ÚNICO mensaje que de verdad se modifica (nota de compactación en el
+  system prompt, o el mensaje donde se fusiona el resumen), no todos.
+
+**AH.4 — Verificado con evidencia real, no solo lectura de código:**
+```
+target id (mensaje original, antes de comprimir): 128594271753536
+[trace] _sanitize_tool_pairs: id antes=128594271753536 despues=128594271753536 igual=True
+compressed[-3] id: 128594271753536
+es el mismo objeto: True
+```
+(Antes del fix, este mismo trace daba `False` — probado explícitamente
+comparando ambas corridas.) 3 tests nuevos dirigidos
+(`tests/agent/test_context_compressor_identity_preservation.py`, 3/3
+verde) + regresión completa de compresión: 163 (`test_context_compressor*`
+y relacionados) + 123 (`test_context_compressor.py` re-corrido) + 243
+(`tests/gateway/`+`tests/run_agent/`+`tests/tools/test_computer_use.py`
++ locks) = **446/447 verde**. El único fallo
+(`test_413_compression.py::test_preflight_compresses_when_rough_growth_after_fit_is_large`)
+se confirmó PREEXISTENTE con `git stash` — falla idéntico sin este fix,
+en un test que mockea `_compress_context` por completo (nunca ejecuta
+el código que se tocó aquí).
+
+**AH.5 — Pendiente, no repetido a propósito:** no volví a intentar el
+despacho real de DeepSeek contra la sesión real de Arturo (ya bastante
+inflada por las pruebas de dos noches) para no seguirla complicando.
+La prueba (Fase 1, entregable de OT-1) sigue sin confirmarse de
+extremo a extremo con este fix puesto — candidato natural para la
+próxima sesión, en una conversación más limpia o con `/new` primero.
+
 ## Bloque AG — Opción 3: memoria SQL real y separada para la cuenta QA (24 Jul 2026, mañana) — CERRADO
 
 Decidido en conversación con Arturo tras encontrar el hallazgo AF.4

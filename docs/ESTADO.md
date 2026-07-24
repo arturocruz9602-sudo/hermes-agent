@@ -2,6 +2,29 @@
 
 **Versiones vigentes: HAS v1.4 · PROTOCOLO v1.3.1**
 
+## Bloque AH (24 Jul 2026, mañana) — bug real de duplicación por compactación, CERRADO
+
+Encontrado siguiendo instrucción de Arturo de verificar y arreglar tras
+una prueba E2E de DeepSeek que no completó limpiamente. Detalle
+completo, evidencia real, en `BLOQUES.md` sección "Bloque AH". Resumen:
+`ContextCompressor._prune_old_tool_results()` copiaba TODOS los
+mensajes al entrar (incluida la cola protegida que nunca toca),
+rompiendo la identidad de objeto de la que depende
+`_flush_messages_to_session_db` para no duplicar filas en `state.db`.
+Cada compactación producía una fila duplicada del último intercambio —
+confirmado en vivo (mismo timestamp exacto repetido 3-4 veces en
+`state.db`). Efecto secundario real: los duplicados fantasma cancelaban
+ofertas reales de Tarea E antes de que el "sí" del usuario pudiera
+resolverlas (el candado post-incidente "cualquier mensaje de por medio
+cancela la oferta" las contaba como mensajes nuevos). Fix quirúrgico:
+copiar solo lo que de verdad se modifica (copy-on-write), no todo por
+adelantado — mismo patrón que `_strip_historical_media` ya usa en el
+mismo archivo. 3 tests nuevos + 446/447 en la regresión completa de
+compresión (el único fallo, preexistente, confirmado con `git stash`).
+**Pendiente, no forzado a propósito:** repetir la prueba E2E de
+DeepSeek con el fix puesto — no se repitió hoy para no seguir
+complicando la sesión real de Arturo, ya bastante inflada.
+
 ## Bloque AG (24 Jul 2026, mañana) — memoria SQL real y separada para la cuenta QA, CERRADO
 
 Resuelve el hallazgo AF.4 (memoria de Arturo y de QA mezcladas).
@@ -96,6 +119,22 @@ AE". Resumen:
 5. Instrumentación de diagnóstico retirada completamente al cierre
    (`git status`/`git diff` en `agent/turn_finalizer.py` limpio) — nada
    queda en cuarentena.
+
+## Corrección de estado real — Fase 1 del HAS (24 Jul 2026, verificado contra código, no contra el documento)
+
+El HAS v1.4 marca Fase 1 "PARCIAL" con 4 pendientes. Verificado contra
+código real: **3 de los 4 ya estaban hechos**, el documento no se
+actualizó cuando se completaron en sesiones anteriores:
+- Whisper→gateway: conectado, 12 transcripciones reales ya en `state.db`.
+- `cleanup_audio_cache()`: existe (`gateway/platforms/base.py`) y corre
+  sola en el tick periódico junto a imagen/documento.
+- `allowed_fails` (rate-limit vs error duro): existe bajo otro nombre,
+  `agent/error_classifier.py` + `FailoverReason`, ya integrado.
+
+**Único pendiente real confirmado:** la prueba E2E del aviso de
+DeepSeek antes de un despacho real — intentada hoy, reveló el bug de
+Bloque AH (ver arriba) en el camino, no completada limpiamente. Ver
+Bloque AH para el detalle y el pendiente de re-probar con el fix puesto.
 
 ## Sesión de mañana (23 Jul, ~10-11 AM) — Bloques AA-AD
 

@@ -2361,7 +2361,19 @@ class ContextCompressor(ContextEngine):
         if not messages:
             return messages, 0
 
-        result = [m.copy() for m in messages]
+        # Bloque AH (24 Jul 2026): shallow LIST copy only -- every mutation
+        # below already does its own copy-on-write (`result[i] = {**msg,
+        # ...}`, never in-place `msg[...] = ...`), so a message that's
+        # never touched (the entire protected tail, by construction of
+        # `prune_boundary` below, plus any non-tool/non-assistant message
+        # in the prunable region) keeps its ORIGINAL object identity.
+        # `[m.copy() for m in messages]` used to copy every message
+        # unconditionally here -- this is where the real duplicate-flush /
+        # Tarea E offer bug actually lived (see the longer note at
+        # ContextCompressor.compress()'s Phase 4, a few hundred lines
+        # down, for the full incident writeup and why identity matters to
+        # run_agent.py's flush layer).
+        result = list(messages)
         pruned = 0
 
         # Build index: tool_call_id -> (tool_name, arguments_json)
@@ -4031,7 +4043,19 @@ This compaction should PRIORITISE preserving all information related to the focu
         cls,
         message: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
-        """Drop stale handoff data while preserving merged prior-tail content."""
+        """Drop stale handoff data while preserving merged prior-tail content.
+
+        Bloque AH (24 Jul 2026): the common case (not a summary/handoff row)
+        returns the ORIGINAL object unchanged, not a copy -- callers that
+        assemble compress()'s final output rely on this to preserve object
+        identity (and therefore ``_DB_PERSISTED_MARKER``) for untouched
+        messages, so the flush layer recognizes them as already-persisted
+        instead of writing a duplicate row (see
+        tests/agent/test_context_compressor_identity_preservation.py). Only
+        the genuinely-rewritten "unwrapped" branches below return a copy —
+        and they explicitly drop the marker, since their content really did
+        change and must be re-persisted.
+        """
         if not isinstance(message, dict):
             return message
 
@@ -4041,7 +4065,7 @@ This compaction should PRIORITISE preserving all information related to the focu
             or cls._has_compressed_summary_metadata(message)
         )
         if not is_summary:
-            return message.copy()
+            return message
 
         if isinstance(content, str):
             if _MERGED_SUMMARY_DELIMITER in content:
@@ -4052,6 +4076,7 @@ This compaction should PRIORITISE preserving all information related to the focu
                     unwrapped = message.copy()
                     unwrapped["content"] = prior
                     unwrapped.pop(COMPRESSED_SUMMARY_METADATA_KEY, None)
+                    unwrapped.pop(_DB_PERSISTED_MARKER, None)
                     return unwrapped
             else:
                 marker_idx = content.find(_SUMMARY_END_MARKER)
@@ -4061,6 +4086,7 @@ This compaction should PRIORITISE preserving all information related to the focu
                         unwrapped = message.copy()
                         unwrapped["content"] = remainder
                         unwrapped.pop(COMPRESSED_SUMMARY_METADATA_KEY, None)
+                        unwrapped.pop(_DB_PERSISTED_MARKER, None)
                         return unwrapped
 
         if isinstance(content, list):
@@ -4113,6 +4139,7 @@ This compaction should PRIORITISE preserving all information related to the focu
                     unwrapped = message.copy()
                     unwrapped["content"] = legacy_blocks
                     unwrapped.pop(COMPRESSED_SUMMARY_METADATA_KEY, None)
+                    unwrapped.pop(_DB_PERSISTED_MARKER, None)
                     return unwrapped
 
             if found_delimiter:
@@ -4141,6 +4168,7 @@ This compaction should PRIORITISE preserving all information related to the focu
                     unwrapped = message.copy()
                     unwrapped["content"] = prior_blocks
                     unwrapped.pop(COMPRESSED_SUMMARY_METADATA_KEY, None)
+                    unwrapped.pop(_DB_PERSISTED_MARKER, None)
                     return unwrapped
 
         return None
@@ -5195,6 +5223,32 @@ This compaction should PRIORITISE preserving all information related to the focu
             return messages
 
         # Phase 4: Assemble compressed message list
+        #
+        # Bloque AH (24 Jul 2026) -- real production bug found and fixed:
+        # only .copy() a message when this pass actually MODIFIES it.
+        # Passed-through messages keep their ORIGINAL object identity.
+        # `_flush_messages_to_session_db` (run_agent.py) dedupes purely by
+        # Python object id() -- it has no other way to tell "already
+        # written to state.db" from "new" after `repair_message_sequence`
+        # can shrink/merge the list (that's why identity, not position,
+        # was chosen -- see its own docstring, issue #860). Unconditionally
+        # copying every head/tail message here silently broke that contract:
+        # every compression pass minted a FRESH object for messages that
+        # were already flushed, so the flush-dedup saw them as "new" and
+        # wrote duplicate rows to state.db -- confirmed live (session
+        # 20260723_014401_467841eb, 24-jul: a single user turn compressed
+        # 5 times produced 4 duplicate copies of the same tail exchange,
+        # each stamped with the ORIGINAL message's timestamp, proving they
+        # were re-flushes of the same logical message, not new ones). This
+        # also broke Tarea E's pending-offer resolution (agent/complexity_
+        # detector.py `check_pending_reply`): its "any message in between
+        # clears the pending offer" hardening (itself a deliberate
+        # post-incident fix) saw each duplicate-flushed tail re-appear as
+        # if a new message had arrived, clearing a real, freshly-registered
+        # DeepSeek offer before the user's "sí" could resolve it.
+        # `_strip_historical_media` below already follows this exact
+        # discipline ("Shallow copies of touched messages only; input is
+        # never mutated") -- this brings Phase 4 in line with it.
         compressed = []
         for i in range(compress_start):
             # An earlier compaction handoff in the protected head (common
@@ -5206,11 +5260,24 @@ This compaction should PRIORITISE preserving all information related to the focu
             # unwrap to their genuine prior-tail content (preserved). Do NOT
             # short-circuit on summary_indices here: a merged handoff carries
             # real user content that a blanket skip would silently delete.
-            msg = _fresh_compaction_message_copy(messages[i])
+            #
+            # Bloque AH (24 Jul 2026): pass the ORIGINAL object through by
+            # default -- do NOT pre-copy via _fresh_compaction_message_copy
+            # here. See that helper's own docstring and
+            # tests/agent/test_context_compressor_identity_preservation.py:
+            # an untouched message must keep its exact object identity (and
+            # therefore its _DB_PERSISTED_MARKER) so the flush layer
+            # recognizes it as already-persisted instead of writing a
+            # duplicate row. _strip_context_summary_handoff_message() below
+            # only copies (and drops the marker) when it actually rewrites
+            # content; the system-note branch just below does the same.
+            msg = messages[i]
             if i == 0 and msg.get("role") == "system":
                 existing = msg.get("content")
                 _compression_note = "[Note: Some earlier conversation turns have been compacted into a handoff summary to preserve context space. The current session state may still reflect earlier work, so build on that summary and state rather than re-doing work. Your persistent memory (MEMORY.md, USER.md) remains fully authoritative regardless of compaction.]"
                 if _compression_note not in _content_text_for_contains(existing):
+                    msg = msg.copy()
+                    msg.pop(_DB_PERSISTED_MARKER, None)
                     msg["content"] = _append_text_to_content(
                         existing,
                         "\n\n" + _compression_note if isinstance(existing, str) and existing else _compression_note,
@@ -5246,8 +5313,12 @@ This compaction should PRIORITISE preserving all information related to the focu
                 # A summary at/after tail_start was already folded into
                 # _previous_summary; don't re-emit it verbatim.
                 continue
-            msg = _fresh_compaction_message_copy(messages[i])
-            stripped = self._strip_context_summary_handoff_message(msg)
+            # Bloque AH (24 Jul 2026): same identity-preservation discipline
+            # as the head loop above -- pass the ORIGINAL object through;
+            # _strip_context_summary_handoff_message() only copies (and
+            # drops the persistence marker) when it actually rewrites a
+            # stale handoff's content.
+            stripped = self._strip_context_summary_handoff_message(messages[i])
             if stripped is not None:
                 tail_messages.append(stripped)
 
@@ -5332,6 +5403,14 @@ This compaction should PRIORITISE preserving all information related to the focu
         for tail_idx, msg in enumerate(tail_messages):
             if _merge_summary_into_tail and tail_idx == 0:
                 # Merge the summary into the first (post-strip) tail message.
+                # Bloque AH (24 Jul 2026): copy-on-write -- `msg` here may
+                # still be the ORIGINAL caller-owned object (tail_messages
+                # preserves identity for untouched messages, see the loop
+                # above), so mutating it in place would both corrupt the
+                # caller's list and leave a stale _DB_PERSISTED_MARKER on
+                # content the flush layer must now re-persist.
+                msg = msg.copy()
+                msg.pop(_DB_PERSISTED_MARKER, None)
                 old_content = msg.get("content", "")
                 if _force_user_leading and summary_role == "user":
                     # The summary must be part of the first user-visible

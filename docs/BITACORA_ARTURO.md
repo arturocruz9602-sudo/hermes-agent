@@ -7,6 +7,39 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 24 Jul 2026 (mañana) — Encontré y arreglé un bug real: conversaciones largas duplicaban mensajes
+
+**Qué pasó:** me pediste seguir el plan y arreglar lo que encontrara mal,
+no solo reportarlo. Al intentar probar el aviso de DeepSeek, algo no
+cuadró — y siguiendo el rastro encontré un bug real: cuando una
+conversación se compacta varias veces seguidas (charla larga, mucho uso
+seguido), el sistema podía guardar el mismo mensaje tuyo y la misma
+respuesta de Hermes **repetidos varias veces** en la base de datos.
+
+**Cómo te afectaba, aunque no lo hubieras notado directamente:** además
+de ensuciar el historial, esto podía hacer que una oferta real de
+"¿quieres que use DeepSeek para esto?" se cancelara sola, sin que
+llegaras a contestarla, porque el sistema de seguridad que evita
+despachos accidentales (el mismo que se hizo después del incidente de
+julio) confundía esos mensajes duplicados con mensajes nuevos de por
+medio.
+
+**Ya está arreglado y probado** (no solo "se ve bien en el código"):
+confirmé con evidencia real que antes del arreglo el mismo mensaje
+aparecía repetido con el timestamp idéntico, y después del arreglo ya
+no. 3 pruebas nuevas más 446 pruebas existentes de todo el sistema de
+compactación, todas en verde.
+
+**Pendiente honesto:** no volví a intentar la prueba real de DeepSeek
+después de arreglarlo, para no seguir usando tu conversación real como
+conejillo de indias en la misma sesión (ya estaba bastante cargada de
+pruebas de dos noches). Queda para la próxima vez, idealmente empezando
+con `/new`.
+
+**Notas de Arturo:**
+
+---
+
 ## 24 Jul 2026 (mañana) — Opción 3: la cuenta QA ya tiene su propia memoria, separada de la tuya de verdad
 
 **Qué se arregló:** el hallazgo de esta madrugada (tu memoria y la de la
