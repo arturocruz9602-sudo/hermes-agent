@@ -4,6 +4,84 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Bloque AG — Opción 3: memoria SQL real y separada para la cuenta QA (24 Jul 2026, mañana) — CERRADO
+
+Decidido en conversación con Arturo tras encontrar el hallazgo AF.4
+(MEMORY.md/USER.md sin aislamiento por identidad). Se evaluaron 3
+caminos (archivo separado / Fase 4 completa ahora / estructurado solo
+para QA) — Arturo eligió el 3º explícitamente ("Si dale") tras
+preguntar si no era doble trabajo respecto a la Fase 4 real; la
+respuesta (documentada en el chat, no repetida aquí): NO lo es, porque
+`memoria_estructurada` es la MISMA tabla que Fase 4 ya tenía planeada
+usar, y el camino de Arturo (con aprobación semanal) y el de QA
+(automático) son mecanismos distintos por diseño incluso cuando Fase 4
+exista completa — no uno sustituye al otro.
+
+**AG.1 — Diseño:** `memory_tool()` (`tools/memory_tool.py`) recibe el
+store como parámetro (`store=agent._memory_store`) — no necesitó ningún
+cambio. El único punto de inyección es dónde se construye
+`agent._memory_store` (`agent/agent_init.py`, dentro de `init_agent`,
+después de que `agent._chat_id`/`agent._user_id` ya están asignados).
+
+**AG.2 — Implementado:**
+- `tools/qa_identity.py`: fuente única de `QA_USER_ID` (8727618189),
+  sin dependencias (ni sqlite ni telethon) para poder importarse en
+  `agent_init.py` sin peso extra.
+- `tools/sql_memory_store.py`: `SqlMemoryStore`, mismo contrato que
+  `MemoryStore` (`add`/`replace`/`remove`/`apply_batch`/`load_from_disk`/
+  `format_for_system_prompt`), respaldado por `memoria_estructurada` con
+  columnas nuevas `user_id` + `target` (además de `origen`, de Bloque
+  AF) — auto-migradas, idempotente. Cada fila queda con `origen='qa'` +
+  el `user_id` real de quien escribió.
+- `agent/agent_init.py`: si `agent._chat_id`/`agent._user_id` coincide
+  con `QA_USER_ID`, usa `SqlMemoryStore`; cualquier otra identidad
+  (Arturo incluido) sigue exactamente el camino original
+  (`MemoryStore` sobre `MEMORY.md`/`USER.md`), sin ningún cambio de
+  comportamiento.
+
+**AG.3 — Verificación EN VIVO, evidencia real (arnés interno, sin tocar
+Telegram real, mensaje real construido con la identidad QA vía
+`SessionSource`):**
+```
+ANTES: MEMORY.md sha256=554f667c480ab481... USER.md sha256=164310353554884a...
+[mensaje real como QA: "Hermes, guarda en tu memoria que esto es una
+ prueba real de Opción 3 desde la cuenta QA."]
+DESPUES: MEMORY.md sha256=554f667c480ab481... (IDÉNTICO)
+         USER.md sha256=164310353554884a... (IDÉNTICO)
+         nueva fila: id=6 hecho='Esto es una prueba real de Opción 3
+         desde la cuenta QA.' target=memory (origen=qa, user_id=8727618189)
+```
+Recall en un turno NUEVO, misma identidad QA, state.db real:
+```
+id 16615 user: "¿Qué guardaste hace un momento sobre una prueba?"
+id 16616 assistant: "En mi memoria guardé que 'Esto es una prueba real
+                      de Opción 3 desde la cuenta QA.'"
+```
+Regresión con la identidad de Arturo (harness normal, `enviar_texto`):
+escribió a `MEMORY.md` como siempre (confirmado con `grep` directo),
+conteo de filas `origen='qa'` sin cambio (1 antes, 1 después — la de
+QA arriba, ninguna nueva de Arturo).
+
+**AG.4 — Tests:** 9 nuevos (`tests/tools/test_sql_memory_store.py`,
+incluido aislamiento explícito entre dos `user_id` sobre la misma
+tabla) + 4 existentes de `telegram_userbot` sin romper (import
+compartido vía `qa_identity.py`) — 93/93 verde en el paquete
+`tests/tools/`. Suite más amplia que toca `agent._memory_store`
+(`test_context_breakdown.py`, `test_system_prompt.py`,
+`test_turn_context.py`, `test_run_agent.py`,
+`test_background_review*.py`): 444/444 verde.
+
+**AG.5 — Limpieza:** los datos de prueba propios (1 fila QA sembrada
+para la verificación, 1 entrada de prueba en `MEMORY.md` real de
+Arturo por la prueba de regresión) se limpiaron con las herramientas
+correctas (`scripts/limpiar_memoria_qa.py` y `memory_tool.py` `remove`
+respectivamente), nunca a mano.
+
+**Pendiente, fuera de alcance de este bloque:** la Fase 4 real (memoria
+estructurada + índice semántico PARA ARTURO, con el flujo de
+aprobación semanal) sigue sin construirse — este bloque resuelve la
+cuenta QA únicamente, por diseño.
+
 ## Bloque AF — Fix de L13/Bloque AE + prep de OT-QA (24 Jul 2026, sesión nocturna autónoma)
 
 Autorizado por Arturo explícitamente ("sí, trabaja toda la noche") tras

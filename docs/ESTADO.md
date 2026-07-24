@@ -2,6 +2,26 @@
 
 **Versiones vigentes: HAS v1.4 · PROTOCOLO v1.3.1**
 
+## Bloque AG (24 Jul 2026, mañana) — memoria SQL real y separada para la cuenta QA, CERRADO
+
+Resuelve el hallazgo AF.4 (memoria de Arturo y de QA mezcladas).
+Detalle completo, evidencia real, en `BLOQUES.md` sección "Bloque AG".
+Resumen: `agent/agent_init.py` ahora elige `SqlMemoryStore`
+(`tools/sql_memory_store.py`, respaldado por `memoria_estructurada` con
+`user_id`+`origen='qa'` reales) para la identidad QA
+(`tools/qa_identity.py`, user_id=8727618189), y sigue exactamente igual
+(`MemoryStore` sobre `MEMORY.md`/`USER.md`) para cualquier otra
+identidad. Verificado en vivo con hash de archivo (MEMORY.md/USER.md
+byte-idénticos antes/después de un escrito real desde QA) + recall real
+en turno nuevo + regresión confirmando que Arturo sigue en su archivo
+de siempre. 9 tests nuevos + 93/93 en `tests/tools/` + 444/444 en la
+suite más amplia de `agent._memory_store`.
+
+**Con esto, la cuenta QA ya puede usarse sin restricciones** — puede
+chatear Y pedir que se recuerden cosas, sin riesgo a la memoria real de
+Arturo. Pendiente real, fuera de alcance: Fase 4 de verdad (memoria
+estructurada + índice semántico PARA Arturo) sigue sin construir.
+
 ## Bloque AF (24 Jul 2026, madrugada) — fix de L13/Bloque AE, CERRADO
 
 Autorizado por Arturo ("sí, trabaja toda la noche") tras revisar las 3

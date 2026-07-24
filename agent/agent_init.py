@@ -1612,11 +1612,32 @@ def init_agent(
             agent._user_profile_enabled = mem_config.get("user_profile_enabled", False)
             agent._memory_nudge_interval = int(mem_config.get("nudge_interval", 10))
             if agent._memory_enabled or agent._user_profile_enabled:
-                from tools.memory_tool import MemoryStore
-                agent._memory_store = MemoryStore(
-                    memory_char_limit=mem_config.get("memory_char_limit", 2200),
-                    user_char_limit=mem_config.get("user_char_limit", 1375),
-                )
+                # HAS OT-QA / Opción 3 (24 Jul 2026): the QA automation
+                # identity gets a SEPARATE, SQL-backed store
+                # (tools/sql_memory_store.py, memoria_estructurada tagged
+                # origen='qa'+user_id) instead of the real
+                # MEMORY.md/USER.md files -- so QA can freely
+                # add/replace/remove (needed for GUION_PRUEBAS.md M.A1-M.A4)
+                # without ever touching Arturo's real memory, and M.A5
+                # (identity isolation) is a real SQL query by user_id, not
+                # a same-file convention. Every OTHER identity (Arturo,
+                # anyone else) keeps the exact original file-backed path,
+                # completely unchanged.
+                from tools.qa_identity import QA_USER_ID as _QA_USER_ID
+                _acting_ids = {str(agent._chat_id or ""), str(agent._user_id or "")}
+                if str(_QA_USER_ID) in _acting_ids:
+                    from tools.sql_memory_store import SqlMemoryStore
+                    agent._memory_store = SqlMemoryStore(
+                        user_id=str(_QA_USER_ID),
+                        memory_char_limit=mem_config.get("memory_char_limit", 2200),
+                        user_char_limit=mem_config.get("user_char_limit", 1375),
+                    )
+                else:
+                    from tools.memory_tool import MemoryStore
+                    agent._memory_store = MemoryStore(
+                        memory_char_limit=mem_config.get("memory_char_limit", 2200),
+                        user_char_limit=mem_config.get("user_char_limit", 1375),
+                    )
                 agent._memory_store.load_from_disk()
         except Exception:
             pass  # Memory is optional -- don't break agent init

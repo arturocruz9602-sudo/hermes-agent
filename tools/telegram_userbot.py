@@ -44,13 +44,12 @@ except ImportError:  # pragma: no cover - exercised on machines without telethon
     TelegramClient = None  # type: ignore[assignment,misc]
     StringSession = None  # type: ignore[assignment,misc]
 
+from tools.qa_identity import QA_USER_ID
 from tools.vault_tool import VaultAuthError, vault_get, vault_save
 
-# Hermes QA De La Cruz -- Telegram user_id, authorized in the pairing
-# store 24-jul-2026 (see hermes pairing list / telegram-approved.json).
-# Not the userbot's own identity -- this is who the OFFICIAL bot
-# recognizes on the OTHER end of the conversation the userbot drives.
-QA_USER_ID = 8727618189
+# QA_USER_ID (imported above) is who the OFFICIAL bot recognizes on the
+# OTHER end of the conversation the userbot drives -- not the userbot's
+# own identity.
 
 _VAULT_SERVICE_NAME = "TELEGRAM_USERBOT_SESSION"
 

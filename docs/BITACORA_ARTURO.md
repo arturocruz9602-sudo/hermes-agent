@@ -7,6 +7,39 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 24 Jul 2026 (mañana) — Opción 3: la cuenta QA ya tiene su propia memoria, separada de la tuya de verdad
+
+**Qué se arregló:** el hallazgo de esta madrugada (tu memoria y la de la
+cuenta QA mezcladas) ya está resuelto. Hablamos las opciones juntos
+(hasta preguntaste si no era doble trabajo -- buena pregunta, la
+respuesta quedó documentada abajo) y decidimos la más completa: la
+cuenta QA ahora escribe a su propio cajón, separado del tuyo de verdad
+a nivel de base de datos, no solo con una etiqueta.
+
+**Cómo se ve en tu día a día:** nada cambia para ti -- tu memoria sigue
+funcionando exactamente igual que siempre, en los mismos archivos de
+siempre. Lo que cambia es que ahora la cuenta QA SÍ puede pedirle a
+Hermes que recuerde cosas (antes te hubiera dicho que no lo hicieras)
+sin ningún riesgo de que se mezcle contigo.
+
+**Probado en vivo, dos veces, con evidencia real (no solo "se ve
+bien"):** desde la cuenta QA le pedí a Hermes que recordara algo,
+confirmé con matemática exacta (hash del archivo) que tu `MEMORY.md` y
+`USER.md` NO cambiaron ni un byte, y confirmé que sí quedó guardado en
+su propio lugar. Luego, en una conversación nueva, le pregunté "¿qué
+guardaste hace un momento?" con otras palabras -- lo recordó bien.
+También probé al revés: escribí como tú, y confirmé que siguió yendo a
+tu archivo de siempre, no al de QA.
+
+**Pruébalo tú:** desde la cuenta QA, dile "Hermes, guarda que mi color
+favorito de prueba es tal" y luego, en otro mensaje, pregúntale "¿de qué
+color dije que era mi favorito?" -- debe recordarlo bien. Y desde tu
+cuenta normal, nada debería sentirse distinto.
+
+**Notas de Arturo:**
+
+---
+
 ## 24 Jul 2026 (madrugada) — Bloque AF: arreglado el bug de "Hermes inventa que guardó algo" (L13)
 
 **Qué se arregló:** el hallazgo de ayer (Hermes diciendo "he guardado tu
@@ -36,10 +69,12 @@ el de antes.
 
 ---
 
-## 24 Jul 2026 (madrugada) — HALLAZGO SIN ARREGLAR, nuevo: tu memoria real y la cuenta de prueba (QA) NO están separadas todavía
+## 24 Jul 2026 (madrugada) — HALLAZGO, nuevo: tu memoria real y la cuenta de prueba (QA) NO están separadas todavía — **RESUELTO el mismo día, ver entrada más abajo "Opción 3"**
 
-**Esto NO es un arreglo -- es un riesgo real que encontré probando el
-arreglo de arriba, sin buscarlo.**
+**Esto NO fue un arreglo cuando lo escribí -- era un riesgo real que
+encontré probando el arreglo de arriba, sin buscarlo. Ya se resolvió
+esa misma mañana, hablándolo contigo -- ver la entrada "Opción 3" más
+abajo para el detalle completo.**
 
 **Qué pasó:** al probar en vivo que el arreglo de arriba funcionaba, sin
 querer quedó guardada una frase de prueba ("mi color favorito de prueba
