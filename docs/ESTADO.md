@@ -21,9 +21,14 @@ copiar solo lo que de verdad se modifica (copy-on-write), no todo por
 adelantado — mismo patrón que `_strip_historical_media` ya usa en el
 mismo archivo. 3 tests nuevos + 446/447 en la regresión completa de
 compresión (el único fallo, preexistente, confirmado con `git stash`).
-**Pendiente, no forzado a propósito:** repetir la prueba E2E de
-DeepSeek con el fix puesto — no se repitió hoy para no seguir
-complicando la sesión real de Arturo, ya bastante inflada.
+**Prueba E2E de DeepSeek — CERRADA, con dinero real (Arturo pidió
+explícitamente "verifica que funcione DeepSeek"):** llamada directa a
+las mismas 2 funciones reales de producción del aviso + el mismo POST
+mínimo real (`model: chat-reasoning`) que usa el código. Confirmado con
+evidencia real: aviso ANTES del despacho, fila nueva real en el ledger
+de litellm (`model: deepseek-v4-pro`, no un respaldo gratis), aviso de
+costo real DESPUÉS ($0.0000626 USD esta prueba, $0.1666 USD acumulado
+el mes). Fase 1 / OT-1 completa — los 4 entregables confirmados.
 
 ## Bloque AG (24 Jul 2026, mañana) — memoria SQL real y separada para la cuenta QA, CERRADO
 

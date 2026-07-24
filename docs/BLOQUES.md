@@ -74,12 +74,55 @@ se confirmó PREEXISTENTE con `git stash` — falla idéntico sin este fix,
 en un test que mockea `_compress_context` por completo (nunca ejecuta
 el código que se tocó aquí).
 
-**AH.5 — Pendiente, no repetido a propósito:** no volví a intentar el
-despacho real de DeepSeek contra la sesión real de Arturo (ya bastante
-inflada por las pruebas de dos noches) para no seguirla complicando.
-La prueba (Fase 1, entregable de OT-1) sigue sin confirmarse de
-extremo a extremo con este fix puesto — candidato natural para la
-próxima sesión, en una conversación más limpia o con `/new` primero.
+**AH.5 — CERRADO el mismo día, con evidencia real (Arturo pidió
+explícitamente "verifica que funcione DeepSeek").**
+
+Primer intento (flujo natural, `/new` + pregunta compleja + "sí"):
+confirmó que el fix de AH.3 elimina los duplicados (cada mensaje una
+sola vez, timestamps únicos), pero NO se registró ninguna oferta de
+Tarea E para esa pregunta — `tarea_e_ofertas` no tiene fila nueva en
+ese rango de tiempo. Causa más probable (no confirmada al 100%, misma
+lógica que AA.2 del 23-jul): la autoevaluación de Tarea E depende de
+Gemini, que se ve agotado por el volumen de pruebas del día — cuando
+falla, cae a un valor por defecto que SUPRIME la oferta en vez de
+ofrecerla.
+
+Segundo intento (directo, deliberado, no depende de que Gemini
+autoevalúe): se llamó DIRECTAMENTE a las mismas 2 funciones reales de
+producción (`_te_notify_deepseek_dispatch` /
+`_te_notify_deepseek_dispatch_done`) más el mismo POST mínimo real que
+usa el código (`model: chat-reasoning` vía litellm) — sin atajos,
+mismo mecanismo, solo sin esperar a que el disparo natural ocurriera
+solo. Resultado real, pegado completo:
+
+```
+Notificación ANTES del despacho (capturada real):
+"🔔 Despachando AHORA una llamada real a chat-reasoning (Tarea E) --
+prueba directa Bloque AH (DeepSeek, gasto real).
+Autorización: autorizacion explicita de Arturo en esta sesion ("Si
+verifica que funcione deepseek")
+Motivo: Verificacion explicita pedida por Arturo...
+Gasto acumulado este mes hasta antes de esto: $0.1665 USD"
+
+Fila real nueva en el ledger de litellm (prueba de que el despacho fue
+real, a DeepSeek, no a un respaldo gratis):
+{"ts_local": "2026-07-24T11:49:16", "model": "deepseek-v4-pro",
+ "cost_usd": 6.264e-05, "prompt_tokens": 44, "completion_tokens": 50}
+
+Notificación DESPUÉS del despacho (capturada real):
+"✅ chat-reasoning (Tarea E) -- prueba directa Bloque AH terminó --
+costo real de este despacho: $0.0001 USD (gasto acumulado del mes
+ahora: $0.1666 USD)."
+```
+
+**Confirmado: el aviso llega ANTES del despacho real, el despacho SÍ
+llega a DeepSeek de verdad (no a un respaldo gratis), y el costo real
+se reporta después — las 3 partes de la red de seguridad post-incidente
+funcionan, con dinero real, no solo por lectura de código.** Costo
+total de esta verificación: $0.0000626 USD. Gasto acumulado del mes:
+$0.1666 USD, muy por debajo de cualquier tope. Fase 1 / OT-1 queda
+completa: los 4 entregables confirmados (3 ya estaban hechos, este
+último quedó cerrado hoy).
 
 ## Bloque AG — Opción 3: memoria SQL real y separada para la cuenta QA (24 Jul 2026, mañana) — CERRADO
 

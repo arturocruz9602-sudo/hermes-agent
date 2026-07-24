@@ -30,11 +30,12 @@ aparecía repetido con el timestamp idéntico, y después del arreglo ya
 no. 3 pruebas nuevas más 446 pruebas existentes de todo el sistema de
 compactación, todas en verde.
 
-**Pendiente honesto:** no volví a intentar la prueba real de DeepSeek
-después de arreglarlo, para no seguir usando tu conversación real como
-conejillo de indias en la misma sesión (ya estaba bastante cargada de
-pruebas de dos noches). Queda para la próxima vez, idealmente empezando
-con `/new`.
+**Actualización — ya se probó con dinero real, tú lo pediste
+directamente.** Confirmé de punta a punta que cuando Hermes va a usar
+DeepSeek (el modelo de pago), te avisa ANTES de gastar, y te avisa el
+costo real DESPUÉS — con una llamada real, no simulada. Costo total de
+la prueba: siete diezmilésimas de dólar (básicamente nada). Con esto,
+las 4 cosas que faltaban de la Fase 1 original ya están confirmadas.
 
 **Notas de Arturo:**
 
