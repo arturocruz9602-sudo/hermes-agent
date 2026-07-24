@@ -1,8 +1,51 @@
-# Estado de Hermes — 22-23 Jul 2026
+# Estado de Hermes — 22-24 Jul 2026
 
 **Versiones vigentes: HAS v1.4 · PROTOCOLO v1.3.1**
 
-## Bloque AE (23 Jul 2026) — diagnóstico dedicado, EN CURSO, SIN FIX
+## Bloque AF (24 Jul 2026, madrugada) — fix de L13/Bloque AE, CERRADO
+
+Autorizado por Arturo ("sí, trabaja toda la noche") tras revisar las 3
+opciones de Bloque AE. Detalle completo, evidencia real y prints en
+`BLOQUES.md` sección "Bloque AF". Resumen:
+
+1. **Fix aplicado:** `agent._persist_session()` movida a después de las
+   4 correcciones de `final_response` (transform_llm_output, backstop
+   anti-fabricación, español O.4, escáner de secretos T.6), con
+   `messages[-1]` re-sincronizado antes de persistir. Más:
+   `_turn_has_successful_tool_call()` ahora acota su escaneo al índice
+   real de esta conversación (reutiliza el índice de Bloque Q.1) en vez
+   de confiar sin más en el `role=="user"` más cercano.
+2. **Verificado EN VIVO, dos veces, evidencia real en `state.db`:** un
+   turno bloqueado por el guard quedó CORRECTAMENTE persistido con el
+   mensaje de reemplazo (antes se quedaba con el texto fabricado pese al
+   bloqueo); un turno normal con herramienta real persistió limpio.
+3. **Regresión:** 7 tests nuevos dirigidos al bug exacto (7/7 verde) +
+   23 tests existentes de `finalize_turn`/interrupt (23/23 verde) + suite
+   completa `tests/agent/`+`tests/gateway/` (ver resultado real abajo).
+4. **Hallazgo nuevo sin arreglar, más urgente que el original:** las
+   pruebas en vivo escribieron por accidente una entrada de prueba en el
+   `MEMORY.md` REAL de Arturo (limpiada de inmediato con
+   `memory_tool.py`) — confirma que el camino real de escritura de
+   memoria (archivos planos, no la tabla SQL) no tiene NINGÚN
+   aislamiento por identidad. Ver `docs/BITACORA_ARTURO.md`. NO se tocó
+   el gating de herramientas sin autorización explícita de Arturo.
+5. Prep de OT-QA completada: `telethon` instalado, `tools/telegram_userbot.py`
+   listo (rechaza conectar sin session string real en la bóveda —
+   4 tests), columna `origen` + `~/.hermes/scripts/limpiar_memoria_qa.py`
+   probado con datos sembrados (2 reales + 3 qa → borra exacto 3, reales
+   intactos). Cuenta QA ya autorizada (`user_id=8727618189`).
+
+**Resultado real de la suite completa `tests/agent/ tests/gateway/`:**
+`125 failed, 12689 passed, 113 skipped, 260 warnings in 921.17s` (15
+min). **Los 125 fallos son preexistentes, confirmados con `git stash` +
+re-corrida de una muestra de 10 contra el código SIN Bloque AF: fallan
+IDÉNTICO (mismo error, `AttributeError: 'GatewayRunner' object has no
+attribute '_pending_reprocess_ids'`, sin relación con
+`turn_finalizer.py`/`conversation_loop.py`) — no causados por este
+bloque. No investigados a fondo (fuera de alcance de Bloque AF), quedan
+registrados como bug abierto preexistente, no silenciados.
+
+## Bloque AE (23 Jul 2026) — diagnóstico dedicado, CERRADO en Bloque AF
 
 Diagnóstico puro del "HALLAZGO SIN ARREGLAR" de la sesión de mañana
 (fabricación "he guardado tu contraseña" no bloqueada). Detalle completo

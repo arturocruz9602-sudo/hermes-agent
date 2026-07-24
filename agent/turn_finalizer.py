@@ -137,14 +137,45 @@ def _strip_code_blocks_for_fabrication_check(text: str) -> str:
     return _CODE_FENCE_BLOCK_RE.sub(" ", text)
 
 
-def _turn_has_successful_tool_call(messages: list) -> bool:
+def _turn_has_successful_tool_call(
+    messages: list, turn_boundary_idx: "int | None" = None
+) -> bool:
     """True if a non-error tool result exists in the CURRENT turn.
 
     Walks ``messages`` backwards from the end and stops at the last
     ``role == "user"`` message (turn boundary) -- same technique used a few
     lines below for last_reasoning extraction.
+
+    Bloque AF (24 Jul 2026 -- Bloque AE diagnosis, HAS L13): the plain
+    "stop at the last role==user" boundary is structurally correct on its
+    own, but real production evidence (session 20260723_014401_467841eb,
+    turn 16560->16561) showed the boundary can land past several
+    consecutive UNANSWERED user messages that ``repair_message_sequence``
+    merges together (a crash-orphaned request sitting unanswered for
+    >1h, then a new trivial message arriving later). In that shape, a
+    stale-but-structurally-present tool result from an EARLIER,
+    unrelated turn can still sit inside the scanned window.
+
+    ``turn_boundary_idx``, when provided, is the SAME index
+    ``conversation_loop.py`` already tracks as ``current_turn_user_idx``
+    -- relocated by object identity after
+    ``repair_message_sequence_with_cursor()`` (Bloque Q.1 fix) -- so it
+    reflects the true position of THIS turn's user message post-repair,
+    not just "whatever role==user happens to be nearest the end". When
+    valid (``0 <= turn_boundary_idx < len(messages)``), the scan is
+    bounded to strictly after that index instead of free-scanning
+    backward for any role==user. Falls back to the original unbounded
+    scan when the index is absent or was invalidated (-1, e.g. the
+    turn's own message got merged away during repair) -- some check is
+    better than none, and the unbounded scan is still correct in the
+    common case where there's no unanswered backlog to conflate with.
     """
-    for msg in reversed(messages):
+    if turn_boundary_idx is not None and 0 <= turn_boundary_idx < len(messages):
+        _start = turn_boundary_idx
+    else:
+        _start = -1
+    for i in range(len(messages) - 1, _start, -1):
+        msg = messages[i]
         if not isinstance(msg, dict):
             continue
         if msg.get("role") == "user":
@@ -181,6 +212,7 @@ def finalize_turn(
     _turn_exit_reason,
     _pending_verification_response=None,
     _pending_verification_response_previewed=False,
+    current_turn_user_idx=None,
 ):
     """Run the post-loop finalization and return the turn ``result`` dict.
 
@@ -357,10 +389,12 @@ def finalize_turn(
         _cleanup_errors.append(f"cleanup_task_resources: {_cleanup_err}")
         logger.error("finalize_turn: _cleanup_task_resources failed: %s", _cleanup_err, exc_info=True)
 
-    # Persist session to both JSON log and SQLite only after private retry
-    # scaffolding has been removed. Otherwise a later user "continue" turn
-    # can replay assistant("(empty)") / recovery nudges and fall into the
-    # same empty-response loop again.
+    # Drop private retry scaffolding early (unrelated to final_response
+    # content -- internal empty-response-retry housekeeping). Otherwise a
+    # later user "continue" turn can replay assistant("(empty)") / recovery
+    # nudges and fall into the same empty-response loop again. The actual
+    # session PERSIST is deferred past the response-correction chain below
+    # (Bloque AF, 24 Jul 2026 -- see the comment at that call site for why).
     try:
         agent._drop_trailing_empty_response_scaffolding(messages)
 
@@ -369,24 +403,6 @@ def finalize_turn(
         # nudges need stripping; the assistant candidate persists in
         # state.db. (#65919 §7)
         _drop_verification_continuation_scaffolding(messages)
-
-        # When the turn was interrupted and the last message is a tool
-        # result, append a synthetic assistant message to close the
-        # tool-call sequence. Without this, the session persists a
-        # ``tool → user`` alternation that strict providers (Gemini,
-        # Claude) reject, causing them to hallucinate a continuation of
-        # the user's message on the next turn (#48879).
-        #
-        # ``_drop_trailing_empty_response_scaffolding`` only rewinds the
-        # tool tail when an empty-response scaffolding flag is present; a
-        # clean ``/stop`` interrupt after a successful tool sets no such
-        # flag, so the tool result survives as the tail and we close it
-        # here instead. On an interrupt ``final_response`` is typically
-        # empty, so fall back to an explicit placeholder rather than
-        # persisting an empty-content assistant turn.
-        if interrupted:
-            from agent.message_sanitization import close_interrupted_tool_sequence
-            close_interrupted_tool_sequence(messages, final_response)
 
         # Some recovery/fallback paths return a real final_response without
         # adding a closing assistant message to the transcript (e.g. the
@@ -437,20 +453,12 @@ def finalize_turn(
                 # otherwise ``/resume`` reloads ``content=""`` and the bug
                 # resurfaces cross-session.
                 _tail.pop("_db_persisted", None)
-
-        # The model has completed its request, so replace API-local
-        # voice/model/skill guidance with the clean user input before writing the
-        # final durable snapshot and returning the continuation history. Earlier
-        # turn-start flushes use the DB-only override because their messages are
-        # still needed for the API request; this finalizer runs after that request
-        # is complete (#48677 / #63766).
-        _apply_override = getattr(agent, "_apply_persist_user_message_override", None)
-        if callable(_apply_override):
-            _apply_override(messages)
-        agent._persist_session(messages, conversation_history)
-    except Exception as _persist_err:
-        _cleanup_errors.append(f"persist_session: {_persist_err}")
-        logger.error("finalize_turn: _persist_session failed: %s", _persist_err, exc_info=True)
+    except Exception as _scaffold_err:
+        _cleanup_errors.append(f"drop_trailing_empty_response_scaffolding: {_scaffold_err}")
+        logger.error(
+            "finalize_turn: _drop_trailing_empty_response_scaffolding failed: %s",
+            _scaffold_err, exc_info=True,
+        )
 
     # ── Turn-exit diagnostic log ─────────────────────────────────────
     # Always logged at INFO so agent.log captures WHY every turn ended.
@@ -613,7 +621,12 @@ def finalize_turn(
     if final_response and not interrupted:
         _no_fab_check_text = _strip_code_blocks_for_fabrication_check(final_response)
         if _FABRICATED_SUCCESS_RE.search(_strip_accents_for_match(_no_fab_check_text)):
-            if not _turn_has_successful_tool_call(messages):
+            # Bloque AF (24 Jul 2026): bound the scan to THIS turn via the
+            # already-repair-relocated current_turn_user_idx (Bloque Q.1)
+            # instead of trusting the nearest role==user unconditionally --
+            # see _turn_has_successful_tool_call's docstring for the real
+            # incident this fixes.
+            if not _turn_has_successful_tool_call(messages, current_turn_user_idx):
                 logger.warning(
                     "Blocked a fabricated success claim (no successful "
                     "tool_call this turn): %r",
@@ -702,6 +715,83 @@ def finalize_turn(
                 )
         except Exception:
             logger.warning("Bloque T.6: fallo el escáner de salida", exc_info=True)
+
+    # Persist session to both JSON log and SQLite -- deliberately placed
+    # HERE, after every correction pass that can replace `final_response`
+    # (transform_llm_output, the no-fabrication backstop, Bloque O.4
+    # español, Bloque T.6 secret scanner) and BEFORE post_llm_call/Tarea E
+    # (Bloque AF, 24 Jul 2026 -- real bug found and verified live during
+    # Bloque AE's diagnosis: `messages[-1]` gets appended with the model's
+    # RAW output inside the main loop, before finalize_turn ever runs: if
+    # persistence happened at its original position -- right after
+    # trajectory save / resource cleanup, near the top of this function --
+    # every one of those corrections only ever patched the local
+    # `final_response` variable, never `messages[-1]["content"]`. Verified
+    # live: a fabricated claim that the anti-fabrication guard correctly
+    # blocked (delivery got the safe fallback) still landed in `state.db`
+    # with the ORIGINAL fabricated text, because persistence had already
+    # run before the guard fired. Same exposure applied to O.4 (English
+    # leaking into persisted history) and T.6 (a real secret the scanner
+    # blocked from delivery could still end up saved to disk). Moved
+    # AFTER those passes, with `messages[-1]` explicitly re-synced to the
+    # corrected `final_response` first, closes all three at once.
+    #
+    # Kept BEFORE post_llm_call/Tarea E on purpose: Tarea E's DeepSeek
+    # offer text is deliberately NOT part of persisted history (see that
+    # block's own comment -- "lo persistido refleja la respuesta real de
+    # Hermes, no esta oferta"). Moving persist any later would silently
+    # break that existing, intentional invariant.
+    if (
+        final_response is not None
+        and not interrupted
+        and messages
+        and isinstance(messages[-1], dict)
+        and messages[-1].get("role") == "assistant"
+        and not messages[-1].get("tool_calls")
+    ):
+        # The terminal message IS this turn's text answer -- keep the
+        # persisted/in-memory history in sync with whatever correction
+        # pass last touched `final_response`. Deliberately narrow: only
+        # overwrites when messages[-1] is unambiguously the plain final
+        # answer (no tool_calls), so a mid-turn assistant message that
+        # happens to be last for some other reason is never clobbered.
+        messages[-1]["content"] = final_response
+
+    try:
+        # When the turn was interrupted and the last message is a tool
+        # result, append a synthetic assistant message to close the
+        # tool-call sequence. Without this, the session persists a
+        # ``tool → user`` alternation that strict providers (Gemini,
+        # Claude) reject, causing them to hallucinate a continuation of
+        # the user's message on the next turn (#48879).
+        #
+        # ``_drop_trailing_empty_response_scaffolding`` (run earlier, near
+        # trajectory save) only rewinds the tool tail when an
+        # empty-response scaffolding flag is present; a clean ``/stop``
+        # interrupt after a successful tool sets no such flag, so the tool
+        # result survives as the tail and we close it here instead. On an
+        # interrupt ``final_response`` is typically empty, so fall back to
+        # an explicit placeholder rather than persisting an empty-content
+        # assistant turn.
+        if interrupted:
+            from agent.message_sanitization import close_interrupted_tool_sequence
+            close_interrupted_tool_sequence(messages, final_response)
+
+        # The model has completed its request, so replace API-local
+        # voice/model/skill guidance with the clean user input before writing the
+        # final durable snapshot and returning the continuation history. Earlier
+        # turn-start flushes use the DB-only override because their messages are
+        # still needed for the API request; this finalizer runs after that request
+        # is complete (#48677 / #63766). Runs here, right before the actual
+        # persist below (Bloque AF moved persist past the correction chain).
+        _apply_override = getattr(agent, "_apply_persist_user_message_override", None)
+        if callable(_apply_override):
+            _apply_override(messages)
+
+        agent._persist_session(messages, conversation_history)
+    except Exception as _persist_err:
+        _cleanup_errors.append(f"persist_session: {_persist_err}")
+        logger.error("finalize_turn: _persist_session failed: %s", _persist_err, exc_info=True)
 
     # Plugin hook: post_llm_call
     # Fired once per turn after the tool-calling loop completes.

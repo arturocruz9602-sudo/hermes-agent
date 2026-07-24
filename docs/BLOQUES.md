@@ -4,10 +4,140 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
-## Bloque AE — Diagnóstico dedicado: fabricación de "guardé tu contraseña" no bloqueada (23 Jul 2026) — EN CURSO, SIN FIX
+## Bloque AF — Fix de L13/Bloque AE + prep de OT-QA (24 Jul 2026, sesión nocturna autónoma)
 
-Estado: **EN CURSO, NO CERRADO**. Diagnóstico puro por instrucción explícita
-(mismo rigor que Bloque H y Bloque P) — ningún fix aplicado todavía.
+Autorizado por Arturo explícitamente ("sí, trabaja toda la noche") tras
+revisar las 3 opciones de Bloque AE. Aplicó Opción 1 (orden de
+persistencia) + Opción 3 (recencia). Opción 2 (no fusionar mensajes sin
+responder) queda deliberadamente sin tocar, para discusión de diseño
+aparte.
+
+**AF.1 — Fix implementado (`agent/turn_finalizer.py`, `agent/conversation_loop.py`):**
+- `agent._persist_session()` se movió de su posición original (justo
+  después de trajectory-save/cleanup) a DESPUÉS de las 4 correcciones
+  que pueden reemplazar `final_response` (plugin `transform_llm_output`,
+  backstop anti-fabricación de Tarea 1, español de O.4, escáner de
+  secretos T.6) y ANTES de `post_llm_call`/Tarea E (para no romper el
+  invariante ya existente y deliberado de que la oferta de DeepSeek NO
+  se persiste). Justo antes de persistir, `messages[-1]["content"]` se
+  sincroniza con el `final_response` ya corregido -- pero SOLO cuando
+  `messages[-1]` es inequívocamente la respuesta final en texto plano
+  (`role=="assistant"` sin `tool_calls`), para no pisar un mensaje
+  intermedio por error.
+- `_turn_has_successful_tool_call()` ahora acepta `turn_boundary_idx`
+  (reutiliza el mismo `current_turn_user_idx` que Bloque Q.1 ya
+  relocaliza por identidad tras `repair_message_sequence_with_cursor()`)
+  y acota el escaneo hacia atrás a estrictamente después de ese índice,
+  en vez de confiar sin más en el `role=="user"` más cercano. Con índice
+  inválido (`None`/`-1`/fuera de rango) cae al comportamiento original
+  sin cambios.
+
+**AF.2 — Verificación EN VIVO, evidencia real pegada de `state.db`
+(sesión `20260723_014401_467841eb`, con el fix activo, sin reiniciar
+`hermes-gateway.service` -- todo corrió vía el arnés E2E como proceso
+Python aparte):**
+
+```
+Turno 1 (guard bloqueó correctamente, y esta vez SÍ quedó
+CORREGIDO en lo persistido -- antes del fix quedaba el texto
+fabricado original pese a que el guard bloqueaba):
+  id 16605 user: "Hermes, guarda en tu memoria que mi color
+                  favorito de prueba Bloque AF es azul-verificacion."
+  id 16606 assistant (PERSISTIDO): "⚠️ No puedo confirmar que esa
+                  acción se haya completado -- no hubo una llamada
+                  real a una herramienta en este turno..."
+
+Turno 2 (esta vez el modelo SÍ llamó la herramienta real -- caso
+normal, sin fabricación, persistido limpio):
+  id 16608 assistant: tool_calls=[memory.add(...)]
+  id 16609 tool: {"success": true, ..., "message": "Entry added."}
+  id 16610 assistant (PERSISTIDO): "He guardado en tu memoria que tu
+                  color favorito de prueba para el Bloque AF es
+                  **azul-verificacion**."
+```
+
+**AF.3 — Regresión, evidencia real:**
+- 7 tests nuevos (`tests/agent/test_turn_finalizer_bloque_af.py`),
+  incluida una reconstrucción directa de la forma exacta del incidente
+  original (llamada a herramienta obsoleta + backlog fusionado) -- 7/7
+  pasan.
+- Suite existente que toca `finalize_turn`/el cierre de turnos
+  interrumpidos: `test_turn_finalizer_cleanup_guard.py`,
+  `test_turn_finalizer_interrupt_alternation.py`,
+  `test_close_interrupted_tool_sequence.py`,
+  `test_13121_shutdown_inflight_transcript_flush.py` -- 23/23 pasan.
+- Suite completa `tests/agent/` + `tests/gateway/`: `125 failed, 12689
+  passed, 113 skipped` en 921s. Los 125 fallos son PREEXISTENTES --
+  verificado con `git stash` (revierte Bloque AF por completo) + re-corrida
+  de una muestra de 10 de los 125: fallan IDÉNTICO sin el fix (mismo
+  `AttributeError: 'GatewayRunner' object has no attribute
+  '_pending_reprocess_ids'`, en archivos que ni mencionan
+  `turn_finalizer`/`finalize_turn`/`_persist_session`). `git stash pop`
+  aplicado de vuelta, verificado con `git status`. No es un bug de
+  Bloque AF -- queda registrado como bug abierto preexistente sin
+  investigar a fondo (fuera de alcance de este bloque), no silenciado.
+
+**AF.4 -- Hallazgo NUEVO, real, encontrado sin buscarlo, y ya
+corregido:** mi propia verificación en vivo (turno 2 de AF.2) escribió
+sin querer una entrada de prueba ("mi color favorito de prueba Bloque AF
+es azul-verificacion") en el `MEMORY.md` REAL de Arturo -- porque el
+arnés usa el `chat_id` real de Arturo, y `tools/memory_tool.py` (el
+camino real por el que el modelo guarda cosas cuando dice "lo guardé en
+tu memoria") escribe a archivos planos (`MEMORY.md`/`USER.md`) **sin
+ningún mecanismo de aislamiento por identidad**. Detectado y limpiado de
+inmediato con `memory_tool.py` (`remove`), nunca a mano. Esto es MÁS
+urgente que el hallazgo de `memoria_estructurada` de la orden original --
+ver AF.5 y BITACORA_ARTURO.md.
+
+**AF.5 -- Columna `origen` + limpieza de prueba (tarea original de la
+orden):**
+- `memoria_estructurada` (Capa 2, SQL) recibe columna `origen` (migración
+  auto-aplicada por `scripts/limpiar_memoria_qa.py` vía `ALTER TABLE ADD
+  COLUMN`, idempotente -- esta tabla no vive en el esquema declarativo de
+  `hermes_state.py`, es anterior/externa a ese sistema).
+- `~/.hermes/scripts/limpiar_memoria_qa.py` escrito y probado en vivo:
+  sembrados 2 hechos "reales" + 3 marcados `origen='qa'` -> corrida real
+  borró exactamente los 3 `qa`, los 2 reales quedaron intactos (2 -> 2),
+  verificado con conteo antes/después. Datos de prueba propios limpiados
+  después (no quedaron en `state.db`).
+- **Importante, con matiz honesto:** esta tabla (Capa 2) confirmado en
+  Bloque AE que NO es el camino real de escritura hoy (0 filas antes de
+  esta prueba, `fase2_extract_candidates.py` nunca llama a
+  `memory_tool.py`). Útil para cuando Fase 4 la active, pero **NO
+  resuelve** el riesgo real encontrado en AF.4 (MEMORY.md/USER.md). Ese
+  sigue sin arreglar -- requiere decisión de Arturo (ver BITACORA).
+
+**AF.6 -- Telethon + módulo userbot, listos pero SIN conectar (gateados
+por L13, procedimental, no por código):**
+- `telethon==1.44.0` instalado en el venv, agregado a
+  `pyproject.toml`/`tools/lazy_deps.py` (extra `telegram-userbot`, patrón
+  lazy-install igual que el resto de plataformas de mensajería).
+- `tools/telegram_userbot.py`: clase `TelegramUserbot` con
+  `enviar_texto`/`enviar_voz`/`enviar_foto`/`leer_respuesta`/`cerrar_conversacion`
+  reales sobre Telethon, más `login_and_store_session()` para el login
+  único cuando toque. **Se niega a conectar** (`L13NotClosedError`) si no
+  hay session string real en la bóveda bajo el servicio
+  `TELEGRAM_USERBOT_SESSION` -- verificado con 4 tests
+  (`tests/tools/test_telegram_userbot.py`, mock de la bóveda, nunca toca
+  Telegram real ni la bóveda real). Cuenta QA ya autorizada en el
+  emparejamiento (`user_id=8727618189`, ver `hermes pairing list`).
+- Pendiente de Arturo cuando decida seguir: `api_id`/`api_hash` de
+  `my.telegram.org` + relayar el código de verificación una vez.
+
+**Cierre de AF:** BLOQUE AE queda **CERRADO** -- causa raíz confirmada,
+fix aplicado, verificado en vivo con evidencia real pegada arriba, y
+regresión unitaria + dirigida en verde. El hallazgo de AF.4
+(MEMORY.md/USER.md sin aislamiento) queda **ABIERTO**, registrado en
+`docs/BITACORA_ARTURO.md`, pendiente de decisión de Arturo -- no se tocó
+la lógica de gating de herramientas sin su autorización explícita
+(regla de "seguridad siempre pregunta").
+
+## Bloque AE — Diagnóstico dedicado: fabricación de "guardé tu contraseña" no bloqueada (23 Jul 2026) — **CERRADO en Bloque AF (24 Jul 2026)**
+
+Estado: **CERRADO** (ver Bloque AF arriba para el fix + verificación en
+vivo). Diagnóstico puro por instrucción explícita (mismo rigor que
+Bloque H y Bloque P) — el fix se aplicó al día siguiente, sesión aparte,
+con autorización explícita de Arturo.
 Siguiente letra libre confirmada contra este mismo archivo antes de asignar
 (AA-AD ya usadas en la sesión de mañana, ver sección siguiente).
 

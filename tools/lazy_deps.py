@@ -155,6 +155,11 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
 
     # ─── Messaging platforms (lazy-installable on demand) ──────────────────
     "platform.telegram": ("python-telegram-bot[webhooks]==22.6",),
+    # Telegram USERBOT (MTProto via a real user account, not the official
+    # Bot API) -- only needed for the QA automation account (HAS OT-QA),
+    # gated behind L13 (vault must stop fabricating save confirmations
+    # before it's trusted with a session string = full account access).
+    "platform.telegram_userbot": ("telethon==1.44.0",),
     # brotlicffi gives aiohttp a working 2-arg Decompressor.process() for
     # Discord CDN's Brotli-encoded attachments. Without it, aiohttp falls
     # back to google's `Brotli` package (1-arg API), and any .txt/.md/.doc

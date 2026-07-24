@@ -30,6 +30,19 @@ Safety:
       opted into explicitly per call (``auto_approve_reasoning=True``) and
       is always logged with a clear "auto-aprobado" marker -- see
       ``enviar_texto``'s docstring.
+
+Real-Telegram counterpart (HAS OT-QA, gated by L13): this harness's
+``enviar_texto`` drives the agent pipeline DIRECTLY -- there is no
+Telegram network involved on either side. For actual end-to-end evidence
+over real Telegram (the QA account, ``[E2E real]`` per
+docs/GUION_PRUEBAS.md), see ``tools/telegram_userbot.py``'s
+``TelegramUserbot`` -- a real MTProto userbot with matching
+``enviar_texto``/``enviar_voz``/``enviar_foto``/``leer_respuesta``/
+``cerrar_conversacion`` methods, deliberately kept in its own module
+(not merged here) since it drives the OTHER side of the conversation
+(the QA account, as if typing to Hermes) rather than this process's own
+in-memory agent. It refuses to connect until a real session string
+exists in the vault -- see that module's docstring for why.
 """
 
 from __future__ import annotations

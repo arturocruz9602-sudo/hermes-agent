@@ -7,6 +7,68 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 24 Jul 2026 (madrugada) — Bloque AF: arreglado el bug de "Hermes inventa que guardó algo" (L13)
+
+**Qué se arregló:** el hallazgo de ayer (Hermes diciendo "he guardado tu
+contraseña" sin haberlo hecho de verdad) ya tiene causa raíz confirmada
+Y arreglo aplicado, probado en vivo dos veces esta noche. Eran en
+realidad DOS problemas: (1) cuando le mandas dos cosas seguidas y la
+primera se queda sin respuesta, Hermes puede mezclar ambas y actuar
+sobre la vieja; (2) uno más grave que encontré sin buscarlo: cuando el
+filtro de seguridad SÍ corregía una invención a tiempo, lo que te
+llegaba a ti era el mensaje correcto, pero lo que quedaba GUARDADO en su
+memoria de esa conversación seguía siendo la versión inventada. Ambos
+quedan corregidos.
+
+**Cómo se ve en tu día a día:** si le pides algo que sí puede fallar
+(guardar una contraseña, crear una tarea) y por lo que sea no puede
+hacerlo, ahora Hermes te lo dice claro en vez de inventar que sí lo
+hizo — y esa aclaración es lo que de verdad queda en su historial, no
+la invención.
+
+**Pruébalo tú:** no hay una forma segura de "probar a propósito" que
+invente algo (sería pedirle que falle adrede), pero si alguna vez ves
+que dice "ya lo hice" y tú sabes que no pasó nada, dímelo de inmediato
+-- eso significaría que el arreglo tiene un hueco nuevo, no que volvió
+el de antes.
+
+**Notas de Arturo:**
+
+---
+
+## 24 Jul 2026 (madrugada) — HALLAZGO SIN ARREGLAR, nuevo: tu memoria real y la cuenta de prueba (QA) NO están separadas todavía
+
+**Esto NO es un arreglo -- es un riesgo real que encontré probando el
+arreglo de arriba, sin buscarlo.**
+
+**Qué pasó:** al probar en vivo que el arreglo de arriba funcionaba, sin
+querer quedó guardada una frase de prueba ("mi color favorito de prueba
+Bloque AF es azul-verificacion") en tu archivo de memoria REAL -- el
+mismo que Hermes usa contigo todos los días. Me di cuenta y la borré de
+inmediato, de la forma correcta (no a mano). Pero esto confirma algo que
+todavía no está resuelto: **la forma en que Hermes realmente guarda lo
+que le pides recordar (no la base de datos, el archivo de memoria) no
+tiene ninguna manera de distinguir "esto lo dijo Arturo de verdad" de
+"esto fue una prueba" -- ni con tu cuenta de prueba (QA) ni con la mía
+de hoy.**
+
+**Qué significa para ti, mientras se resuelve:** si usas la cuenta QA
+(la nueva, para pruebas) y le pides a Hermes que "recuerde" algo aunque
+sea en broma, ese dato puede terminar mezclado con tu memoria real,
+igual que me pasó a mí ahorita. Por ahora, evita pedirle a Hermes que
+guarde o recuerde cosas desde la cuenta QA -- para chatear normal, hacer
+preguntas, o simplemente entretenerte no hay ningún riesgo; el riesgo es
+específicamente con lo que Hermes decide "recordar".
+
+**Qué sigue:** esto necesita una decisión tuya sobre cómo separar de
+verdad la memoria de la cuenta QA de la tuya (no es algo que deba
+resolver solo, toca el sistema de permisos) -- lo dejo listo para
+hablarlo cuando quieras, con las opciones ya pensadas.
+
+**Notas de Arturo:**
+
+---
+
 ## 22-23 Jul 2026 — Bloque Q: Hermes ya no inventa evidencia de incidentes
 
 **Qué se arregló:** el mecanismo que inyecta evidencia real de logs antes
