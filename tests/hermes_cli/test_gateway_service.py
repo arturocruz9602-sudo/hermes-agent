@@ -239,6 +239,15 @@ class TestSystemdServiceRefresh:
 
         monkeypatch.setattr("gateway.run.start_gateway", fake_start_gateway)
 
+        # run_gateway() ends every successful run by hard-exiting the whole
+        # interpreter via os._exit() (gateway/run.py::_exit_after_graceful_shutdown,
+        # #53107 — deliberate in production so a wedged non-daemon thread can't
+        # hang a service restart). Left unmocked, it kills THIS pytest process
+        # the instant run_gateway() returns success, silently truncating the
+        # rest of the test session with no failure reported. Patch it to a
+        # no-op so the test can observe run_gateway()'s side effects instead.
+        monkeypatch.setattr("gateway.run._exit_after_graceful_shutdown", lambda code: None)
+
         gateway_cli.run_gateway()
 
         assert unit_path.read_text(encoding="utf-8") == "new unit\n"

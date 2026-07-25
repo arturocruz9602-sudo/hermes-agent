@@ -4,6 +4,82 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Bloque AI — OT-2 Bloque 1: rebase de `arturo/base` sobre `upstream-main` 0.19.x (24 Jul 2026) — EN CURSO
+
+Ejecutado en worktree aislado `~/hermes-019` (rama `arturo/base`), riesgo
+cero a producción en todo momento — nunca se tocó `~/.hermes/hermes-agent`.
+Detalle conflicto-por-conflicto completo en `docs/MIGRATION_LOG.md`.
+
+**AI.1 — Rebase: 27/27 commits aplicados.** `git status` limpio, 0
+archivos con error de sintaxis en todo el árbol (`ast.parse` sobre cada
+`.py`). Conflictos resueltos a mano en `tools/approval.py` (Tarea I),
+`plugins/platforms/telegram/adapter.py` (i18n + picker), `agent/turn_context.py`
+(Bloque S, escalada de compresión), `agent/conversation_compression.py`,
+`agent/turn_finalizer.py` (Bloque AF, orden de persistencia), y
+`agent/context_compressor.py` (Bloque AH, identidad de objeto) —
+este último requirió extender la corrección más allá de las 2 regiones
+marcadas como conflicto por Git, ya que el mecanismo real de
+deduplicación en `run_agent.py` había evolucionado (de `id()` puro a un
+marcador `_DB_PERSISTED_MARKER`, fix upstream #50372) desde que Bloque AH
+se escribió originalmente — verificado con los 3 tests de contrato de
+`test_context_compressor_identity_preservation.py`, 3/3 verde.
+
+**AI.2 — Verificación con la suite completa (~47,463 tests).** Corrida
+en lotes (por directorio, y por tramos dentro de directorios grandes)
+para evitar límites de tiempo del entorno. Todos los archivos tocados en
+la fusión de conflictos: verificados limpios en aislado. Del resto:
+
+- La gran mayoría de los "fallos" en corridas masivas (`tests/gateway/`,
+  `tests/agent/`) son contaminación entre tests dentro de una sesión de
+  pytest gigante (estado/mocks compartidos que no se resetean) —
+  confirmado corriendo los mismos tests aislados o en grupos chicos:
+  pasan limpio. No son regresiones.
+- `tools/approval.py` (~46 fallos): confirmado con el guardia real de
+  producción (`check_all_command_guards`) que la seguridad sigue intacta
+  o MÁS estricta — Tarea I (19 jul) promovió varios patrones a
+  `HARDLINE_PATTERNS` (bloqueo incondicional), y estos tests de upstream
+  siguen preguntando por la lista vieja. **Pendiente de decisión de
+  Arturo:** ¿debe seguir "systemctl restart/stop de CUALQUIER servicio"
+  bloqueado de forma incondicional (como está ahora, Tarea I), o
+  relajarse como espera la suite de upstream? Hoy Hermes no puede
+  reiniciar ningún servicio del sistema bajo ninguna circunstancia, ni
+  con aprobación explícita en el momento.
+- `tests/run_agent/test_413_compression.py` /
+  `test_preflight_compression_cap_e2e.py` (~8 fallos): interacción
+  esperada entre Bloque S.1 (tope duro, intenta una pasada extra de
+  compresión agresiva) y tests de upstream escritos antes de que Bloque
+  S existiera, que asumen como máximo 1 intento de compresión. No es un
+  bug — Bloque S.1 hace exactamente lo que se diseñó para hacer.
+- **Bug real encontrado y CORREGIDO en `tests/hermes_cli/test_gateway_service.py`:**
+  `test_run_gateway_refreshes_outdated_unit_on_boot` llamaba a la función
+  real `run_gateway()`, la cual al terminar con éxito ejecuta
+  `os._exit()` sin pasar por ningún mock (diseño deliberado de
+  producción, ver `gateway/run.py::_exit_after_graceful_shutdown`, issue
+  #53107) — esto mataba el proceso ENTERO de pytest de golpe cada vez que
+  la suite grande llegaba a este test, cortando silenciosamente todo lo
+  que faltaba correr sin ningún error visible. Diagnosticado con
+  `strace` (confirmado `exit_group(0)` real). Arreglado agregando el
+  mock que faltaba (`gateway.run._exit_after_graceful_shutdown`) en el
+  test — 1 línea, sin tocar código de producción. Verificado:
+  `tests/hermes_cli/` completo (480 archivos) ya no se corta; primera
+  mitad corrida limpia (4872 passed, 45 failed — el resto son fallos de
+  build de GUI/electron sin herramientas disponibles en este entorno, y
+  la misma contaminación entre tests ya descrita arriba).
+
+**AI.3 — Hallazgo pendiente, sin arreglar:** `tools/telegram_userbot.py`
+en este worktree trae la versión antigua y bloqueante de
+`login_and_store_session()` (un solo paso) — el arreglo real (dividirlo
+en `start_login()`/`complete_login()`, hecho en sesión previa) se aplicó
+solo al checkout de producción, no al historial de `arturo/base` que se
+rebasó aquí. Falta reconciliar (cherry-pick o reaplicar) antes de
+BLOQUE 6 (corte a producción).
+
+**Pendiente para cerrar AI:** confirmar el resultado final de la segunda
+mitad de `tests/hermes_cli/` (interrumpido por una caída de la
+herramienta Bash, no relacionado con el código), decisión de Arturo
+sobre AI.2 (política de `systemctl restart`), y luego continuar con
+BLOQUE 2 de OT-2 (extracción a plugins) según el procedimiento del HAS.
+
 ## Bloque AH — bug real de compactación: mensajes duplicados en state.db + bloqueaba ofertas de Tarea E (24 Jul 2026) — CERRADO
 
 Encontrado sin buscarlo, siguiendo instrucción explícita de Arturo
