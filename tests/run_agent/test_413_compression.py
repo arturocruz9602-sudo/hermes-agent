@@ -1487,6 +1487,20 @@ class TestPreflightCompression:
         with (
             patch("agent.turn_context.estimate_request_tokens_rough", return_value=144_669),
             patch.object(agent.context_compressor, "should_compress", return_value=False),
+            # Bloque S (Hermes-only, not in upstream): the preflight loop
+            # also triggers on ESCALATION_SAFE_TRIGGER_TOKENS (30_000)
+            # regardless of should_compress, so 144_669 still enters a REAL
+            # compression pass without this mock -- which parks
+            # last_prompt_tokens=-1 via the no-provider fallback path and
+            # arms rollback_interrupted_preflight_display_tokens's own
+            # "don't clobber a real post-compaction sentinel" guard,
+            # defeating the very rollback this test verifies. No-op it like
+            # the sibling tests above do.
+            patch.object(
+                agent,
+                "_compress_context",
+                side_effect=lambda msgs, *a, **k: (msgs, agent._cached_system_prompt),
+            ),
             patch.object(agent, "_persist_session"),
             patch.object(agent, "_save_trajectory"),
             patch.object(agent, "_cleanup_task_resources"),
@@ -1529,6 +1543,15 @@ class TestPreflightCompression:
         with (
             patch("agent.turn_context.estimate_request_tokens_rough", return_value=144_669),
             patch.object(agent.context_compressor, "should_compress", return_value=False),
+            # Bloque S (Hermes-only): see identical comment in
+            # test_interrupt_before_first_provider_call_restores_preflight_display_seed
+            # -- without this, ESCALATION_SAFE_TRIGGER_TOKENS (30_000) still
+            # fires a real compression pass on 144_669 tokens.
+            patch.object(
+                agent,
+                "_compress_context",
+                side_effect=lambda msgs, *a, **k: (msgs, agent._cached_system_prompt),
+            ),
             patch.object(agent, "_execute_tool_calls", side_effect=_interrupt_after_tool),
             patch.object(agent, "_persist_session"),
             patch.object(agent, "_save_trajectory"),
