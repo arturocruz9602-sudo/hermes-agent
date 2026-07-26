@@ -894,7 +894,9 @@ def build_turn_context(
             _max_preflight_passes = max(
                 1, int(getattr(agent, "max_compression_attempts", 3) or 3)
             )
+            _preflight_passes_used = 0
             for _pass in range(_max_preflight_passes):
+                _preflight_passes_used += 1
                 _orig_len = len(messages)
                 _orig_tokens = _preflight_tokens
                 _preflight_input = messages
@@ -969,7 +971,19 @@ def build_turn_context(
             # Último recurso: recorta agresivamente el rango protegido más
             # antiguo hasta caer bajo el tope, en vez de mandar un request
             # que rompe hasta el proveedor de respaldo más grande.
-            if _preflight_tokens > ESCALATION_HARD_CAP_TOKENS:
+            #
+            # Solo vale la pena intentarlo si la ÚLTIMA pasada normal sí
+            # redujo tokens de forma material (>5%) -- si de plano no movió
+            # nada (mismo mecanismo de compresión roto/sin proveedor), bajar
+            # protect_last_n no va a arreglar lo que ya demostró no
+            # funcionar. Pero si ya bajó del threshold normal por progreso
+            # real (el caso común: el hard cap es más estricto que el
+            # threshold normal), sí se intenta, aunque el bucle principal
+            # se haya detenido por esa razón.
+            _last_pass_was_material = (
+                _orig_tokens > 0 and _preflight_tokens < _orig_tokens * 0.95
+            )
+            if _last_pass_was_material and _preflight_tokens > ESCALATION_HARD_CAP_TOKENS:
                 logger.warning(
                     "Bloque S.1: tope duro excedido tras compresión normal "
                     "(~%s tokens > %s) -- recorte agresivo adicional (protect_last_n bajado temporalmente)",
@@ -982,10 +996,20 @@ def build_turn_context(
                 # normal no lo toca. Baja protect_last_n temporalmente para
                 # que la próxima pasada sí pueda resumir esos mensajes, y
                 # restaura el valor original después pase lo que pase.
+                # Bloque S.1 shares the SAME total per-turn budget as the
+                # main preflight loop above (upstream #<unify-cap>: "unify
+                # the attempt cap across every compression site") -- it does
+                # not get its own separate 3 passes on top. Whatever the
+                # main loop didn't spend is what's left for this last-resort
+                # pass, so a steady-progress turn that already used the full
+                # cap correctly does zero extra compress() calls here.
+                _hard_passes_remaining = max(
+                    0, _max_preflight_passes - _preflight_passes_used
+                )
                 _orig_protect_last_n = _compressor.protect_last_n
                 try:
                     _compressor.protect_last_n = min(_orig_protect_last_n, 5)
-                    for _hard_pass in range(3):
+                    for _hard_pass in range(_hard_passes_remaining):
                         _orig_len = len(messages)
                         _orig_tokens = _preflight_tokens
                         messages, active_system_prompt = agent._compress_context(

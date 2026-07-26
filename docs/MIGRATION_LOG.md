@@ -133,6 +133,101 @@ rompiendo el contrato de deduplicación de `_flush_messages_to_session_db`.
   `test_compression_concurrent_fork.py`, `compress()` completamente mockeado
   en esos 2 tests, código del fence no tocado por este merge).
 
+## Bugs reales encontrados y arreglados en `agent/turn_context.py` (25-26 Jul 2026, sesión de verificación de Bloque 1)
+
+Los 8/8 fallos reproducibles reportados al cierre de la sesión de rebase
+(`tests/run_agent/test_413_compression.py` + `test_preflight_compression_cap_e2e.py`)
+SÍ eran regresiones reales, no contaminación entre tests -- confirmado
+corriendo cada archivo aislado. Causa raíz: Bloque S.1 ("tope duro
+absoluto", ya existía en producción antes del rebase) usa un bucle de
+emergencia con presupuesto propio (`range(3)`, fijo) totalmente
+independiente del bucle principal de preflight -- y ese bucle principal
+ahora sí respeta un tope configurable (`max_compression_attempts`) que
+trajo upstream con su propio commit `1c2faedd8 fix(compression): unify
+the attempt cap across every compression site`. Cuando ambos bucles
+corren en el mismo turno, se suman en vez de compartir presupuesto --
+exactamente lo contrario de lo que ese commit de upstream pretendía
+lograr.
+
+**Fix 1 (comparte presupuesto):** Bloque S.1 ahora usa
+`_max_preflight_passes - _preflight_passes_used` en vez de `range(3)` fijo
+-- nunca gasta más pasadas de las que ya tenía asignadas el turno.
+
+**Fix 2 (no reintenta lo ya demostrado inútil, pero SÍ lo que puede
+ayudar):** Bloque S.1 solo se salta si la ÚLTIMA pasada del bucle
+principal no redujo tokens de forma material (>5%) -- ej. sin proveedor
+de resumen disponible, donde reintentar con otro `protect_last_n` no va a
+arreglar un mecanismo de compresión roto. Si sí hubo reducción material
+(el caso común: ya bajó del threshold normal pero sigue arriba del tope
+duro, más estricto), Bloque S.1 SÍ se intenta -- confirmado con
+`test_hard_cap_forces_extra_trim_when_normal_pass_is_not_enough`
+(mensaje enorme dentro del rango protegido, donde bajar `protect_last_n`
+es la única forma de alcanzarlo).
+
+Intenté primero una versión más simple (saltar Bloque S.1 siempre que el
+bucle principal se detuviera por "sin progreso") y rompió ese último
+test -- revertido en cuanto until until la regresión lo confirmó, antes de
+seguir.
+
+**Verificado:** los 8 originales pasan. Regresión amplia
+(`tests/run_agent/` completo + `test_turn_context.py` +
+`test_context_compressor_identity_preservation.py`): **2350 passed, 2
+failed, 4 skipped** -- los 2 fallos restantes son un hallazgo aparte, sin
+relación (ver abajo).
+
+## Hallazgo aparte, sin arreglar (fuera de alcance de esta verificación)
+
+Dos pruebas nuevas de upstream esperan que `last_prompt_tokens` (el
+contador que usa la barra de estado) se restaure al valor anterior si el
+turno se interrumpe ANTES de la primera respuesta real del proveedor
+(`test_interrupt_before_first_provider_call_restores_preflight_display_seed`,
+`test_usage_less_provider_response_prevents_display_seed_rollback`). El
+código captura el valor viejo (`_last`) pero nunca lo usa para restaurar
+nada -- falta implementar esa lógica, y cruza 4 archivos
+(`turn_context.py`, `context_compressor.py`, `conversation_compression.py`,
+`conversation_loop.py`) con varios valores centinela (`0` vs `-1`) ya
+delicados. No es un bug de la fusión -- es cobertura nueva de upstream
+para una función que Hermes aún no tiene completa. Requiere sesión
+dedicada, no un parche a esta hora.
+
+Además, sin relación con el rebase (ya fallaban igual ANTES de mis
+cambios, confirmado con `git stash`):
+`tests/agent/test_turn_context_overflow_warning.py::test_warns_on_ineffective_block`
+y `::test_warning_kind_switch_refires`.
+
+## tests/hermes_cli/ completo (9,575 tests, 26 Jul 2026) — sin truncar, verificado
+
+Con el fix del `os._exit()` puesto, corrí el directorio completo dividido
+en 32 fragmentos de 300 (con `timeout 120` cada uno, para detectar
+cuelgues automáticamente en vez de adivinar posición). Resultado real:
+
+- **~8,627 passed, 19 failed, 30 skipped** en los 29 fragmentos que
+  completaron normalmente.
+- **3 fragmentos con cuelgue real** (no relacionado con mi trabajo de
+  compresión, confirmado aislando cada uno por bisección):
+  1. `tests/hermes_cli/test_doctor.py::TestDoctorStaleMaxIterationsDrift::test_detects_drift_warn_only`
+     y `::test_fix_removes_ghost` — se cuelgan incluso solos, en
+     `poll_schedule_timeout` con 2 sockets + un eventpoll abiertos
+     (`get_hermes_home()` sí resuelve bien el `HERMES_HOME` de prueba
+     vía monkeypatch -- descartado que toquen el `.env` real -- el
+     cuelgue parece venir de un fixture compartido de `hermes_test` que
+     abre recursos de red, no de la lógica del test en sí).
+  2. Un segundo cuelgue en el área de `test_model_switch_*.py`
+     (custom providers/copilot), no aislado al test exacto.
+  3. Un tercer cuelgue cerca del ~83% de la corrida original de una sola
+     pasada (antes de dividir en fragmentos), tampoco aislado al test
+     exacto.
+- Los 19 fallos reales (no cuelgues) están dispersos en áreas sin
+  relación entre sí (OAuth de dashboard, normalización de proveedores
+  custom, CLI de suscripción) -- no se investigaron a fondo, fuera de
+  alcance de esta verificación.
+
+**Conclusión:** el fix del `os._exit()` cumplió su propósito (ya no se
+trunca la corrida completa sin aviso). Los 3 cuelgues restantes son
+fallas de entorno (recursos de red/servicios reales en esta máquina),
+consistentes con el mismo patrón ya documentado arriba -- no indican
+ninguna regresión del rebase ni de los fixes de Bloque S.1.
+
 ## Hallazgo pendiente (no arreglado en este bloque)
 
 `tools/telegram_userbot.py` en este worktree trae la versión ANTIGUA y
