@@ -802,6 +802,27 @@ def _live_system_guard(request, monkeypatch):
                 "needed (e.g. an integration test testing the update "
                 "flow against a dedicated throwaway repo)."
             )
+        # Block `npm audit` (hermes_cli/doctor.py's dependency-vulnerability
+        # check). It shells out for real against PROJECT_ROOT -- not any
+        # tmp_path HERMES_HOME -- so it fires in tests unchanged, and
+        # `npm audit` needs the real npm registry over the network. In this
+        # sandbox that network path hangs indefinitely inside
+        # subprocess.communicate() well past the 30s timeout doctor.py sets
+        # (confirmed with faulthandler.dump_traceback_later(), 26 Jul 2026:
+        # test_doctor.py::TestDoctorStaleMaxIterationsDrift hung in exactly
+        # this call). Same class of problem as the AWS IMDS timeout this
+        # fixture already silences above -- fail fast with a clear message
+        # instead of hanging the whole run.
+        if "npm" in low and "audit" in low.split():
+            raise RuntimeError(
+                f"tests/conftest.py live-system guard: blocked "
+                f"subprocess.{name}({cmd!r}) — `npm audit` hits the real "
+                "npm registry over the network, which hangs in this "
+                "sandbox well past its own 30s timeout. Mock "
+                "subprocess.run for doctor.py's npm-audit section in the "
+                "test instead (patch.object(doctor_mod.subprocess, "
+                "\"run\", ...) or similar)."
+            )
 
     def _wrap_subprocess(name, real):
         def _guarded(cmd, *args, **kwargs):
@@ -909,5 +930,55 @@ def _live_system_guard(request, monkeypatch):
         )
     except Exception:
         pass
+
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _no_real_network(request, monkeypatch):
+    """Block real outbound network connections during tests.
+
+    Found the hard way (26 Jul 2026, faulthandler.dump_traceback_later()):
+    several tests reach unmocked code that opens a REAL connection to an
+    external host (GitHub's model catalog API, npm's registry indirectly
+    via subprocess -- see the npm-audit guard above) and hang inside
+    socket.getaddrinfo()/communicate() well past any timeout the app code
+    sets, because this sandbox has no outbound internet. A hang gives no
+    indication of which test or which call is at fault; this turns the
+    exact same missing-mock bug into an immediate, readable failure
+    instead, at the lowest common primitive every Python HTTP stack
+    (urllib, http.client, requests) funnels through.
+
+    Loopback (127.0.0.1 / ::1 / localhost) is exempted so tests using a
+    real local test server keep working. Opt out with
+    ``@pytest.mark.live_system_guard_bypass`` for a test that
+    legitimately needs real network (e.g. a manually-run integration
+    test against a live API).
+    """
+    if request.node.get_closest_marker(_LIVE_SYSTEM_GUARD_BYPASS_MARK):
+        yield
+        return
+
+    import socket as _socket
+
+    _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+    real_create_connection = _socket.create_connection
+
+    def _guarded_create_connection(address, *args, **kwargs):
+        host = address[0] if isinstance(address, tuple) else address
+        if host not in _LOOPBACK_HOSTS:
+            raise RuntimeError(
+                f"tests/conftest.py live-system guard: blocked a real "
+                f"network connection to {host!r}. This sandbox has no "
+                "outbound internet -- an unmocked call here would hang "
+                "instead of failing fast. Mock the function making this "
+                "call (e.g. fetch_github_model_catalog, requests/urllib "
+                "call sites) in the test, or mark with "
+                "@pytest.mark.live_system_guard_bypass if this test "
+                "genuinely needs real network."
+            )
+        return real_create_connection(address, *args, **kwargs)
+
+    monkeypatch.setattr(_socket, "create_connection", _guarded_create_connection)
 
     yield

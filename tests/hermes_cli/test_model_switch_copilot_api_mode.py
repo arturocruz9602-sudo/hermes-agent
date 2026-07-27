@@ -29,6 +29,16 @@ def _run_copilot_switch(
 ):
     """Run switch_model with Copilot mocks and return the result."""
     with (
+        # Without this, copilot_model_api_mode() -> fetch_github_model_catalog()
+        # makes a REAL network call to GitHub's model catalog, which hangs in
+        # sandboxes without outbound internet (confirmed with
+        # faulthandler.dump_traceback_later(), 26 Jul 2026 -- stuck in
+        # socket.getaddrinfo()). Safe to stub to empty: the non-GPT-5 model
+        # in these tests routes to "chat_completions" regardless of catalog
+        # content (see copilot_model_api_mode()'s fallback comment), and the
+        # GPT-5 model is matched by ID pattern before the catalog is
+        # consulted for anything relevant here.
+        patch("hermes_cli.models.fetch_github_model_catalog", return_value=[]),
         patch("hermes_cli.model_switch.resolve_alias", return_value=None),
         patch("hermes_cli.model_switch.list_provider_models", return_value=[]),
         patch(
