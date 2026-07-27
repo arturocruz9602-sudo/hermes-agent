@@ -206,16 +206,28 @@ al montar (`recovery complete`), sin errores nuevos desde entonces.
 fallando vs. cable/puerto USB -- se le pidió explícitamente porque el
 comando requiere `sudo` interactivo.
 
-**Hallazgo real, no bloqueante, del propio cierre del servicio:** al
-pedirle a Arturo que corriera `systemctl --user stop hermes-gateway`
-(bloqueado el intento automático por el hook, correctamente), el
-proceso NO cerró limpio -- `journalctl --user -u hermes-gateway`
-muestra `SIGTERM` recibido a las 11:44:48, 8 segundos de shutdown, y
-`Main process exited, code=exited, status=1/FAILURE` en vez de exit 0.
-Bug real en el manejador de cierre (`gateway.run`, contexto de
-shutdown), pendiente de diagnóstico dedicado, sin relación aparente con
-el corte mismo (mismo síntoma existía ya en el código previo al
-rebase).
+**Corrección (27 Jul 2026, tarde) -- lo de abajo NO era un bug, era
+diseño intencional mal diagnosticado en el momento.** Al pedirle a
+Arturo que corriera `systemctl --user stop hermes-gateway` (bloqueado
+el intento automático por el hook, correctamente), el proceso salió con
+`status=1/FAILURE` en vez de 0 -- en su momento se documentó como "bug
+real sin investigar". Investigado a fondo: es **exactamente el
+comportamiento diseñado**. `gateway/run.py:24822-24898`
+(`shutdown_signal_handler`) distingue una parada PLANEADA (marcador
+escrito por el comando `hermes gateway stop` antes de mandar la señal,
+o un `SIGINT` de Ctrl+C) de una señal "inesperada" (cualquier otra
+fuente, incluido `systemctl stop` directo sin pasar por ese comando).
+Sin el marcador, el proceso se clasifica a sí mismo como "apagón
+inesperado" y sale con código 1 A PROPÓSITO -- combinado con
+`Restart=always` (confirmado en el `.service`), esto hace que
+`systemd` lo reviva solo ante un kill real (OOM, contenedor, `kill -9`
+externo, etc.). `systemctl stop` nunca puede escribir ese marcador (es
+un mecanismo interno de Hermes, no algo que `systemd` conozca), así
+que CUALQUIER `systemctl stop`/`restart` directo -- incluida la propia
+excepción pre-aprobada de `CLAUDE.md` -- sale con 1 por diseño, nunca
+con 0. No hay nada que arreglar aquí. Original (incorrecto, dejado
+para que quede el rastro del error real): "bug real en el manejador de
+cierre, pendiente de diagnóstico dedicado".
 
 **Pasos ejecutados, en orden, con evidencia real:**
 1. `git tag pre-bloque6-cutover-20260727` sobre `7e33bae1c` (rollback:

@@ -121,9 +121,12 @@ Los rescaté antes de que se perdieran.
    ```
    sudo smartctl -a /dev/sda
    ```
-2. **Al apagar el Hermes viejo para hacer el cambio, no cerró limpio**
-   (tardó 8 segundos y salió con error en vez de cerrar bien). No
-   afectó el corte, pero es un bug real que hay que revisar aparte.
+2. ~~Al apagar el Hermes viejo para hacer el cambio, no cerró
+   limpio~~ -- **investigado después: no era un bug.** Es a propósito:
+   cuando se para con el comando directo del sistema (en vez del
+   comando propio de Hermes), el programa se comporta como si alguien
+   lo hubiera matado sin avisar, para que se vuelva a prender solo.
+   Nada que arreglar.
 
 **Cómo lo verifiqué:** respaldo completo del Hermes viejo guardado en
 el disco Seagate (700 MB, revisado que no esté corrupto) antes de

@@ -103,10 +103,14 @@ verificado con `diff` = 0 contra el `main` anterior.
    cable/puerto USB.
 3. `hermes-gateway` parado por Arturo mismo (el hook bloqueó
    correctamente el intento automático de `stop`, como debe ser).
-   **Hallazgo real, no bloqueante:** el cierre no fue limpio
-   (`SIGTERM` recibido, 8s de shutdown, `exit code 1` en vez de 0) --
-   bug real en el manejador de cierre, pendiente de diagnóstico
-   aparte.
+   Cierre con `exit code 1` en vez de 0 -- **investigado a fondo
+   después (ver Bloque 6/OT-QA en `BLOQUES.md`), NO es un bug**: es
+   diseño intencional (`gateway/run.py`, `shutdown_signal_handler`) --
+   `systemctl stop` directo no puede escribir el marcador de "parada
+   planeada" que solo pone `hermes gateway stop`, así que el proceso se
+   trata a sí mismo como apagón inesperado y sale con 1 a propósito,
+   para que `Restart=always` lo reviva solo ante un kill real. Corrige
+   el hallazgo original de esta misma sesión.
 4. Respaldo real, 700M, en
    `/mnt/seagate/backups/hermes_pre_upgrade_20260727.tar.gz` (excluye
    `venv`/`node_modules`, reproducibles) -- verificado íntegro con
