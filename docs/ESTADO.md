@@ -47,16 +47,21 @@ leyendo `gateway/run.py`/`slash_commands.py`) pero requiere confirmación
 explícita sí/no (`approvals.destructive_slash_confirm`) -- no es
 instantáneo como parecía en una prueba inicial. No es un bug.
 
-## OT-QA -- EN ESPERA de respuesta de Telegram (27 Jul 2026, tarde)
+## OT-QA -- LOGIN REAL COMPLETADO, CERRADO (27 Jul 2026, tarde)
 
-2 hipótesis reales probadas y descartadas hoy (IP residencial vs. móvil
--- probado en vivo con el hotspot del teléfono, mismo error; recrear la
-app -- no es técnicamente posible, api_id/api_hash son permanentes).
-Causa más probable, según la documentación OFICIAL de Telegram: cuentas
-nuevas quedan bajo restricción automática anti-abuso, se resuelve
-escribiendo a `recover@telegram.org`. Correo redactado y enviado por
-Arturo mismo. **En espera de respuesta real, puede tardar días.**
-Detalle completo en `docs/BLOQUES.md`.
+En vez de esperar la respuesta de `recover@telegram.org` (enviada,
+sigue sin contestar), se resolvió con un `api_id`/`api_hash` nuevo
+sacado de la cuenta PERSONAL ya establecida de Arturo (no la QA) --
+confirma que el bloqueo era de la app/cuenta nueva bajo vigilancia
+anti-abuso, no de la IP. En el camino se encontró y arregló un segundo
+bug real en `tools/telegram_userbot.py` (dos clientes de Telethon
+distintos para pedir y confirmar el código -- causaba
+`PhoneCodeExpiredError` real, 4 intentos fallidos, causa raíz
+confirmada contra un issue real de Telethon). **Login verificado en
+vivo con evidencia real**: sesión guardada en la bóveda, reconexión
+real exitosa, `get_me()` confirma la identidad QA
+(`id=8727618189, Hermes QA`). La cuenta QA ya puede usarse para
+pruebas E2E reales por Telegram. Detalle completo en `docs/BLOQUES.md`.
 
 ## Bloque O.6 -- CERRADO (27 Jul 2026), el hallazgo CRÍTICO desde el 22 Jul
 

@@ -55,6 +55,36 @@ inmediato -- sería señal de que el arreglo no cubrió todos los casos.
 
 ---
 
+## 27 Jul 2026 (tarde, continuación 2) — La cuenta de pruebas de Telegram ya quedó conectada de verdad
+
+**Qué era esto:** llevábamos días atorados con la cuenta de Telegram
+separada para hacer pruebas (la que no es la suya, para no mezclar
+pruebas con sus conversaciones reales). Telegram rechazaba el login una
+y otra vez.
+
+**Lo que de verdad lo resolvió:** su idea de sacar una llave de API
+desde su cuenta personal (la de años) en vez de seguir peleando con la
+cuenta nueva -- funcionó a la primera. Confirma que el problema real
+era que Telegram pone bajo vigilancia automática a las apps/cuentas
+nuevas por default (no algo que hiciéramos mal).
+
+**Un bug real más en el camino, ya arreglado:** el código intentaba
+confirmar el código de verificación abriendo una conexión nueva en vez
+de seguir usando la misma -- eso hacía que Telegram rechazara el código
+aunque estuviera recién llegado. Ya no debería volver a pasar si algún
+día hay que loguear esa cuenta de nuevo.
+
+**Verificado de verdad, no solo "ya quedó":** me reconecté con la
+sesión guardada y le pregunté a Telegram quién es -- contestó "Hermes
+QA", el número correcto, la cuenta correcta.
+
+**Qué cambia para usted:** ahora si se quiere probar algo con Hermes
+por Telegram de verdad (no solo pruebas internas mías), ya hay una
+cuenta separada lista para eso, sin arriesgar mezclar nada con su
+cuenta real.
+
+---
+
 ## 27 Jul 2026 (tarde, continuación) — Cerré el bug más grave y viejo: Hermes ya NO inventa cuando le pide revisar un error
 
 **Qué era esto:** desde el 22 de julio había un hallazgo marcado como el

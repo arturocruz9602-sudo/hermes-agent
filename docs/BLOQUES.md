@@ -255,6 +255,61 @@ cierre, pendiente de diagnóstico dedicado".
 (paso 6 del procedimiento de `hermes-upgrade`) antes de declarar
 Bloque 6 -- y con él, HAS Fase 2 completa -- cerrado.
 
+## OT-QA — LOGIN REAL COMPLETADO (27 Jul 2026, tarde) — CERRADO
+
+Continuación directa de la sección de abajo. En vez de esperar la
+respuesta de `recover@telegram.org` (enviada, sigue sin contestar),
+Arturo sacó un `api_id`/`api_hash` NUEVO desde su cuenta PERSONAL ya
+establecida (no la QA) en my.telegram.org -- basado en la documentación
+real de Telethon citada ahí mismo: *"This API ID and hash is the one
+used by your application, not your phone number. You can use this API
+ID and hash with any phone number."* `SendCodeRequest` con esas
+credenciales nuevas SÍ pasó a la primera -- confirma que el bloqueo
+real siempre fue de la app/cuenta nueva (vigilancia automática
+anti-abuso), no de la IP ni del número QA en sí.
+
+**Segundo bug real encontrado en el camino, root-caused y arreglado:**
+4 intentos seguidos de completar el login fallaron con
+`PhoneCodeExpiredError`, cada vez con un código recién enviado --
+descartado clima de reloj (`timedatectl`: sincronizado), descartada la
+contraseña de la bóveda (verificado leyendo el código: `sign_in()`
+ocurre ANTES de que se toque la contraseña de la bóveda, es
+estructuralmente imposible que sea la causa). Búsqueda real en GitHub
+confirmó la causa: `tools/telegram_userbot.py` original desconectaba
+después de `start_login()` y abría un `TelegramClient` COMPLETAMENTE
+NUEVO en `complete_login()` -- dos sesiones distintas. Coincide exacto
+con [Telethon issue #799](https://github.com/LonamiWebs/Telethon/issues/799)
+("confirmation code has expired when using two different clients"):
+firmar con un cliente distinto al que pidió el código invalida el
+código aunque no haya pasado el tiempo real de expiración.
+
+**Fix aplicado (`tools/telegram_userbot.py`):** `start_login()` ya NO
+desconecta -- guarda el cliente conectado en `_pending_login_client`
+(module-level). `complete_login()` reutiliza ESE mismo cliente/conexión
+en vez de crear uno nuevo, con fallback a una conexión fresca solo si
+de plano no hay cliente pendiente (otro proceso). La forma de dos
+llamadas se mantiene (sigue sin bloquear con `input()` en llamadas de
+herramienta automatizadas), solo se dejó de recrear la conexión.
+Regresión: 4/4 tests existentes de `tests/tools/test_telegram_userbot.py`
+siguen en verde.
+
+**Login real completado y verificado en vivo, con evidencia real (no
+solo el mensaje de éxito del script):**
+1. Corrido con un script de rescate (una sola conexión de principio a
+   fin, código pedido por Arturo por SSH/chat, pasado por archivo en
+   vez de por `input()` para no bloquear la sesión de la herramienta).
+2. Vault verificado con `vault_list_services`: entrada real
+   `TELEGRAM_USERBOT_SESSION`, guardada 2026-07-27 17:12:24.
+3. **Reconexión real con la sesión guardada, `get_me()` real**:
+   `id=8727618189, first_name='Hermes QA', phone='525656372738'` --
+   coincide exacto con `QA_USER_ID` de `tools/qa_identity.py`.
+
+**Con esto, OT-QA queda desbloqueado de verdad:** la cuenta QA ya puede
+usarse para pruebas E2E reales por Telegram (no solo el arnés interno).
+Pendiente real, menor: si algún día se necesita volver a loguear (sesión
+revocada, expirada, etc.), usar el flujo ya corregido -- ya no debería
+repetirse el bug de los 4 intentos.
+
 ## OT-QA — continuación (27 Jul 2026, tarde) — esperando respuesta real de Telegram
 
 Retomado con Arturo presente. Se probaron 2 hipótesis reales, ambas

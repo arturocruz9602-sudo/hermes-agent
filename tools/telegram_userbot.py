@@ -21,9 +21,12 @@ my.telegram.org (one-time, see docs/HAS.md OT-QA step (d)). Login is a
 TWO-STEP process on purpose (``start_login`` / ``complete_login``)
 instead of Telethon's blocking ``client.start()`` -- that call does a
 synchronous ``input()`` for the verification code, which has no
-terminal to read from when driven from an automated tool call. Each
-step is its own process-safe call (only ``phone_code_hash`` needs to
-survive between them, not a live connection):
+terminal to read from when driven from an automated tool call. The
+two calls share the SAME underlying connection (module-level
+``_pending_login_client``) when run in the same process -- an earlier
+version reconnected fresh in ``complete_login()`` and that broke real
+logins with ``PhoneCodeExpiredError`` (see the comment above
+``_pending_login_client`` for the real incident):
 
     from tools.telegram_userbot import start_login, complete_login
     phone_code_hash = await start_login(api_id, api_hash, phone_number)
@@ -110,14 +113,38 @@ class TwoFactorPasswordNeeded(RuntimeError):
     clear error beats silently prompting for one more credential."""
 
 
+#  Real incident (27 Jul 2026, OT-QA live login): the original version of
+#  this module disconnected after ``start_login()`` and opened a brand
+#  new ``TelegramClient(StringSession(), ...)`` in ``complete_login()``
+#  -- two independent sessions, on the theory that only
+#  ``phone_code_hash`` needed to survive between them (Telethon's own
+#  docs read that way). That theory is wrong in practice: signing in
+#  from a DIFFERENT client than the one that requested the code makes
+#  Telegram reject it with ``PhoneCodeExpiredError`` even seconds after
+#  a fresh code was sent -- confirmed against real codes, 4 failed
+#  attempts in a row, root-caused via Telethon issue #799 ("the
+#  confirmation code has expired when using two different clients").
+#  Fix: keep the SAME connected client alive (module-level) between the
+#  two calls instead of reconnecting. The two-call shape is kept
+#  (``start_login`` still returns immediately, no blocking ``input()``)
+#  so an agent can still drive this across two separate tool calls --
+#  only the underlying connection is now shared, not recreated.
+_pending_login_client: Optional["TelegramClient"] = None
+
+
 async def start_login(api_id: int, api_hash: str, phone_number: str) -> str:
     """Step 1 of 2 for the one-time QA account login (see module
-    docstring). Connects just long enough to request a real login code
-    -- Telegram sends it to the QA account for real at this point.
-    Returns ``phone_code_hash``: pass it to ``complete_login()`` along
-    with the code Arturo relays. Disconnects immediately after; the
-    live connection does not need to survive until step 2, only this
-    hash does (Telethon's ``sign_in`` accepts it standalone).
+    docstring). Connects and requests a real login code -- Telegram
+    sends it to the QA account for real at this point. Returns
+    ``phone_code_hash``: pass it to ``complete_login()`` along with the
+    code Arturo relays.
+
+    The connection is kept OPEN (module-level ``_pending_login_client``)
+    until ``complete_login()`` runs, in the SAME process -- see the
+    real-incident comment above for why a fresh reconnect in step 2
+    breaks sign-in. If ``complete_login()`` ends up running in a
+    different process, it falls back to a fresh client (same risk as
+    before the fix, but only as a last resort).
 
     MUST NOT be called until L13 is confirmed closed -- see the module
     docstring. Deliberately not gated in code (the vault itself refuses
@@ -125,14 +152,17 @@ async def start_login(api_id: int, api_hash: str, phone_number: str) -> str:
     the fix) -- the gate is procedural: don't call this until L13's fix
     is verified live, same standard as everything else in this project.
     """
+    global _pending_login_client
     _require_telethon()
     client = TelegramClient(StringSession(), api_id, api_hash)
     await client.connect()
     try:
         sent = await client.send_code_request(phone_number)
-        return sent.phone_code_hash
-    finally:
+    except Exception:
         await client.disconnect()
+        raise
+    _pending_login_client = client
+    return sent.phone_code_hash
 
 
 async def complete_login(
@@ -143,12 +173,22 @@ async def complete_login(
     login, and writes the resulting session string to the vault via
     ``vault_save`` -- the SAME real save path every other credential
     uses, so this benefits from whatever L13 fix landed (it is not a
-    parallel, unaudited storage mechanism)."""
+    parallel, unaudited storage mechanism).
+
+    Reuses the still-open client from ``start_login()`` when this runs
+    in the same process (the normal case) -- see the real-incident
+    comment above ``_pending_login_client`` for why a fresh client here
+    breaks sign-in. Falls back to a new connection only if no pending
+    client is found (e.g. a different process ran ``start_login()``)."""
+    global _pending_login_client
     _require_telethon()
     from telethon.errors import SessionPasswordNeededError
 
-    client = TelegramClient(StringSession(), api_id, api_hash)
-    await client.connect()
+    client = _pending_login_client
+    _pending_login_client = None
+    if client is None:
+        client = TelegramClient(StringSession(), api_id, api_hash)
+        await client.connect()
     try:
         try:
             await client.sign_in(
