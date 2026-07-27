@@ -252,13 +252,19 @@ ptrace, que está bloqueado en este sandbox):
    más del mismo problema (llamadas de red reales no mockeadas),
    cubierto por el candado nuevo de abajo.
 
-**Candado sistémico agregado** (`tests/conftest.py::_no_real_network`,
-autouse): bloquea CUALQUIER conexión real no-loopback a nivel de
-`socket.create_connection` -- convierte cualquier otro cuelgue de red
-no mockeado (presente o futuro) en un fallo inmediato y legible en vez
-de un cuelgue silencioso indefinido. Loopback exento para tests con
-servidor local real; `@pytest.mark.live_system_guard_bypass` para los
-que de verdad necesiten red real.
+**Candado sistémico agregado, corregido después de un primer intento
+mal acotado** (`tests/hermes_cli/conftest.py::_no_real_network`,
+autouse -- SOLO esa carpeta, no repo-wide): bloquea CUALQUIER conexión
+real no-loopback en 3 puntos (`socket.create_connection`,
+`socket.getaddrinfo`, `socket.socket.connect`) -- necesarios los 3
+porque `requests`/`urllib3` no usa `create_connection`, arma el socket
+a mano y solo pasa por `getaddrinfo`+`connect`. Primer intento lo puse
+en `tests/conftest.py` (repo-wide) y sacó a la luz ~5 fallos nuevos en
+`tests/tools/` fuera de esta investigación -- movido a
+`tests/hermes_cli/conftest.py`, único lugar donde los cuelgues reales
+estaban confirmados. Loopback exento para tests con servidor local
+real; `@pytest.mark.live_system_guard_bypass` para los que de verdad
+necesiten red real.
 
 **Bonus encontrado en el camino:** el fixture `agent_env` de
 `tests/agent/test_empty_tool_name_loop_dampening.py` dejaba un
@@ -271,7 +277,7 @@ borrar el directorio.
 
 **Resultado final, verificado, sin ningún cuelgue:**
 `tests/hermes_cli/` completo, 32 fragmentos de 300 con `timeout 120`
-cada uno: **9,526 passed, 19 failed, 31 skipped, 0 timeouts** sobre
+cada uno: **9,525 passed, 20 failed, 31 skipped, 0 timeouts (el 20o confirmado como contaminacion normal, pasa limpio aislado)** sobre
 9,576 tests totales. Los 19 fallos siguen dispersos en áreas sin
 relación (OAuth de dashboard, normalización de proveedores custom, CLI
 de suscripción) -- no investigados, fuera de alcance de esta
