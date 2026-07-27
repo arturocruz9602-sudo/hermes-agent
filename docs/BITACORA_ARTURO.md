@@ -55,6 +55,34 @@ inmediato -- sería señal de que el arreglo no cubrió todos los casos.
 
 ---
 
+## 27 Jul 2026 (tarde, continuación 3) — Fase 2 del plan queda cerrada de verdad, ya vamos a la Fase 3
+
+**Qué era esto:** el plan grande de Hermes tiene 12 fases. Íbamos por la
+Fase 2 (dejar la actualización del programa base como un procedimiento
+repetible, no una cirugía cada vez) desde hace días, y faltaba probar
+una última cosa: simular la SIGUIENTE actualización futura y confirmar
+que el procedimiento ya escrito la resuelve solo, sin que yo tenga que
+improvisar.
+
+**Lo hice hoy, completo:** tomé 47 cambios nuevos reales que ya subió el
+equipo que mantiene el programa base, y los apliqué encima de lo suyo
+-- en una copia aparte, sin tocar su Hermes real en ningún momento.
+Salió un solo choque real (un botón de aprobación que ellos rediseñaron
+Y que nosotros ya habíamos traducido al español) -- lo resolví
+combinando los dos arreglos, no descartando ninguno. Verificado con
+las pruebas automáticas: todo en verde.
+
+**Qué significa para usted:** el plan de 12 fases ya tiene las
+primeras 4 cerradas de verdad (caja fuerte, emergencia de credenciales,
+fugas urgentes, blindaje/actualización). Sigue la Fase 3: poner en
+orden las 136 "skills" (las herramientas que Hermes puede usar) --
+borrar las rotas, arreglar duplicados, etc. Estimado 2 semanas de
+trabajo. Falta bastante del plan completo (~25 semanas más, sin contar
+lo que depende de que compre la Mac Mini), pero ya no vamos empezando
+desde cero -- la base ya quedó sólida.
+
+---
+
 ## 27 Jul 2026 (tarde, continuación 2) — La cuenta de pruebas de Telegram ya quedó conectada de verdad
 
 **Qué era esto:** llevábamos días atorados con la cuenta de Telegram

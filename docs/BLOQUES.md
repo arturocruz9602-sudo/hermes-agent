@@ -255,6 +255,59 @@ cierre, pendiente de diagnóstico dedicado".
 (paso 6 del procedimiento de `hermes-upgrade`) antes de declarar
 Bloque 6 -- y con él, HAS Fase 2 completa -- cerrado.
 
+## HAS Fase 2 — cierre real de la verificación E2E (27 Jul 2026, tarde) — CERRADA
+
+Pedido explícito de Arturo: "Termina de cerrar la fase dos y de ahí ya
+nos vamos a la 3". El criterio de verificación de Fase 2
+(`docs/HAS.md`) pide simular una actualización FUTURA y que el
+procedimiento la resuelva "sin intervención creativa" -- el ensayo del
+Bloque 5 (mismo día) midió el dolor pero abortó a propósito en el
+primer conflicto real, sin completarlo. Esta sesión cerró esa vuelta
+pendiente de verdad.
+
+**Ejecución:** worktree `~/hermes-019`, rama desechable nueva
+`fase2-cierre-rebase` (creada sobre `arturo/base`, que ya estaba en
+producción desde el corte de Bloque 6 -- nunca se volvió a tocar
+producción). `git fetch origin main`: 761 commits nuevos desde el corte
+de hoy, 47 aplicables por delante de `arturo/base`.
+
+**El único conflicto real, resuelto siguiendo el procedimiento (no
+"tomando lo que parecía más nuevo"):** commit 8/47, mismo archivo punto
+caliente de siempre, `plugins/platforms/telegram/adapter.py`, contra el
+propio commit `b64e6b9ac` (i18n español de los botones de aprobación).
+Upstream reorganizaba el layout (2x2 en vez de fila única, arregla
+truncamiento en móvil); el commit propio traducía las etiquetas al
+español. **No competían** -- se combinaron los dos: layout de upstream
++ texto en español, ningún arreglo se perdió. Efecto real en pruebas:
+`tests/gateway/test_telegram_approval_buttons.py` tenía 5 aserciones
+con las etiquetas viejas en inglés de upstream -- actualizadas a las
+etiquetas reales en español (mismo criterio que el propio commit de
+i18n ya establecía). Detalle completo, con el análisis de qué hacía
+cada lado, en `~/hermes-019/docs/MIGRATION_LOG.md`.
+
+**Resultado:** 47/47 commits aplicados, un solo conflicto real, 0
+errores de sintaxis en todo el árbol, 29/29 smoke tests, 26/26 de la
+prueba afectada tras el ajuste. Riesgo a producción: CERO -- rama
+desechable, nunca se tocó `arturo/base` ni `~/.hermes/hermes-agent`.
+Adoptar estos 47 commits a producción queda como decisión FUTURA
+separada (no requerida para cerrar la verificación -- el criterio es
+que el PROCEDIMIENTO funcione de punta a punta, no mantenerse siempre
+al día).
+
+**Con esto, HAS Fase 2 (Blindaje y actualización) queda CERRADA por
+completo** -- los 5 entregables de `docs/HAS.md` (migración por
+archivo, venv paralelo + rebase, 10 smoke tests, skill
+`hermes-upgrade`, producción cambiada con rollback listo) y los 2
+criterios de verificación E2E (smoke tests en el venv nuevo; una
+actualización futura simulada resuelta sin intervención creativa)
+confirmados con evidencia real. Actualizado también el punto caliente
+de la skill `hermes-upgrade` con el patrón real encontrado (3er rebase
+con conflicto en el mismo archivo, ahora con la resolución ya
+documentada para la próxima vez).
+
+**Con Fase 2 cerrada, sigue Fase 3 — Ciclo de vida de skills** (136
+skills, ~2 semanas estimadas), por pedido explícito de Arturo.
+
 ## OT-QA — LOGIN REAL COMPLETADO (27 Jul 2026, tarde) — CERRADO
 
 Continuación directa de la sección de abajo. En vez de esperar la

@@ -47,6 +47,29 @@ leyendo `gateway/run.py`/`slash_commands.py`) pero requiere confirmación
 explícita sí/no (`approvals.destructive_slash_confirm`) -- no es
 instantáneo como parecía en una prueba inicial. No es un bug.
 
+## HAS Fase 2 -- CERRADA DE VERDAD (27 Jul 2026, tarde)
+
+El único criterio de verificación E2E que faltaba ("simular una
+actualización futura y que el procedimiento la resuelva sin
+intervención creativa") se cerró hoy mismo: rebase real completo sobre
+761 commits nuevos de upstream (47 aplicables), en rama desechable
+(`fase2-cierre-rebase`, nunca tocó `arturo/base` ni producción), un
+solo conflicto real resuelto combinando ambos lados (no descartando
+ninguno), 29/29 smoke + 26/26 de la prueba afectada en verde. Detalle
+conflicto-por-conflicto en `~/hermes-019/docs/MIGRATION_LOG.md`,
+sección "Bloque 6.1". Punto caliente de la skill `hermes-upgrade`
+actualizado con el patrón real encontrado (van 3 rebases con conflicto
+en el mismo archivo, `plugins/platforms/telegram/adapter.py`).
+
+**Con esto, las Fases 0, 0.5, 1 y 2 del HAS quedan cerradas.** Fase 1
+seguía marcada "parcial" en `docs/HAS.md` pese a estar cerrada desde
+Bloque AH.5 -- corregir esa página queda pendiente (documento vive en
+`~/hermes-019`, no en este repo). **Sigue: Fase 3 -- Ciclo de vida de
+skills** (136 skills: borrar basura, resolver duplicados, arreglar
+contador de uso, meterle metadata). Estimado 2 semanas. Roadmap
+completo restante (Fases 3-11, sin la parte de voz que depende de
+comprar la Mac Mini): ~25 semanas estimadas en `docs/HAS.md`.
+
 ## OT-QA -- LOGIN REAL COMPLETADO, CERRADO (27 Jul 2026, tarde)
 
 En vez de esperar la respuesta de `recover@telegram.org` (enviada,

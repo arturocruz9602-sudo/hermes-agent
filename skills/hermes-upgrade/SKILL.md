@@ -60,11 +60,19 @@ del 26 jul): que commit, que archivos, que se eligio y por que. **Nunca
 "tome lo que parecia mas nuevo"** — para cada conflicto hay que entender
 QUE hace cada lado antes de decidir.
 
-### Archivos "punto caliente" conocidos (based on 2 rebases reales)
+### Archivos "punto caliente" conocidos (based on 3 rebases reales)
 
-- `plugins/platforms/telegram/adapter.py` — conflicto en AMBOS rebases
+- `plugins/platforms/telegram/adapter.py` — conflicto en LOS 3 rebases
   reales hechos hasta ahora. Upstream lo toca seguido (UI del picker,
-  botones). Revisar con calma cada vez.
+  botones). Revisar con calma cada vez. **Patrón real ya visto (27
+  jul): upstream reorganiza el layout de botones (2x2 vs fila única) Y
+  nuestro propio commit de i18n traduce las etiquetas al español --
+  NO compiten, se combinan los dos (layout de upstream + texto en
+  español), nunca hay que descartar uno. Si esto vuelve a pasar, la
+  prueba `tests/gateway/test_telegram_approval_buttons.py` casi
+  seguro necesita que le actualices las etiquetas hardcodeadas en
+  inglés a español -- no es una regresión real, es la prueba de
+  upstream sin traducir.**
 - `agent/turn_context.py`, `agent/turn_finalizer.py` — aqui viven Bloque S
   (compresion/escalada) y Bloque AF (persistencia). Upstream tiene su
   propio sistema de compresion/reintentos que puede chocar con supuestos
