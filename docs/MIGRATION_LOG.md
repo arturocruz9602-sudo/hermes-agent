@@ -291,6 +291,30 @@ aislados + con `git stash` contra el código sin tocar); solo 4
 preexistentes y sin relación (2 en `test_turn_context_overflow_warning.py`,
 2 en `test_credential_pool_routing.py`).
 
+## Bloque 5 (HAS Fase 2) — Ensayo de actualización futura (27 Jul 2026)
+
+`git fetch origin main`: **678 commits nuevos** en upstream desde que se
+cerró el rebase de 27 commits (misma sesión) -- confirma que el ritmo de
+upstream es alto, no asumir que "quedó al día" dura mucho.
+
+Ensayo en rama desechable (`rehearsal-upgrade`, nunca tocó `arturo/base`
+real): `git rebase upstream-main` avanzó **7/46 commits limpio** antes
+del primer conflicto real, en `plugins/platforms/telegram/adapter.py` --
+el MISMO archivo que ya dio conflicto en el rebase original. Confirma
+que es un "punto caliente" real, no coincidencia -- documentado en la
+skill `hermes-upgrade` para vigilarlo siempre. Rebase abortado a
+propósito (`git rebase --abort`) sin resolver el conflicto -- el ensayo
+es para medir cuánto dolerá la próxima vez, no para completarla ahora.
+
+Skill `hermes-upgrade` escrita en `skills/hermes-upgrade/SKILL.md` --
+procedimiento completo de 6 bloques (preparación, rebase, sintaxis,
+smoke tests, suite completa, corte a producción con Arturo presente),
+con los "puntos calientes" reales de archivos que ya dieron conflicto
+dos veces documentados explícitamente.
+
+Con esto, HAS Fase 2 Bloque 4 (10 smoke tests) y Bloque 5 (ensayo +
+skill) quedan completos.
+
 ## Hallazgo pendiente (no arreglado en este bloque)
 
 `tools/telegram_userbot.py` en este worktree trae la versión ANTIGUA y
