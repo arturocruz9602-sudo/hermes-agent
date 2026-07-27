@@ -47,6 +47,17 @@ leyendo `gateway/run.py`/`slash_commands.py`) pero requiere confirmación
 explícita sí/no (`approvals.destructive_slash_confirm`) -- no es
 instantáneo como parecía en una prueba inicial. No es un bug.
 
+## OT-QA -- EN ESPERA de respuesta de Telegram (27 Jul 2026, tarde)
+
+2 hipótesis reales probadas y descartadas hoy (IP residencial vs. móvil
+-- probado en vivo con el hotspot del teléfono, mismo error; recrear la
+app -- no es técnicamente posible, api_id/api_hash son permanentes).
+Causa más probable, según la documentación OFICIAL de Telegram: cuentas
+nuevas quedan bajo restricción automática anti-abuso, se resuelve
+escribiendo a `recover@telegram.org`. Correo redactado y enviado por
+Arturo mismo. **En espera de respuesta real, puede tardar días.**
+Detalle completo en `docs/BLOQUES.md`.
+
 ## Bloque O.6 -- CERRADO (27 Jul 2026), el hallazgo CRÍTICO desde el 22 Jul
 
 Con cuota real disponible, se reprodujo el hallazgo original ("el

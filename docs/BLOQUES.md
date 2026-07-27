@@ -243,6 +243,47 @@ rebase).
 (paso 6 del procedimiento de `hermes-upgrade`) antes de declarar
 Bloque 6 -- y con él, HAS Fase 2 completa -- cerrado.
 
+## OT-QA — continuación (27 Jul 2026, tarde) — esperando respuesta real de Telegram
+
+Retomado con Arturo presente. Se probaron 2 hipótesis reales, ambas
+descartadas con evidencia:
+
+1. **IP residencial vs. IP de datos móviles.** Se encontraron casos
+   reales en GitHub (issues de Telethon) donde el mismo `api_id` fallaba
+   desde una red doméstica y funcionaba sin cambios desde un servidor
+   AWS -- sugiere una posible lista blanca/gris por reputación de IP.
+   Probado en vivo: se conectó la laptop al hotspot del teléfono de
+   Arturo (verificado con IP pública real, `ALTAN REDES`, Toluca, ya NO
+   la IP de casa) y se reintentó `start_login()` -- **mismo error
+   exacto**. Red restaurada a la normal (ethernet) después, verificado
+   con `curl ifconfig.me` que la IP volvió a la de casa. Con esto, la
+   teoría de "solo necesita una IP no-residencial" queda descartada --
+   al menos una IP de operador móvil mexicano tampoco basta.
+2. **Recrear la app en my.telegram.org con el mismo número.** Revisado
+   en vivo con capturas de pantalla reales de Arturo: `App api_id` y
+   `App api_hash` son permanentes, no editables, y my.telegram.org no
+   ofrece una opción de autoservicio para borrar/recrear la app. Esta
+   ruta queda descartada por no ser técnicamente posible, no por falta
+   de intentarlo.
+
+**Causa raíz más probable, encontrada en la documentación OFICIAL de
+Telegram** (`core.telegram.org/api/obtaining_api_id`, no un tercero):
+"todas las cuentas que inician sesión con clientes no oficiales de la
+API quedan automáticamente bajo observación para evitar abuso... si tu
+cuenta queda restringida sin haber violado los Términos de Servicio,
+escribe a `recover@telegram.org` explicando el uso que le darás,
+pidiendo que la desbloqueen." Coincide exacto con el patrón: cuenta
+nueva + api_id nuevo + rechazo específico y persistente en
+`SendCodeRequest` (no en la conexión general).
+
+**Acción tomada:** correo redactado (explicación honesta: automatización
+personal de bajo volumen, no bot para terceros, no flooding/spam) y
+enviado por Arturo mismo a `recover@telegram.org` (no lo mandé yo --
+pedir el desbloqueo de una cuenta a un tercero es una acción que debe
+venir del dueño). **EN ESPERA de respuesta real de Telegram** -- puede
+tardar días, es revisión humana. Retomar el login en cuanto Arturo
+confirme respuesta (positiva o negativa).
+
 ## OT-QA — userbot: api_id/api_hash rechazados >12h seguidas, EN CURSO sin resolver
 
 `start_login(api_id=35683031, api_hash=F4f73f75382ccc69ce4fd9f213d40e4b,
