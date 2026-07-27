@@ -4,6 +4,120 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Bloque S.5 + fix ventana O.6 — cascada de compactación infinita (27 Jul 2026) — CERRADO
+
+Encontrado sin buscarlo, durante un diagnóstico dedicado de O.6 (pedido
+por Arturo: "vamos de uno por uno desde el más difícil al más
+sencillo", empezando por O.6 -- fabricación de evidencia de
+incidentes, CRÍTICO desde el 22 Jul).
+
+**Reproducción en vivo (arnés interno, `tests/e2e/hermes_harness.py`,
+sesión real `20260723_014401_467841eb`, sin tocar Telegram real):**
+mandar un mensaje real de prueba disparó "Sesión comprimida 2 veces" ->
+"3 veces" -> ..., sin llegar NUNCA a una respuesta real, en 2 llamadas
+de prueba distintas. Confirmado con `sqlite3` sobre `state.db`: esa
+sesión llevaba `message_count=4` pero `api_call_count=37` (ahora 38) --
+mucho trabajo real de LLM sin turnos completados.
+
+**Causa raíz, confirmada por lectura de código (`agent/turn_context.py`)
+Y matemáticamente, no solo por sospecha:**
+- `_should_compress_now` se dispara con `_preflight_tokens >=
+  ESCALATION_SAFE_TRIGGER_TOKENS` (30,000 -- Bloque S, 23 Jul).
+- El bucle de hasta 3 pasadas de compresión (`for _pass in
+  range(_max_preflight_passes)`) sigue comprimiendo mientras
+  `_preflight_tokens >= ESCALATION_SAFE_TRIGGER_TOKENS` siga siendo
+  cierto (línea ~948 antes del fix).
+- Pero el TARGET real de cada pasada de compresión
+  (`agent._compress_context` -> `threshold_tokens *
+  summary_target_ratio`) se calcula sobre el umbral del modelo
+  PRIMARIO: con Gemini (~1,048,576 de contexto) y `threshold: 0.5` +
+  `target_ratio: 0.2` (config.yaml), eso da `524,288 * 0.20 = 104,857`
+  tokens -- muy por ENCIMA de 30,000.
+- Resultado: cada pasada de compresión "tiene éxito" (reduce tokens de
+  forma material, >5%) pero SIEMPRE deja la sesión por encima de
+  30,000 -- así que el chequeo de "¿sigo comprimiendo?" nunca se
+  satisface, se agotan las 3 pasadas cada turno, y el turno SIGUIENTE
+  vuelve a repetir exactamente lo mismo. Para siempre, mientras la
+  sesión se mantenga sobre 30K (que es justo lo que la compresión
+  normal produce).
+
+**Confirmado con búsqueda real en internet (regla de CLAUDE.md
+aplicada, pedido explícito de Arturo):** el repo real
+`NousResearch/hermes-agent` en GitHub tiene un issue cerrado,
+[#53008](https://github.com/NousResearch/hermes-agent/issues/53008)
+("Context Compression Infinite Loop"), con el MISMO síntoma general
+(compresión que nunca baja lo suficiente, se repite sin parar) aunque
+su mecanismo exacto (modelo auxiliar de compresión más chico que el
+umbral) es distinto al nuestro (que es 100% propio de Bloque S, una
+constante nuestra sin relación con el modelo auxiliar). Se revisó
+también el issue #29926 (compresión descartada en modo CLI) --
+descartado por no aplicar: corremos en modo gateway, ya arreglado
+upstream para ese modo según el propio issue.
+
+**Fix aplicado (`agent/turn_context.py`, "Bloque S.5"):** constante
+nueva `ESCALATION_TARGET_TOKENS = 20_000`. Mientras
+`_escalation_triggered` sea cierto (el disparo fue por la escalera, no
+por el umbral del primario), se sobreescribe temporalmente
+`_compressor.threshold_tokens` a `20_000 / summary_target_ratio` justo
+antes del bucle de pasadas (para que el target real de
+`_compress_context` apunte bajo el disparador de escalera), y se
+restaura al valor original justo al salir del bucle -- mismo patrón ya
+establecido por Bloque S.1 (`protect_last_n` temporal). `getattr` con
+default 0.20 para no romper compressors de prueba sin ese atributo
+(encontrado real al correr la regresión, corregido antes de cerrar).
+
+**Verificado en vivo, con la MISMA sesión que antes cascadeaba:** tras
+el fix, una sola pasada de preflight, sin ninguna repetición de
+"Sesión comprimida N veces" -- el turno llegó a intentar la llamada
+real al proveedor (bloqueada solo por un límite de cuota real, de
+tanto probar hoy mismo -- no por el bug).
+
+**Bonus, mismo diagnóstico -- fix de O.6:**
+`run_incident_verification()` (`agent/complexity_detector.py`) llamaba
+a `verificar_incidente.py` con ventana ±10 min anclada a "ahora".
+Probado en vivo preguntando por el cierre no-limpio real del gateway
+de esta misma sesión (11:44:48, ~16 min antes de la prueba): quedó
+FUERA de la ventana de 10 min -- el script correctamente no encontró
+nada de eso, pero SÍ encontró ruido rutinario de litellm en la ventana
+y lo marcó `hay_evidencia_real: true`, reproduciendo exacto el patrón
+descrito en `reporte_bloque_o_22jul.md` ("fragmentos reales pero
+irrelevantes presentados como si fueran la evidencia pedida"). Subido
+el default a 45 minutos (ventana sigue simétrica -- el script no
+acepta rango asimétrico, y no se tocó su contrato porque Arturo también
+lo usa a mano). Re-probado en vivo tras el cambio: el mismo incidente
+real del gateway SÍ aparece ahora en la evidencia inyectada, con las
+líneas reales de `journalctl` citadas tal cual.
+
+**Regresión completa:** 214 (`test_context_compressor.py`) + 22
+(`test_turn_context.py`) + 5 (`test_s4_complexity_detector.py`) + 3
+(`test_context_compressor_identity_preservation.py`) + 29 (smoke
+completo) = **273/273 verde**, 0 regresión. 3 fallas reales encontradas
+en la primera corrida (`_FakeCompressor` sin `summary_target_ratio`)
+corregidas con `getattr(..., 0.20)` antes de cerrar.
+
+**Desplegado a producción:** `systemctl --user restart
+hermes-gateway.service` (excepción pre-aprobada de `CLAUDE.md`, segundo
+uso de la sesión, 12:38:06) + 29/29 smoke contra el servicio real ya
+con el fix activo.
+
+**Hallazgo aparte, investigado y descartado como bug:** `/new` parecía
+no hacer nada en una prueba inicial (la sesión no cambiaba). Leyendo
+`gateway/run.py`/`slash_commands.py` se confirmó que SÍ funciona, pero
+está detrás de una confirmación explícita sí/no
+(`approvals.destructive_slash_confirm`, gate de comandos destructivos)
+-- la prueba nunca contestó esa confirmación. No es un bug, es diseño
+intencional de seguridad.
+
+**Pendiente real, no arreglado, fuera de alcance de este bloque:** el
+hallazgo ORIGINAL de O.6 (fabricación de evidencia) puede seguir
+existiendo en el caso donde SÍ hay evidencia real relevante pero el
+modelo igual prioriza una narrativa coherente sobre las instrucciones
+de "cita solo esto" -- eso es un problema de comportamiento del modelo,
+no de entrega de datos, y no se pudo probar en vivo hoy por el límite
+de cuota real (efecto secundario de las pruebas repetidas de este
+mismo diagnóstico). Recomendado probar de nuevo cuando haya cuota
+fresca, con una pregunta sobre un incidente real reciente.
+
 ## Bloque 6 (HAS Fase 2) — corte real a producción (27 Jul 2026) — EN OBSERVACIÓN, no cerrado
 
 Ejecutado con Arturo presente, siguiendo el procedimiento de 6 bloques

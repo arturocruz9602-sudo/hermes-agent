@@ -7,6 +7,54 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 27 Jul 2026 (tarde) — Arreglé un bug real que hacía que Hermes se quedara "pensando" sin nunca responder
+
+**Qué encontré, sin buscarlo:** estaba diagnosticando por qué a veces Hermes
+inventa detalles cuando le pide "revisa qué falló" -- en el camino, una
+conversación de prueba se quedó atorada compactándose una y otra vez sin
+nunca llegar a responderle de verdad. Investigué y encontré que es un bug
+real: una vez que una conversación cruza cierto tamaño, Hermes intenta
+resumirla para que quepa en los proveedores de respaldo (Groq), pero el
+resumen que produce siempre queda un poco más grande de lo que necesitaba
+-- así que en el SIGUIENTE mensaje, vuelve a intentar resumir, y otra vez,
+y otra vez, sin parar nunca. Si esto le llegó a pasar alguna vez en una
+conversación suya real y muy larga, así se hubiera visto: mensajes de
+"compactando..." repetidos sin que Hermes le conteste lo que preguntó.
+
+**Cómo lo confirmé:** busqué en el repositorio real del programa base en
+GitHub (como me pidió, antes de seguir adivinando) y encontré que otros
+usuarios ya habían reportado un problema parecido -- confirma que no es
+que "se me ocurrió", es un patrón real conocido. Reproduje el bug en vivo
+con una conversación de prueba, arreglé el código, y volví a probar la
+MISMA conversación que antes se quedaba atorada: ahora responde en un
+solo intento.
+
+**De paso, mejoré también el "revisa qué falló":** el mecanismo que busca
+evidencia real de un incidente solo miraba 10 minutos hacia atrás desde el
+momento en que usted pregunta. Si pregunta un ratito después de que algo
+pasó (no en el segundo exacto), se le escapaba el incidente real. Ya lo
+subí a 45 minutos -- probado en vivo con un error real que tuvimos hoy
+mismo (16 minutos antes), y ahora sí lo encuentra.
+
+**Verificado con 273 pruebas automáticas, todas en verde**, y ya puesto en
+el Hermes real (no solo en la copia de pruebas) -- reinicié el servicio
+con la evidencia de que funciona antes y después.
+
+**Mensaje que puede mandarle a Hermes para probar el segundo arreglo:**
+"Hermes, revisa qué falló hace un rato" (después de que algo realmente
+haya fallado) -- debería citar líneas reales de los últimos ~45 minutos,
+nunca inventar una hora o una causa que no esté ahí.
+
+**Pendiente real, pequeño:** para probar el primer arreglo (que ya no se
+atore compactando) necesitaría una conversación suya real que haya
+crecido mucho -- no fue posible forzar esa prueba hoy sin gastar más de
+la cuenta en llamadas de prueba, así que quedó verificado con una
+conversación de prueba interna, no con una suya. Si alguna vez nota que
+Hermes se queda repitiendo "compactando..." sin responder, avíseme de
+inmediato -- sería señal de que el arreglo no cubrió todos los casos.
+
+---
+
 ## 27 Jul 2026 — El programa base ya está actualizado en el Hermes real (no solo en la copia de pruebas), y no se perdió nada
 
 **Qué era esto:** el "Bloque 6", el último paso del blindaje que empezó

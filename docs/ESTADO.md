@@ -2,6 +2,51 @@
 
 **Versiones vigentes: HAS v1.4 · PROTOCOLO v1.3.1**
 
+## Bloque S.5 + fix de ventana O.6 — cascada de compactación infinita, CERRADO (27 Jul 2026)
+
+Encontrado sin buscarlo, diagnosticando O.6 en vivo con el arnés interno
+(mismo mecanismo de Bloque V, sesión real `20260723_014401_467841eb`,
+sin tocar Telegram real): la sesión entró en compactaciones repetidas
+(2, 3+ veces seguidas) sin completar nunca el turno.
+
+**Causa raíz real, confirmada por lectura de código + reproducción en
+vivo:** el target normal de compresión (`threshold_tokens *
+summary_target_ratio`, ~104,857 tokens con Gemini) queda muy por encima
+de `ESCALATION_SAFE_TRIGGER_TOKENS`/`HARD_CAP` (30K/40K, Bloque S del 23
+Jul) -- una vez que una sesión cruza 30K tokens, cada turno vuelve a
+disparar compresión de inmediato, para siempre, sin importar cuántas
+veces se comprima. Búsqueda en el repo real de NousResearch/hermes-agent
+en GitHub confirmó que este ES un patrón conocido de la familia
+upstream ([#53008](https://github.com/NousResearch/hermes-agent/issues/53008),
+infinite compression loop) aunque el mecanismo exacto aquí es propio de
+Bloque S (constante propia de Hermes, no del upstream).
+
+**Fix (Bloque S.5, `agent/turn_context.py`):** mientras el disparo sea
+por la escalera de respaldo (no por el umbral del primario), el target
+real de esa pasada apunta a `ESCALATION_TARGET_TOKENS` (20K) en vez del
+20% del primario, restaurado al salir del bucle. Verificado en vivo:
+la MISMA sesión que antes cascadeaba sin fin ahora completa en una sola
+pasada (llegó a intentar la llamada real al modelo, bloqueada solo por
+un límite de cuota real de tanto probar hoy -- no por el bug).
+
+**Bonus, mismo diagnóstico:** `run_incident_verification()` (O.6) usaba
+una ventana de ±10 min anclada a "ahora" -- un incidente real de hace 16
+minutos (el propio cierre no-limpio del gateway de esta sesión, ver
+Bloque 6 abajo) quedó fuera de la ventana. Subido a 45 min. Verificado
+en vivo: el mismo incidente real ahora SÍ aparece en la evidencia
+inyectada al modelo.
+
+**Regresión:** 273 tests verdes (214 `test_context_compressor` + 22
+`test_turn_context` + 5 smoke S4 + 3 identity-preservation + 29 smoke
+completo), 0 fallas nuevas. Desplegado a producción con la excepción de
+reinicio (12:38, segundo uso de la sesión) + 29/29 smoke contra el
+servicio real.
+
+**Hallazgo aparte, sin arreglar:** `/new` SÍ funciona (confirmado
+leyendo `gateway/run.py`/`slash_commands.py`) pero requiere confirmación
+explícita sí/no (`approvals.destructive_slash_confirm`) -- no es
+instantáneo como parecía en una prueba inicial. No es un bug.
+
 ## HAS Fase 2 — Bloque 6 (corte real a producción) — EN OBSERVACIÓN (27 Jul 2026)
 
 Corte ejecutado con Arturo presente, siguiendo el procedimiento de la
