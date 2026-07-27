@@ -47,6 +47,24 @@ leyendo `gateway/run.py`/`slash_commands.py`) pero requiere confirmación
 explícita sí/no (`approvals.destructive_slash_confirm`) -- no es
 instantáneo como parecía en una prueba inicial. No es un bug.
 
+## Bloque O.6 -- CERRADO (27 Jul 2026), el hallazgo CRÍTICO desde el 22 Jul
+
+Con cuota real disponible, se reprodujo el hallazgo original ("el
+modelo prioriza narrativa sobre instrucciones explícitas") y se
+arregló de raíz. El modelo ignoraba la evidencia real inyectada Y una
+instrucción reforzada de texto, llamando `read_file`/`terminal` sobre
+un log rotado de hace un mes y presentándolo como el estado actual.
+Fix real: se le quita mecánicamente el acceso a herramientas durante
+ese turno (`agent.tools = []`, restaurado self-healing al turno
+siguiente) -- no otra instrucción, sino quitarle la posibilidad real.
+Verificado en vivo: 0 llamadas a herramientas en 3 intentos (antes,
+100%). Backstop adicional (O.6.1): si la evidencia real dice que sí
+hay evidencia y la respuesta la niega, se reemplaza citando la
+evidencia real tal cual. 353 tests corridos, 0 regresión real (2
+fallas confirmadas pre-existentes con `git stash`). Desplegado a
+producción (13:13:33, tercer reinicio de la sesión). Detalle completo
+con las 3 reproducciones reales en `docs/BLOQUES.md`.
+
 ## HAS Fase 2 — Bloque 6 (corte real a producción) — EN OBSERVACIÓN (27 Jul 2026)
 
 Corte ejecutado con Arturo presente, siguiendo el procedimiento de la

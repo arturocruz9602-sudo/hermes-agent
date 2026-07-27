@@ -55,6 +55,43 @@ inmediato -- sería señal de que el arreglo no cubrió todos los casos.
 
 ---
 
+## 27 Jul 2026 (tarde, continuación) — Cerré el bug más grave y viejo: Hermes ya NO inventa cuando le pide revisar un error
+
+**Qué era esto:** desde el 22 de julio había un hallazgo marcado como el
+más grave sin resolver -- a veces, cuando usted le pide "revisa qué
+falló", Hermes se inventaba detalles (horas, causas) en vez de decir la
+verdad. Ya se habían puesto 3 capas de protección antes y el problema
+seguía apareciendo.
+
+**Lo que encontré, probándolo en vivo hasta atraparlo con las manos en
+la masa:** Hermes SÍ tenía la evidencia real correcta enfrente (gracias
+al arreglo de la ventana de hoy más temprano), pero la ignoraba por
+completo -- se iba por su cuenta a leer un archivo de registro VIEJO
+(de hace casi un mes) y presentaba eso como si fuera lo que acababa de
+pasar ahorita. Le reforcé la instrucción de "no hagas eso" y AUN ASÍ lo
+volvió a hacer -- confirma que pedirle con palabras no basta.
+
+**El arreglo real:** en vez de pedirle que no lo haga, durante esas
+preguntas específicas le quito la posibilidad misma de irse a leer
+otros archivos -- no puede desobedecer una herramienta que no tiene
+disponible. Probado en vivo 3 veces seguidas: cero veces se fue a
+buscar en otro lado (antes, siempre lo hacía).
+
+**Verificado con 353 pruebas automáticas** (0 rotas por este cambio) y
+ya puesto en el Hermes real.
+
+**Mensaje que puede mandarle para probarlo** (después de que algo
+realmente haya fallado, para que tenga algo real que revisar):
+"Hermes, revisa qué pasó hace un momento" -- debe o bien citarle líneas
+reales y recientes, o decirle honestamente que no encontró evidencia.
+Lo que YA NO debería pasar: que le hable de algo de hace semanas como
+si fuera de ahorita.
+
+**Con esto se cierra el hallazgo crítico que llevaba abierto desde el
+22 de julio.**
+
+---
+
 ## 27 Jul 2026 — El programa base ya está actualizado en el Hermes real (no solo en la copia de pruebas), y no se perdió nada
 
 **Qué era esto:** el "Bloque 6", el último paso del blindaje que empezó

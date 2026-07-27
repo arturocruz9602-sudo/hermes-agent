@@ -108,15 +108,57 @@ está detrás de una confirmación explícita sí/no
 -- la prueba nunca contestó esa confirmación. No es un bug, es diseño
 intencional de seguridad.
 
-**Pendiente real, no arreglado, fuera de alcance de este bloque:** el
-hallazgo ORIGINAL de O.6 (fabricación de evidencia) puede seguir
-existiendo en el caso donde SÍ hay evidencia real relevante pero el
-modelo igual prioriza una narrativa coherente sobre las instrucciones
-de "cita solo esto" -- eso es un problema de comportamiento del modelo,
-no de entrega de datos, y no se pudo probar en vivo hoy por el límite
-de cuota real (efecto secundario de las pruebas repetidas de este
-mismo diagnóstico). Recomendado probar de nuevo cuando haya cuota
-fresca, con una pregunta sobre un incidente real reciente.
+**Continuación real, mismo día (Bloque O.6.1/O.6.2) -- el hallazgo
+ORIGINAL de O.6 SÍ se reprodujo y SÍ se arregló, con evidencia real:**
+con cuota ya disponible, se probó de nuevo preguntando por un incidente
+real reciente (el reinicio del propio gateway de esta sesión). El
+modelo IGNORÓ la evidencia real inyectada -- llamó `read_file`/
+`terminal` por su cuenta sobre `~/.hermes/logs/agent.log.3` (rotado,
+del 30 de junio) y presentó eso como el estado ACTUAL ("último inicio:
+2026-06-30... funcionando normalmente"), pese a que el reinicio real
+había sido minutos antes. Reforzar la instrucción de texto ("PROHIBIDO
+leer otros logs") NO cambió el comportamiento -- se repitió idéntico.
+
+**Fix real aplicado (Bloque O.6.2, `agent/turn_context.py`):** en vez
+de otra instrucción de prompt, se le quita mecánicamente la
+posibilidad de llamar CUALQUIER herramienta durante un turno donde
+`looks_like_incident_check()` disparó la inyección real de O.6 --
+`agent.tools = []` para ese turno, restaurado de forma self-healing al
+INICIO del turno siguiente (no depende de que el turno actual termine
+limpio, así una salida temprana por compresión/error no deja las
+herramientas apagadas para siempre). Verificado en vivo: 3 intentos
+posteriores, **0 llamadas a herramientas** (antes, 100% de los
+intentos llamaban a `read_file`/`terminal`). En 2 de los 3, otros
+mecanismos de seguridad YA EXISTENTES (O.4 español, reintento de
+"empty response" del framework) atraparon respuestas problemáticas de
+forma segura -- sin fabricar nada, solo un aviso genérico. Residual
+conocido: con `agent.tools=[]`, el modelo (Gemini con razonamiento)
+puede a veces quedarse en "solo razonamiento, sin respuesta visible" --
+comportamiento YA manejado por el framework (reintentos + aviso
+honesto), no una fabricación nueva.
+
+**Bonus (Bloque O.6.1, `agent/turn_finalizer.py`):** backstop mecánico
+adicional, mismo patrón que la Tarea 1 (`_FABRICATED_SUCCESS_RE`): si
+la evidencia real de este turno decía `hay_evidencia_real: true` y la
+respuesta final la niega explícitamente ("no mostró errores"), se
+reemplaza por un mensaje que cita la evidencia real tal cual.
+
+**Regresión adicional:** 353 tests corridos en total entre ambos
+commits (214 `test_context_compressor` + 22 `test_turn_context` + 8
+smoke S4/identity-preservation + 80 `turn_finalizer`/`turn_context`/
+fabrication + 29 smoke completo), 0 regresión real -- 2 fallas en
+`test_turn_context_overflow_warning.py` confirmadas PRE-EXISTENTES con
+`git stash` (idénticas sin este fix, ya documentadas en `ESTADO.md`
+como parte de los 4 hallazgos preexistentes del rebase de Bloque 1).
+Desplegado a producción (`systemctl --user restart
+hermes-gateway.service`, 13:13:33, TERCER uso de la excepción esta
+sesión) + 29/29 smoke contra el servicio real.
+
+**Con esto, Bloque O.6 (abierto desde el 22 Jul, marcado CRÍTICO) queda
+CERRADO** -- causa raíz confirmada en las 3 capas (ventana mal anclada,
+modelo ignorando texto, modelo llamando herramientas sin relación), fix
+real y mecánico en cada una, verificado en vivo, no solo instrucción de
+prompt.
 
 ## Bloque 6 (HAS Fase 2) — corte real a producción (27 Jul 2026) — EN OBSERVACIÓN, no cerrado
 
