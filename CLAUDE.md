@@ -13,7 +13,10 @@ Al abrir sesión — incluso si Arturo solo dice "hola" o "¿estás ahí?" — e
 3. `git status` y `git log --oneline -5` — ¿quedó algo a medias en la sesión anterior?
 4. `grep -rn "TEMP-DIAG"` — ¿quedaron diagnósticos temporales? Si sí, quítalos o justifícalos (falla L4).
 5. Salud, en silencio: `systemctl is-active hermes-gateway litellm` y, si existe, `python ~/.hermes/scripts/has_progress.py --quiet`.
-6. **Saluda proponiendo, no preguntando.** Formato exacto de tu primer mensaje (máximo 8 líneas):
+6. **¿Hubo un reinicio que nadie esperaba?** `uptime` — si el tiempo activo es sospechosamente corto, revisa `/var/run/reboot-required` (¿queda otro pendiente?) y vuelve a confirmar la tapa (ver punto 8). Un reinicio de sistema tumba tmux, procesos en segundo plano y todo lo que viva en `/tmp` — si acaba de pasar, dilo en el saludo antes de que Arturo pregunte.
+7. **¿Esta sesión vive dentro de tmux?** Verifica con `echo $TMUX` (o revisa si el proceso padre es una shell de tmux). Si NO estás dentro de tmux y el trabajo que sigue es real (no solo una pregunta rápida), dilo explícitamente y propone crear/entrar una sesión de tmux antes de seguir — nunca trabajo real fuera de tmux, es la causa raíz de la mayoría de las sesiones perdidas de julio 2026.
+8. **La tapa se revisa por partida doble, siempre juntas:** `grep HandleLidSwitch /etc/systemd/logind.conf` (debe decir `ignore`) Y `gsettings get org.gnome.settings-daemon.plugins.power lid-close-ac-action` / `lid-close-battery-action` (deben decir `nothing`) — confirmado el 26 jul 2026 que pueden contradecirse entre sí (logind bien, GNOME diciendo `suspend`), y solo revisar una de las dos da una falsa sensación de seguridad.
+9. **Saluda proponiendo, no preguntando.** Formato exacto de tu primer mensaje (máximo 8 líneas):
 
 ```
 Aquí estoy, jefe. Nos quedamos en: <bloque/fase, 1 línea>.
@@ -46,7 +49,10 @@ Antes de terminar, o si Arturo va a dar `/clear`, o cada 30 minutos de trabajo c
 2. Actualiza `docs/ESTADO.md` (incluida la primera línea de versiones vigentes) y `docs/BLOQUES.md`.
 3. Si hubo algo visible para Arturo, actualiza `docs/BITACORA_ARTURO.md` con el cambio traducido a su día a día + un mensaje de ejemplo que él pueda mandar literal.
 4. `grep -rn "TEMP-DIAG"` = 0.
-5. `git push` al fork.
+5. `git push fork HEAD:arturo/prod` — **NO** `git push fork main`: la
+   rama `main` del fork solo espeja el upstream de NousResearch (miles
+   de commits ajenos, diverge sin relación con el trabajo real). El
+   trabajo de Hermes vive en `arturo/prod`.
 **Una sesión sin push no terminó, aunque el código funcione.**
 
 ## SI ARTURO DA /clear A MEDIA TAREA
@@ -74,6 +80,42 @@ Además, permanentes: memoria solo vía `memory_tool.py` (jamás editar los .md 
 ## CONSULTAR A OTRO MODELO CUANDO TE ATORES (en vez de mandar a Arturo a otro chat)
 
 Si un problema de arquitectura te atora tras 2 intentos verificados, **no le pidas a Arturo que abra un chat**: arma tú la consulta (problema + lo que intentaste + evidencia, sin historial completo) y despáchala al modelo más capaz disponible en LiteLLM. Presenta a Arturo la conclusión y tu recomendación, no el ida y vuelta. Regístralo en ESTADO.md. El chat de diseño en claude.ai queda como consultor eventual: solo para cambiar el HAS mismo o para atascos de arquitectura que ni eso resolvió.
+
+## REGLA ESTRICTA: BUSCA EN INTERNET ANTES DE SEGUIR ADIVINANDO
+
+Cuando te cueste resolver un problema — sea una herramienta que falla
+raro, un bug de código que no cede tras 1-2 diagnósticos verificados, o
+cualquier cosa donde llevas rato sin avanzar — **busca tú mismo en
+internet antes de seguir**, no le pidas a Arturo que pruebe más cosas a
+ciegas ni seas tú el que solo adivina en el vacío. Esto aplica a TODO,
+no solo a fallas de la herramienta de Claude Code: revisa foros, la
+documentación oficial del proyecto/librería en cuestión, issues de
+GitHub, y las páginas de Anthropic si el problema es de Claude Code o
+de la API. Pregúntate qué solución ya encontraron otros usuarios con el
+mismo síntoma exacto antes de reinventar el diagnóstico desde cero.
+
+Caso real (24 jul 2026): Bash fallaba silencioso con exit 1 en toda
+sesión de Claude Code; se perdieron ~3 horas probando versión, hooks,
+permisos y canal de control remoto antes de buscar — una búsqueda
+hubiera llevado directo a la causa real (cuota de disco en /tmp,
+EDQUOT) en minutos.
+
+Si el atasco es específicamente una decisión de arquitectura (no algo
+que una búsqueda resuelva), sigue aplicando además el protocolo de
+"consultar a otro modelo" de arriba — buscar en internet y consultar a
+otro modelo no son excluyentes, hazlo todo antes de rendirte o de
+hacerle una pregunta vaga a Arturo.
+
+## AL CORRER SUITES DE PRUEBAS GRANDES: SIEMPRE POR BLOQUES CHICOS
+
+Nunca lances una corrida masiva (miles de tests) de un solo golpe en
+esta laptop — es lo que causó el incidente del 24-25 jul (`/tmp` se
+llenó de sobras de pytest y tumbó Bash 3 horas, ver Bloque AI en
+BLOQUES.md). Divide en fragmentos de ~300 con `timeout` por fragmento
+(detecta cuelgues automáticamente en vez de adivinar posición), y
+revisa `df -h /tmp` antes de una corrida grande si ha pasado tiempo
+desde la última limpieza. Pedido explícito de Arturo (26 jul 2026)
+tras confirmar que esta práctica evitó que se repitiera el problema.
 
 ## MAPA DEL PROYECTO (para no re-descubrirlo cada sesión)
 

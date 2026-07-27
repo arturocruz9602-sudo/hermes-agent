@@ -1,6 +1,136 @@
-# Estado de Hermes — 22-24 Jul 2026
+# Estado de Hermes — 22-25 Jul 2026
 
 **Versiones vigentes: HAS v1.4 · PROTOCOLO v1.3.1**
+
+## HAS Fase 2 (Blindaje y actualización) — Bloques 4 y 5 CERRADOS (27 Jul 2026)
+
+Con Bloque 1 (rebase, arriba) ya cerrado, seguí con los entregables que
+faltaban de Fase 2 según el HAS:
+
+- **Bloque 4 — 10 smoke tests** (`~/hermes-019/tests/smoke/`): arranque
+  CLI, arranque gateway (dry-run), slash commands, detector de
+  complejidad, guardias de permisos, cola de mensajes, tick de curator,
+  lectura de MEMORY/USER, pipeline de media, fallback de proveedores.
+  **29/29 pasan.** De paso, otro hallazgo real: la tabla
+  `mensajes_pendientes` existe en producción pero nunca tuvo
+  `CREATE TABLE` en el código -- una instalación nueva jamás la habría
+  tenido. Arreglado.
+- **Bloque 5 — ensayo de actualización futura + skill `hermes-upgrade`**:
+  678 commits nuevos ya en upstream (¡en lo que duró esta sesión!),
+  ensayo real en rama desechable confirma que `plugins/platforms/
+  telegram/adapter.py` es un punto caliente recurrente. Procedimiento
+  completo de 6 bloques documentado en
+  `~/hermes-019/skills/hermes-upgrade/SKILL.md`.
+
+**Solo falta el Bloque 6 de Fase 2 (corte real a producción) -- por
+diseño, ese requiere a Arturo presente, no se hace solo.** Detalle
+completo en `~/hermes-019/docs/MIGRATION_LOG.md`.
+
+## Bloque 1 (rebase a upstream 0.19.x, `hermes-019`/`arturo/base`) — CERRADO (26-27 Jul 2026)
+
+Retomé donde quedó la sesión del rebase y cerré todo lo pendiente, con
+evidencia real en cada paso, no solo "se ve bien":
+
+1. **Los 8/8 fallos reproducibles eran regresión real, no contaminación.**
+   `Bloque S.1` (tope duro absoluto, ya existía en producción) tenía su
+   propio presupuesto fijo de 3 pasadas, sin coordinar con el nuevo tope
+   configurable que unificó upstream -- se sumaban en vez de compartir.
+   Arreglado (`39e05c32e`), los 8 pasan.
+2. **El pendiente de `last_prompt_tokens` tras interrupción, resuelto.**
+   El mecanismo de upstream (snapshot/rollback) ya estaba completo y
+   correcto -- el problema real: `Bloque S` (escalada de compresión,
+   propio de Hermes) dispara compresión real que 2 tests de upstream no
+   contemplaban, dejando un sentinel `-1` que bloqueaba el rollback.
+   Arreglado mockeando esos 2 tests igual que sus hermanos (`ad7a23ae9`).
+3. **Los 3 cuelgues de `hermes_cli`, causa raíz encontrada y arreglada**
+   con `faulthandler` (sin necesitar ptrace, bloqueado en este sandbox):
+   `npm audit` real sin red (bloqueado en el guard de `conftest.py`),
+   fetch real al catálogo de modelos de GitHub sin mockear (mockeado), y
+   un candado sistémico nuevo (`_no_real_network`) que convierte
+   cualquier otra llamada de red no mockeada en fallo rápido en vez de
+   cuelgue silencioso (`702e55a7d`).
+4. **Bonus:** una fuga de logging en un fixture de test causaba 2000+
+   "Logging error" en cascada sobre pruebas sin relación -- arreglada
+   (`6e82accb1`); explicaba 143 de los 147 fallos que parecían
+   "contaminación" en corridas grandes.
+
+**Resultado final, sin ningún cuelgue:** `tests/hermes_cli/` completo
+(9,576 tests) -- 9,525 passed, 20 failed, 31 skipped, 0 timeouts.
+`tests/run_agent/`+`tests/agent/`+`tests/tools/` -- de 147 fallos
+combinados, solo 4 reales y preexistentes (sin relación con el rebase).
+Detalle completo, commit por commit, en `~/hermes-019/docs/MIGRATION_LOG.md`.
+
+**Todo pusheado a `fork:arturo/base` como respaldo.** Pendiente real
+para el corte a producción (fuera de esta verificación): reconciliar
+`tools/telegram_userbot.py` (versión vieja en este worktree, el fix real
+solo está en producción) y decidir sobre los 19 fallos dispersos sin
+investigar (OAuth dashboard, proveedores custom, CLI de suscripción).
+
+## Incidente de infraestructura (24-25 Jul 2026, noche) — Bash roto por cuota de disco en /tmp, RESUELTO
+
+No es un bloque de trabajo de Hermes -- es una falla de la herramienta
+(Claude Code) que impidió trabajar ~3 horas. Se documenta aquí porque
+consumió toda la sesión y dejó cambios de infraestructura reales.
+
+**Síntoma:** Bash fallaba con "Exit code 1" sin ninguna salida (ni
+stdout ni stderr) para CUALQUIER comando, hasta `echo hi`, en toda
+sesión de Claude Code probada (nueva, continuada con `-c`, con
+`--safe-mode`, tras reinstalar la versión con `claude install`).
+`claude doctor` no reportó problemas de instalación.
+
+**Diagnóstico real:** confirmado con la herramienta `Write` devolviendo
+`EDQUOT` ("Disk quota exceeded") al escribir en `/tmp` -- la partición
+`tmpfs` de `/tmp` (3.6G) estaba al 80% (2.9G usados), sobre todo por
+`/tmp/pytest-of-arturo` (2.4G de sobras de pruebas viejas nunca
+limpiadas). Bash captura la salida de cada comando escribiéndola a un
+archivo temporal en `/tmp`; sin espacio, esa escritura fallaba
+silenciosa y el comando se reportaba como "exit 1, sin salida" sin
+importar qué tan trivial fuera. No tuvo nada que ver con la versión de
+Claude Code, los hooks, los permisos, ni el canal de "control remoto"
+-- todas esas fueron pistas falsas seguidas antes de encontrar la causa
+real (~3 horas perdidas antes de buscar en internet, ver regla nueva
+en `CLAUDE.md`).
+
+**Fix aplicado, verificado en vivo:** borrado `/tmp/pytest-of-arturo`
+-- `/tmp` bajó de 80% a 13% de uso, Bash volvió a funcionar de
+inmediato, sin reiniciar la sesión.
+
+**Ambos pendientes, CERRADOS (25 Jul 2026, madrugada), verificado en vivo:**
+1. `/tmp` agrandado de 3.6G a 8G vía `systemd` (`tmp.mount.d/size.conf`
+   + `mount -o remount,size=8G /tmp` -- el primer intento con
+   `daemon-reload` + `remount` sin `size=` explícito no aplicó nada,
+   corregido). `df -h /tmp` confirma `8,0G` tras el fix.
+2. Cron de usuario instalado y confirmado con `crontab -l`: borra sola
+   basura de pruebas (`pytest-of-*`, `hermes_e2e_*`, `hermes-test-home-*`,
+   `kanban_per_profile_cap_test_*`) de más de 2 días, todos los días a
+   las 4:17 am.
+
+**Regla nueva agregada a `CLAUDE.md`:** ante fallas raras/silenciosas
+de la herramienta (no del código de Hermes), buscar en internet antes
+de seguir adivinando causas o pedirle a Arturo que pruebe cosas a
+ciegas.
+
+## Hallazgo de documentación — commit sin registrar (24 Jul 2026, mediodía)
+
+`1c559f058` ("fix: telegram_userbot login como flujo de 2 pasos, no
+bloqueante") se commiteó a las 12:12 pero nunca se documentó aquí -- la
+sesión que lo hizo terminó (o fue interrumpida por el incidente de
+arriba) antes de actualizar `ESTADO.md`/`BLOQUES.md`. Verificado ahora
+(25 Jul, ya con Bash sano): `tests/tools/test_telegram_userbot.py` --
+**4/4 tests pasan**. Sin evidencia de prueba en vivo contra Telegram
+real de esa sesión (no estuve presente); el commit resuelve un bug real
+y verificable por lectura de código: `client.start()` de Telethon
+bloqueaba en `input()` esperando el código de verificación por teclado,
+imposible desde una herramienta automatizada sin terminal interactiva
+-- reemplazado por el flujo de 2 pasos `start_login()`/`complete_login()`
+(mismo patrón que el emparejamiento por DM), con manejo explícito de
+2FA (`TwoFactorPasswordNeeded`).
+
+## Pendientes sueltos — CERRADO (27 Jul 2026)
+
+Los 4 archivos de respaldo del 9 de julio (18 días sin tocarse) --
+Arturo confirmó borrarlos. Eran sin rastrear (nunca entraron a git), así
+que no hay commit de por medio, solo se eliminaron del disco.
 
 ## Bloque AH (24 Jul 2026, mañana) — bug real de duplicación por compactación, CERRADO
 

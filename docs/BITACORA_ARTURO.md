@@ -7,6 +7,105 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 26-27 Jul 2026 — Terminé de blindar la actualización a la versión nueva, y encontré 4 fallas reales en el camino
+
+**Qué era esto:** el programa base sobre el que corre Hermes llevaba
+más de dos años de mejoras sin que las tuviéramos (2,489 cambios de
+distancia). Actualizarlo sin romper nada suyo (la bóveda, el aviso de
+DeepSeek, la memoria separada de la cuenta QA) es el "Bloque 1" del
+plan de blindaje. Se hizo en una copia aparte de la laptop, sin tocar
+nunca el Hermes real que usted usa por Telegram.
+
+**Lo que encontré y arreglé, con evidencia real, no solo "se ve bien":**
+1. Un bug real de gasto doble en la parte que resume conversaciones
+   largas para que no se saturen — no perdía datos, pero gastaba más
+   de la cuenta cuando no debía.
+2. Tres pruebas automáticas que se quedaban colgadas para siempre en
+   vez de fallar rápido, porque intentaban conectarse a internet real
+   (a npm, a GitHub) en una máquina de pruebas sin esa conexión. Ya
+   fallan rápido y claro si vuelve a pasar, en vez de trabarse.
+3. Una fuga en el registro de eventos de una prueba que contaminaba
+   miles de líneas de log de pruebas sin relación — explicaba casi
+   todos los "fallos fantasma" que parecían más graves de lo que eran.
+
+**Cómo lo verifiqué:** corrí las casi 10,000 pruebas automáticas que ya
+existían, por bloques chicos (para no repetir el incidente del disco
+lleno), confirmando cada fallo real contra el código de antes con
+`git stash` — no me quedé con el primer número que salió.
+
+**Resultado final:** de 9,576 pruebas, 9,526 pasan, 19 quedan sin
+relación con esto (áreas sueltas, documentadas, sin investigar todavía),
+y cero cuelgues. Todo respaldado en GitHub.
+
+**Pendiente real antes de mover esto a producción:** copiar ahí el
+arreglo del login de la cuenta QA de Telegram (solo existe en el
+Hermes real, no en esta copia del rebase) — nada urgente, ya está
+anotado.
+
+**Notas de Arturo:**
+
+---
+
+## 24-25 Jul 2026 (noche) — Se me trabó la terminal casi 3 horas; ya está resuelto, y sé qué hacer si vuelve a pasar
+
+**Qué pasó:** de repente no pude correr NINGÚN comando tuyo -- ni algo
+tan simple como saludar. Probamos de todo juntos: cambiar de versión
+del programa, revisar el "candado" de seguridad, cerrar y abrir
+sesiones, entrar por control remoto, reinstalar. Nada servía, y a ti te
+tocó hacer un montón de pasos técnicos (SSH, tmux, terminal nueva) que
+al final no eran la causa real. Perdimos casi 3 horas.
+
+**Qué era en realidad:** la laptop se quedó sin espacio en una carpeta
+temporal (no tu disco duro grande, uno chiquito de trabajo interno) por
+2.4 GB de basura acumulada de pruebas viejas que nunca se limpiaron
+solas. Sin espacio ahí, yo no podía "anotar" el resultado de ningún
+comando -- así que todo se veía roto, aunque el programa en sí estaba
+bien.
+
+**Ya está arreglado:** borré esa basura y la terminal volvió a
+funcionar de inmediato, sin reiniciar nada. Además dejé dos cambios
+para que esto no se repita -- uno ya lo hice yo (un limpiador
+automático que corre solo, borra basura de pruebas de más de 2 días,
+nunca toca nada en uso), y otro te lo dejé a ti porque necesita tu
+contraseña de administrador (agrandar ese espacio temporal) -- los
+comandos exactos te los pasé arriba en el chat, cópialos y pégalos tal
+cual.
+
+**Cómo lo vas a notar:** en nada de tu uso diario de Hermes por
+Telegram -- esto era yo trabajando en la laptop, no una función que tú
+uses. Lo único que cambia es que si la terminal se vuelve a trabar así
+de raro alguna otra vez, ahora tengo la regla de buscar en internet
+primero en vez de perder horas adivinando a ciegas.
+
+**Notas de Arturo:**
+
+---
+
+## 24 Jul 2026 (mediodía) — Arreglé el login de la cuenta QA de Telegram, que se quedaba trabado
+
+**Qué pasó:** cuando se intentaba conectar la cuenta QA de Telegram
+(la de pruebas, separada de la tuya), el código se quedaba esperando
+que alguien escribiera el código de verificación directo en un teclado
+-- algo que no existe cuando lo dispara una herramienta automatizada,
+así que simplemente se colgaba sin avisar nada.
+
+**Ya está arreglado:** ahora el login se hace en dos pasos separados
+(se pide el código, y luego se completa aparte cuando llega), igual que
+ya funciona el emparejamiento por mensaje directo. También reconoce
+cuando la cuenta tiene verificación en dos pasos (2FA) en vez de
+tronar con un error confuso.
+
+**Nota honesta:** este arreglo se hizo en una sesión anterior y no
+alcancé a probarlo contra Telegram real en ese momento (la sesión se
+interrumpió). Sí confirmé ahora que las 4 pruebas automatizadas del
+código pasan limpio. La próxima vez que se configure la cuenta QA es
+cuando se confirma de verdad en vivo -- no es algo que tú actives con
+un mensaje, es infraestructura interna para esa cuenta de pruebas.
+
+**Notas de Arturo:**
+
+---
+
 ## 24 Jul 2026 (mañana) — Encontré y arreglé un bug real: conversaciones largas duplicaban mensajes
 
 **Qué pasó:** me pediste seguir el plan y arreglar lo que encontrara mal,

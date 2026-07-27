@@ -4,81 +4,117 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
-## Bloque AI — OT-2 Bloque 1: rebase de `arturo/base` sobre `upstream-main` 0.19.x (24 Jul 2026) — EN CURSO
+## OT-QA — userbot: api_id/api_hash rechazados >12h seguidas, EN CURSO sin resolver
 
-Ejecutado en worktree aislado `~/hermes-019` (rama `arturo/base`), riesgo
-cero a producción en todo momento — nunca se tocó `~/.hermes/hermes-agent`.
-Detalle conflicto-por-conflicto completo en `docs/MIGRATION_LOG.md`.
+`start_login(api_id=35683031, api_hash=F4f73f75382ccc69ce4fd9f213d40e4b,
+phone=+525656372738)` -- reintentado ~7 veces entre la tarde del 24 jul y
+la madrugada del 25 (sesión anterior: intentos 1-3 de una tanda de 10;
+esta sesión: 4 reintentos automáticos por hora, vía ScheduleWakeup) --
+mismo error idéntico siempre: `ApiIdInvalidError: The api_id/api_hash
+combination is invalid (caused by SendCodeRequest)`.
 
-**AI.1 — Rebase: 27/27 commits aplicados.** `git status` limpio, 0
-archivos con error de sintaxis en todo el árbol (`ast.parse` sobre cada
-`.py`). Conflictos resueltos a mano en `tools/approval.py` (Tarea I),
-`plugins/platforms/telegram/adapter.py` (i18n + picker), `agent/turn_context.py`
-(Bloque S, escalada de compresión), `agent/conversation_compression.py`,
-`agent/turn_finalizer.py` (Bloque AF, orden de persistencia), y
-`agent/context_compressor.py` (Bloque AH, identidad de objeto) —
-este último requirió extender la corrección más allá de las 2 regiones
-marcadas como conflicto por Git, ya que el mecanismo real de
-deduplicación en `run_agent.py` había evolucionado (de `id()` puro a un
-marcador `_DB_PERSISTED_MARKER`, fix upstream #50372) desde que Bloque AH
-se escribió originalmente — verificado con los 3 tests de contrato de
-`test_context_compressor_identity_preservation.py`, 3/3 verde.
+**Descartado, con evidencia:**
+- No es error de dedo -- confirmado contra la captura de pantalla original.
+- No es la cuenta equivocada al crear el app en my.telegram.org -- Arturo
+  confirmó que usó el número nuevo (QA) desde el principio, no el suyo.
+- No es problema de red/librería -- verificado ahora: `TelegramClient.connect()`
+  con estas mismas credenciales SÍ conecta a los servidores reales de
+  Telegram (`is_user_authorized() -> False`, como se espera antes de
+  loguear) -- el rechazo es específico de `SendCodeRequest` con este
+  par, no de la conectividad.
+- La teoría original ("app recién creada tarda unos minutos en activarse")
+  ya no aplica -- llevamos >12 horas, no minutos.
 
-**AI.2 — Verificación con la suite completa (~47,463 tests).** Corrida
-en lotes (por directorio, y por tramos dentro de directorios grandes)
-para evitar límites de tiempo del entorno. Todos los archivos tocados en
-la fusión de conflictos: verificados limpios en aislado. Del resto:
+**Sin confirmar/pendiente para cuando Arturo esté disponible:** por qué
+sigue inválido después de tanto tiempo. Hipótesis no probadas: (a) el
+número nuevo (SIM recién comprada) sigue sin la antigüedad que Telegram
+exige para permisos de API (visto en reportes de terceros, sin
+confirmación oficial), (b) el api_id se generó mal por algún otro motivo
+no identificado, (c) restricción por IP/región de la app creada. Se
+recomienda, cuando Arturo despierte: entrar de nuevo a my.telegram.org
+con la cuenta QA, confirmar si la aplicación sigue apareciendo ahí tal
+cual (no fue borrada/revocada), y si sigue igual, considerar borrar y
+recrear la aplicación desde cero en vez de seguir reintentando el mismo
+par indefinidamente.
 
-- La gran mayoría de los "fallos" en corridas masivas (`tests/gateway/`,
-  `tests/agent/`) son contaminación entre tests dentro de una sesión de
-  pytest gigante (estado/mocks compartidos que no se resetean) —
-  confirmado corriendo los mismos tests aislados o en grupos chicos:
-  pasan limpio. No son regresiones.
-- `tools/approval.py` (~46 fallos): confirmado con el guardia real de
-  producción (`check_all_command_guards`) que la seguridad sigue intacta
-  o MÁS estricta — Tarea I (19 jul) promovió varios patrones a
-  `HARDLINE_PATTERNS` (bloqueo incondicional), y estos tests de upstream
-  siguen preguntando por la lista vieja. **Pendiente de decisión de
-  Arturo:** ¿debe seguir "systemctl restart/stop de CUALQUIER servicio"
-  bloqueado de forma incondicional (como está ahora, Tarea I), o
-  relajarse como espera la suite de upstream? Hoy Hermes no puede
-  reiniciar ningún servicio del sistema bajo ninguna circunstancia, ni
-  con aprobación explícita en el momento.
-- `tests/run_agent/test_413_compression.py` /
-  `test_preflight_compression_cap_e2e.py` (~8 fallos): interacción
-  esperada entre Bloque S.1 (tope duro, intenta una pasada extra de
-  compresión agresiva) y tests de upstream escritos antes de que Bloque
-  S existiera, que asumen como máximo 1 intento de compresión. No es un
-  bug — Bloque S.1 hace exactamente lo que se diseñó para hacer.
-- **Bug real encontrado y CORREGIDO en `tests/hermes_cli/test_gateway_service.py`:**
-  `test_run_gateway_refreshes_outdated_unit_on_boot` llamaba a la función
-  real `run_gateway()`, la cual al terminar con éxito ejecuta
-  `os._exit()` sin pasar por ningún mock (diseño deliberado de
-  producción, ver `gateway/run.py::_exit_after_graceful_shutdown`, issue
-  #53107) — esto mataba el proceso ENTERO de pytest de golpe cada vez que
-  la suite grande llegaba a este test, cortando silenciosamente todo lo
-  que faltaba correr sin ningún error visible. Diagnosticado con
-  `strace` (confirmado `exit_group(0)` real). Arreglado agregando el
-  mock que faltaba (`gateway.run._exit_after_graceful_shutdown`) en el
-  test — 1 línea, sin tocar código de producción. Verificado:
-  `tests/hermes_cli/` completo (480 archivos) ya no se corta; primera
-  mitad corrida limpia (4872 passed, 45 failed — el resto son fallos de
-  build de GUI/electron sin herramientas disponibles en este entorno, y
-  la misma contaminación entre tests ya descrita arriba).
+## Bloque AI — incidente de infraestructura: Bash roto por cuota de disco en /tmp (24-25 Jul 2026) — RESUELTO
 
-**AI.3 — Hallazgo pendiente, sin arreglar:** `tools/telegram_userbot.py`
-en este worktree trae la versión antigua y bloqueante de
-`login_and_store_session()` (un solo paso) — el arreglo real (dividirlo
-en `start_login()`/`complete_login()`, hecho en sesión previa) se aplicó
-solo al checkout de producción, no al historial de `arturo/base` que se
-rebasó aquí. Falta reconciliar (cherry-pick o reaplicar) antes de
-BLOQUE 6 (corte a producción).
+No es trabajo sobre el código de Hermes -- es una falla de la
+herramienta (Claude Code) en la laptop de Arturo que impidió correr
+cualquier comando durante ~3 horas.
 
-**Pendiente para cerrar AI:** confirmar el resultado final de la segunda
-mitad de `tests/hermes_cli/` (interrumpido por una caída de la
-herramienta Bash, no relacionado con el código), decisión de Arturo
-sobre AI.2 (política de `systemctl restart`), y luego continuar con
-BLOQUE 2 de OT-2 (extracción a plugins) según el procedimiento del HAS.
+**AI.1 — Síntoma:** toda sesión de Claude Code (nueva, continuada con
+`-c`, con `--safe-mode`, después de reinstalar con `claude install
+2.1.212`) reportaba "Exit code 1" sin stdout ni stderr para CUALQUIER
+comando de Bash, incluido `echo hi` y `pwd`. `claude doctor` (chequeo
+oficial de instalación) no encontró problemas.
+
+**AI.2 — Pistas falsas descartadas, con evidencia de cada descarte:**
+1. Bug de versión 2.1.220 (había un `autoUpdatesChannel` sin fijar):
+   se fijó a "stable", se reinstaló 2.1.212 explícitamente -- seguía
+   igual.
+2. Canal de "control remoto" con restricciones propias: descartado al
+   confirmar con `ps aux` que el proceso normal de terminal (PID
+   2093173, sin zombies) tenía el mismo fallo exacto.
+3. Hook `hermes-guard.sh` con bug o `jq` faltante: descartado -- `jq`
+   instalado y funcional (`Read` en `/usr/bin/jq` lo confirmó), el
+   contenido del hook se revisó línea por línea, sin errores de sintaxis.
+4. Permisos/config de `settings.json`: revisado, correcto (`"Bash"` en
+   `allow`, timeout de 10s, ruta del hook correcta).
+5. Límites del proceso (`/proc/PID/limits`) y variables de entorno
+   (`PATH`, `SHELL`): revisados, normales (29051 procesos, 524288
+   archivos abiertos, `PATH`/`SHELL` sanos).
+6. `--safe-mode` (apaga TODOS los hooks/plugins/MCP/config): probado,
+   MISMO fallo exacto -- esto fue lo que finalmente descartó cualquier
+   causa de configuración.
+
+**AI.3 — Causa raíz real, confirmada:** búsqueda en internet (tras ~3
+horas sin buscar -- ver regla nueva en `CLAUDE.md`) encontró issues
+idénticos en el repo de `anthropics/claude-code` (uno en Arch Linux,
+#41124) apuntando a que el Bash tool captura stdout/stderr escribiendo
+a archivos temporales bajo `/tmp/claude-1000/`, y que sin espacio esa
+escritura falla silenciosa (`ENOSPC`/`EDQUOT`), reportando "exit 1" sin
+ningún mensaje. Confirmado en esta laptop:
+```
+Write(/tmp/claude_write_test.txt) → error EDQUOT: unknown error, write
+```
+`df -h /tmp` mostró `tmpfs 3.6G, 2.9G usados (80%)`; `du -sh /tmp/*`
+identificó `/tmp/pytest-of-arturo` (2.4G) como el mayor consumidor --
+sobras de corridas de pytest nunca limpiadas.
+
+**AI.4 — Fix aplicado y verificado en vivo:**
+```
+rm -rf /tmp/pytest-of-arturo
+```
+`df -h /tmp` después: `469M usados (13%)`. Probado de inmediato con
+`Bash: echo "bash-ok" && pwd && date` → salida correcta
+(`bash-ok` / `/home/arturo/.hermes/hermes-agent` / hora real). No
+requirió reiniciar la sesión -- el fix de espacio en disco aplica al
+siguiente intento de escritura, a diferencia de un fix de versión que
+sí necesitaría reiniciar el proceso.
+
+**AI.5 — Pendiente, en cuarentena por diseño (requiere `sudo`, bloqueado
+para automatización por `hermes-guard.sh` regla 1 y 2 -- Arturo lo
+corre directo en su terminal, comandos ya entregados en el chat):**
+1. Agrandar `/tmp` de 3.6G a 8G de forma persistente:
+   ```
+   sudo mkdir -p /etc/systemd/system/tmp.mount.d
+   printf '[Mount]\nOptions=mode=1777,strictatime,size=8G\n' | sudo tee /etc/systemd/system/tmp.mount.d/size.conf
+   sudo systemctl daemon-reload
+   sudo mount -o remount /tmp
+   ```
+2. Cron de usuario (sin `sudo`, comando ya entregado, bloqueado también
+   por el hook al querer aplicarlo yo mismo por llevar `rm -rf`):
+   ```
+   (crontab -l 2>/dev/null; echo "17 4 * * * find /tmp -maxdepth 1 \( -name 'pytest-of-*' -o -name 'hermes_e2e_*' -o -name 'hermes-test-home-*' -o -name 'hermes-results' -o -name 'kanban_per_profile_cap_test_*' \) -mtime +2 -exec rm -rf {} + >/dev/null 2>&1") | crontab -
+   ```
+
+**AI.6 — Regla agregada a `CLAUDE.md` (hermes-agent), sección nueva
+"SI UNA HERRAMIENTA MÍA FALLA RARO":** ante fallas de entorno/herramienta
+(no del código de Hermes) que persisten tras 1-2 diagnósticos
+verificados, buscar en internet antes de seguir adivinando o pedirle a
+Arturo que pruebe más cosas a ciegas. Motivo explícito: esta sesión
+tardó ~3 horas en llegar a la causa real por no buscar antes.
 
 ## Bloque AH — bug real de compactación: mensajes duplicados en state.db + bloqueaba ofertas de Tarea E (24 Jul 2026) — CERRADO
 
