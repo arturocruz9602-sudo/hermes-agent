@@ -1,6 +1,31 @@
-# Estado de Hermes — 22-25 Jul 2026
+# Estado de Hermes — actualizado 27 Jul 2026, tarde
 
 **Versiones vigentes: HAS v1.4 · PROTOCOLO v1.3.1**
+
+## ESTADO ACTUAL — leer esto primero, antes que nada más abajo
+
+**Fase activa: Fase 3 (Ciclo de vida de skills) — SIN EMPEZAR todavía,
+lista para arrancar.** Fases 0, 0.5, 1 y 2 del HAS quedaron CERRADAS
+hoy (27 Jul 2026), con evidencia real cada una — ver sus secciones más
+abajo si hace falta el detalle, pero **no hay nada pendiente de esas 4
+fases que revisar o retomar.** No hace falta releer el historial
+completo de este archivo para saber dónde seguir: es directo, Fase 3.
+
+Pendientes reales sueltos, NINGUNO bloquea empezar Fase 3:
+- Disco Seagate: Arturo pendiente de correr `sudo smartctl -a /dev/sda`
+  (hallazgo del 27 Jul, ver Bloque 6 más abajo) -- no urgente.
+- `recover@telegram.org` puede contestar en cualquier momento (correo
+  enviado el 27 Jul) -- irrelevante ya, OT-QA se resolvió por otra vía
+  (ver sección OT-QA más abajo, cuenta QA ya autenticada y funcionando).
+- `docs/HAS.md` (vive en `~/hermes-019`, no en este repo) sigue
+  marcando Fase 1 como "parcial" -- desactualizado, Fase 1 sí está
+  cerrada. Corregirlo es cosmético, no bloquea nada.
+
+**Próximo paso concreto:** abrir `docs/HAS.md` sección "Fase 3" +
+"OT-3" (en `~/hermes-019`), inventariar las 136 skills reales contra lo
+que describe, y empezar por lo primero accionable (basura-404 con
+respaldo). No requiere que Arturo esté presente para arrancar el
+diagnóstico/inventario inicial.
 
 ## Bloque S.5 + fix de ventana O.6 — cascada de compactación infinita, CERRADO (27 Jul 2026)
 
