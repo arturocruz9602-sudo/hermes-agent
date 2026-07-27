@@ -228,6 +228,63 @@ fallas de entorno (recursos de red/servicios reales en esta máquina),
 consistentes con el mismo patrón ya documentado arriba -- no indican
 ninguna regresión del rebase ni de los fixes de Bloque S.1.
 
+## Los 3 cuelgues, causa raíz encontrada y arreglada (26-27 Jul 2026)
+
+Diagnosticados con `faulthandler.dump_traceback_later()` (no requiere
+ptrace, que está bloqueado en este sandbox):
+
+1. **`test_doctor.py::TestDoctorStaleMaxIterationsDrift`** (las 4
+   pruebas de esa clase): `hermes_cli/doctor.py` corre `npm audit
+   --json` de verdad contra `PROJECT_ROOT` cuando `node_modules`
+   existe -- necesita el registro real de npm, inalcanzable aquí.
+   Colgado en `subprocess.communicate()` bien pasado el `timeout=30`
+   que el propio doctor.py le pone. **Fix:** bloqueado en el guard
+   existente de `tests/conftest.py` (mismo patrón que "hermes update")
+   -- falla rápido y claro; `doctor.py` ya envuelve la llamada en
+   `try/except`, así que no cambia su comportamiento real.
+2. **`test_model_switch_copilot_api_mode.py`** (las 3 pruebas):
+   `copilot_model_api_mode()` llama `fetch_github_model_catalog()`
+   siempre que hay `api_key`, sin mockear -- fetch real a la API de
+   catálogo de GitHub, colgado en `socket.getaddrinfo()`. **Fix:**
+   mockeado a catálogo vacío (los modelos de estas pruebas no dependen
+   de su contenido, ver comentario en el test).
+3. **El ~83% de la corrida original de una sola pasada** -- resultó ser
+   más del mismo problema (llamadas de red reales no mockeadas),
+   cubierto por el candado nuevo de abajo.
+
+**Candado sistémico agregado** (`tests/conftest.py::_no_real_network`,
+autouse): bloquea CUALQUIER conexión real no-loopback a nivel de
+`socket.create_connection` -- convierte cualquier otro cuelgue de red
+no mockeado (presente o futuro) en un fallo inmediato y legible en vez
+de un cuelgue silencioso indefinido. Loopback exento para tests con
+servidor local real; `@pytest.mark.live_system_guard_bypass` para los
+que de verdad necesiten red real.
+
+**Bonus encontrado en el camino:** el fixture `agent_env` de
+`tests/agent/test_empty_tool_name_loop_dampening.py` dejaba un
+`FileHandler` de logging colgado apuntando a un directorio temporal ya
+borrado -- cada log de CUALQUIER prueba posterior en el mismo proceso
+producía un "--- Logging error ---" completo en stderr (2000+
+confirmados en una corrida de `tests/agent/` completo). Arreglado
+desconectándolo con `hermes_logging._reset_queued_handlers()` antes de
+borrar el directorio.
+
+**Resultado final, verificado, sin ningún cuelgue:**
+`tests/hermes_cli/` completo, 32 fragmentos de 300 con `timeout 120`
+cada uno: **9,526 passed, 19 failed, 31 skipped, 0 timeouts** sobre
+9,576 tests totales. Los 19 fallos siguen dispersos en áreas sin
+relación (OAuth de dashboard, normalización de proveedores custom, CLI
+de suscripción) -- no investigados, fuera de alcance de esta
+verificación, no relacionados con el rebase ni con ningún fix de esta
+sesión.
+
+También: `tests/run_agent/` + `tests/agent/` + `tests/tools/`
+completos -- de 147 fallos en la corrida combinada, 143 eran
+contaminación del bug de logging de arriba (confirmados limpios
+aislados + con `git stash` contra el código sin tocar); solo 4
+preexistentes y sin relación (2 en `test_turn_context_overflow_warning.py`,
+2 en `test_credential_pool_routing.py`).
+
 ## Hallazgo pendiente (no arreglado en este bloque)
 
 `tools/telegram_userbot.py` en este worktree trae la versión ANTIGUA y
