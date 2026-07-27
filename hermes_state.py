@@ -1173,6 +1173,30 @@ CREATE TABLE IF NOT EXISTS compression_locks (
     expires_at REAL NOT NULL
 );
 
+-- Tarea C/D (HAS): cola de mensajes que no pudieron responderse por cuota
+-- agotada (insert_pending_message/get_pending_messages/claim_pending, mas
+-- abajo en esta clase). Encontrada en produccion sin CREATE TABLE propio en
+-- el codigo -- una instalacion nueva (o una prueba con SessionDB(tmp_path))
+-- nunca la habria tenido. Agregada aqui, matching exacto del schema real de
+-- produccion, como parte del blindaje de Fase 2 (HAS): que una instalacion
+-- nueva quede identica a la vieja, no dependiente de un ALTER a mano nunca
+-- documentado.
+CREATE TABLE IF NOT EXISTS mensajes_pendientes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contenido TEXT NOT NULL,
+    canal TEXT NOT NULL,
+    fecha_recibido REAL NOT NULL,
+    estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'procesado', 'fallido')),
+    fecha_procesado REAL,
+    intentos INTEGER NOT NULL DEFAULT 0,
+    chat_id TEXT,
+    notice_message_id TEXT,
+    resuelto_via TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_mensajes_pendientes_estado
+ON mensajes_pendientes(estado, fecha_recibido);
+
 CREATE TABLE IF NOT EXISTS async_delegations (
     delegation_id TEXT PRIMARY KEY,
     origin_session TEXT NOT NULL,
