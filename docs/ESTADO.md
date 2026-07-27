@@ -2,6 +2,58 @@
 
 **Versiones vigentes: HAS v1.4 · PROTOCOLO v1.3.1**
 
+## HAS Fase 2 — Bloque 6 (corte real a producción) — EN OBSERVACIÓN (27 Jul 2026)
+
+Corte ejecutado con Arturo presente, siguiendo el procedimiento de la
+skill `hermes-upgrade`. Antes de tocar nada, verificación real (no
+asumida) de que `arturo/base` es superset del código de producción: los
+41 commits propios que `main` tenía de más desde el ancestro común se
+confirmaron uno por uno, con `git merge-base --is-ancestor`, como ya
+cherry-pickeados en `arturo/base` (Tarea 1, Tarea E/E v2, Tarea I,
+Bloques AF/AG/AH, voz, caché, etc.) -- salvo 4 archivos vivos
+(`CLAUDE.md`, `docs/ESTADO.md`, `docs/BLOQUES.md`,
+`docs/BITACORA_ARTURO.md`) que sí divergían (versiones congeladas desde
+que se creó el worktree) y se restauraron a mano después del reset,
+verificado con `diff` = 0 contra el `main` anterior.
+
+**Pasos reales ejecutados, con evidencia:**
+1. Tag de rollback `pre-bloque6-cutover-20260727` sobre `7e33bae1c`
+   antes de tocar nada. Comando de vuelta atrás si algo falla:
+   `git reset --hard pre-bloque6-cutover-20260727`.
+2. `/mnt/seagate` encontrado desmontado -- causa real confirmada en
+   `journalctl -k`: desconexión sucia por error de I/O real a las
+   08:22 de hoy (`Buffer I/O error`, `JBD2 I/O error`), no algo que
+   Hermes causara. Montado manual (`udisksctl`), journal de ext4
+   recuperado al montar, sin errores nuevos desde entonces. Pendiente:
+   Arturo corra `smartctl` para descartar disco fallando vs.
+   cable/puerto USB.
+3. `hermes-gateway` parado por Arturo mismo (el hook bloqueó
+   correctamente el intento automático de `stop`, como debe ser).
+   **Hallazgo real, no bloqueante:** el cierre no fue limpio
+   (`SIGTERM` recibido, 8s de shutdown, `exit code 1` en vez de 0) --
+   bug real en el manejador de cierre, pendiente de diagnóstico
+   aparte.
+4. Respaldo real, 700M, en
+   `/mnt/seagate/backups/hermes_pre_upgrade_20260727.tar.gz` (excluye
+   `venv`/`node_modules`, reproducibles) -- verificado íntegro con
+   `tar -tzf`.
+5. `git reset --hard arturo/base` + restauración de los 4 archivos
+   vivos + commit `b11a117bf` con el detalle completo.
+6. Reinicio con la ÚNICA excepción pre-aprobada del hook
+   (`systemctl --user restart hermes-gateway.service`) -- 11:49,
+   resultado: activo. Único uso de la excepción esta sesión.
+7. **29/29 smoke tests pasan contra producción real** (no un worktree
+   aislado). Confirmado en vivo: el fix de `mensajes_pendientes`
+   (`CREATE TABLE IF NOT EXISTS`, bug real encontrado en Bloque 4) ya
+   está en el `hermes_state.py` de producción. `hermes-gateway` y
+   `litellm` activos, sin errores/tracebacks en logs desde el
+   reinicio.
+
+**NO cerrado todavía** -- falta la ventana de 24h de observación real
+de logs (paso 6 del procedimiento) antes de declarar Bloque 6, y con
+él HAS Fase 2 completa, cerrado. Revisar logs mañana (28 Jul) antes de
+cualquier declaración de cierre.
+
 ## HAS Fase 2 (Blindaje y actualización) — Bloques 4 y 5 CERRADOS (27 Jul 2026)
 
 Con Bloque 1 (rebase, arriba) ya cerrado, seguí con los entregables que

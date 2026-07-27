@@ -4,6 +4,89 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Bloque 6 (HAS Fase 2) — corte real a producción (27 Jul 2026) — EN OBSERVACIÓN, no cerrado
+
+Ejecutado con Arturo presente, siguiendo el procedimiento de 6 bloques
+de la skill `hermes-upgrade` (ver Bloque 5). Resumen completo con
+evidencia en `docs/ESTADO.md`, sección "Bloque 6". Puntos que vale la
+pena dejar aquí con más detalle técnico:
+
+**Verificación previa al corte (lo que evitó una regresión real):** el
+procedimiento original de la skill decía simplemente "cambia producción
+al código/venv nuevo (rama arturo/base ya verificada)". Antes de
+ejecutar eso literal, se comparó `main` (producción) contra
+`arturo/base` desde su ancestro común (`a81c5922a`):
+- `main` tenía 41 commits propios que `arturo/base` no tenía por SHA
+  directo.
+- Verificado uno por uno con `git merge-base --is-ancestor <sha>
+  arturo/base`: los 41 están TODOS presentes como cherry-picks reales
+  (mismo contenido, SHA distinto) -- Tarea 1, Tarea C/D/G, Tarea E,
+  Tarea E v2, Tarea I, Bloques AF/AG/AH, voz, caché, seguridad, ledger
+  DeepSeek, kanban, i18n, gitignore.
+- La ÚNICA divergencia real: `CLAUDE.md`, `docs/ESTADO.md`,
+  `docs/BLOQUES.md`, `docs/BITACORA_ARTURO.md` -- versiones congeladas
+  en `arturo/base` desde que se creó el worktree `hermes-019`. El resto
+  de `docs/` (`HAS.md`, `PROTOCOLO.md`, `HISTORIAL.md`,
+  `GUION_PRUEBAS.md`) ya era idéntico.
+
+Sin esta verificación, un `git reset --hard arturo/base` directo habría
+sido seguro en código pero habría **borrado silenciosamente la bitácora
+y el estado reales** de Arturo, reemplazándolos por versiones viejas.
+
+**Hallazgo real de infraestructura, encontrado en el camino (no
+buscado):** `/mnt/seagate` estaba desmontado al momento de empezar.
+`journalctl -k` confirmó la causa real: una desconexión sucia por error
+de I/O genuino a las 08:22 de hoy (`device offline error`, `Buffer I/O
+error`, `JBD2: I/O error when updating journal superblock`), seguida 2
+segundos después de una re-enumeración USB del mismo disco -- no fue
+que Hermes "no lo detectara", fue una falla real de conexión/energía.
+No se re-montó solo porque `/mnt/seagate` vive en `/etc/fstab` sin
+`x-systemd.automount`, y `udisks` tiene `HintAuto: false` para
+cualquier entrada de fstab (las excluye a propósito de su
+automontaje). Se quedó desmontado ~3 horas sin que nada lo reportara.
+Montado manual con `udisksctl` (sin sudo), journal de ext4 recuperado
+al montar (`recovery complete`), sin errores nuevos desde entonces.
+**Pendiente real:** Arturo corra `smartctl` para descartar disco
+fallando vs. cable/puerto USB -- se le pidió explícitamente porque el
+comando requiere `sudo` interactivo.
+
+**Hallazgo real, no bloqueante, del propio cierre del servicio:** al
+pedirle a Arturo que corriera `systemctl --user stop hermes-gateway`
+(bloqueado el intento automático por el hook, correctamente), el
+proceso NO cerró limpio -- `journalctl --user -u hermes-gateway`
+muestra `SIGTERM` recibido a las 11:44:48, 8 segundos de shutdown, y
+`Main process exited, code=exited, status=1/FAILURE` en vez de exit 0.
+Bug real en el manejador de cierre (`gateway.run`, contexto de
+shutdown), pendiente de diagnóstico dedicado, sin relación aparente con
+el corte mismo (mismo síntoma existía ya en el código previo al
+rebase).
+
+**Pasos ejecutados, en orden, con evidencia real:**
+1. `git tag pre-bloque6-cutover-20260727` sobre `7e33bae1c` (rollback:
+   `git reset --hard pre-bloque6-cutover-20260727`).
+2. Disco montado (ver arriba).
+3. `hermes-gateway` parado por Arturo (ver hallazgo arriba).
+4. `tar -czf /mnt/seagate/backups/hermes_pre_upgrade_20260727.tar.gz`
+   (excluye `venv`/`node_modules`) -- 700M, verificado íntegro con
+   `tar -tzf` (lista sin error).
+5. `git reset --hard arturo/base` -- HEAD a `47a82f21a`.
+6. `git checkout pre-bloque6-cutover-20260727 -- CLAUDE.md
+   docs/ESTADO.md docs/BLOQUES.md docs/BITACORA_ARTURO.md` + commit
+   `b11a117bf` -- verificado con `diff` = 0 contra el `main` anterior
+   en los 4 archivos.
+7. `systemctl --user restart hermes-gateway.service` (11:49) -- ÚNICO
+   uso de la excepción pre-aprobada del hook esta sesión, resultado:
+   activo.
+8. `venv/bin/python3 -m pytest tests/smoke/ -v` contra producción real
+   (no worktree) -- **29/29 passed**. Confirmado en vivo: el fix de
+   `mensajes_pendientes` (`CREATE TABLE IF NOT EXISTS`, bug real de
+   Bloque 4) ya está en el `hermes_state.py` real. `hermes-gateway` y
+   `litellm` activos, 0 errores/tracebacks en logs desde el reinicio.
+
+**NO cerrado.** Falta la ventana de 24h de observación real de logs
+(paso 6 del procedimiento de `hermes-upgrade`) antes de declarar
+Bloque 6 -- y con él, HAS Fase 2 completa -- cerrado.
+
 ## OT-QA — userbot: api_id/api_hash rechazados >12h seguidas, EN CURSO sin resolver
 
 `start_login(api_id=35683031, api_hash=F4f73f75382ccc69ce4fd9f213d40e4b,

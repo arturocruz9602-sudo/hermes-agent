@@ -7,6 +7,60 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 27 Jul 2026 — El programa base ya está actualizado en el Hermes real (no solo en la copia de pruebas), y no se perdió nada
+
+**Qué era esto:** el "Bloque 6", el último paso del blindaje que empezó
+hace días -- pasar la actualización de la copia de pruebas al Hermes
+real que usted usa por Telegram. Es el único paso que sí tocó
+producción de verdad, por eso se hizo con usted presente, siguiendo el
+plan al pie de la letra.
+
+**Antes de tocar nada, encontré algo que pudo haber salido mal:** el
+plan original decía "copia el código nuevo a producción", pero antes de
+hacerlo comparé, línea por línea, todo lo que usted tiene funcionando
+hoy contra la versión nueva. Buena noticia: las mejoras reales de los
+últimos días (Tarea E, la bóveda, la memoria separada de la cuenta de
+pruebas, el aviso de DeepSeek, etc.) SÍ estaban todas incluidas en la
+versión nueva -- verificado una por una, no de un vistazo. Lo único que
+sí se habría perdido si no revisaba: el propio archivo donde llevo el
+registro de todo esto (este archivo, y sus hermanos ESTADO/BLOQUES).
+Los rescaté antes de que se perdieran.
+
+**Dos cosas reales que encontré en el camino, sin buscarlas:**
+1. **El disco duro Seagate se desconectó solo esta mañana** (8:22 am)
+   por un error real de conexión/energía -- no algo que yo causara.
+   Se quedó desconectado sin que nada avisara hasta que lo detecté
+   ahorita, antes de usarlo para el respaldo. Ya lo reconecté, pero le
+   pediría que corra este comando en su terminal para descartar que el
+   disco esté fallando (y no solo un cable flojo):
+   ```
+   sudo smartctl -a /dev/sda
+   ```
+2. **Al apagar el Hermes viejo para hacer el cambio, no cerró limpio**
+   (tardó 8 segundos y salió con error en vez de cerrar bien). No
+   afectó el corte, pero es un bug real que hay que revisar aparte.
+
+**Cómo lo verifiqué:** respaldo completo del Hermes viejo guardado en
+el disco Seagate (700 MB, revisado que no esté corrupto) antes de
+tocar nada, con un punto de regreso marcado por si algo salía mal. Ya
+con el código nuevo puesto, corrí las 10 pruebas rápidas de siempre
+contra el Hermes REAL (no la copia) -- las 10 pasaron. Confirmé que un
+bug real que encontramos esta semana (una tabla que le faltaba a la
+base de datos en una instalación nueva) ya viene arreglado en el
+Hermes real.
+
+**Todavía NO está cerrado del todo a propósito:** falta revisar mañana
+los registros de 24 horas reales de uso antes de decir que quedó
+perfecto -- así lo pide el propio plan, no se cierra el mismo día solo
+porque las pruebas pasaron.
+
+**Mensaje que puede mandarle a Hermes para probarlo usted mismo:**
+"Hermes, ¿qué hora es y desde cuándo está corriendo el gateway?" --
+debería contestar con la hora real y decir que lleva corriendo desde
+hoy poco antes del mediodía (el reinicio del corte).
+
+---
+
 ## 26-27 Jul 2026 — Terminé de blindar la actualización a la versión nueva, y encontré 4 fallas reales en el camino
 
 **Qué era esto:** el programa base sobre el que corre Hermes llevaba
