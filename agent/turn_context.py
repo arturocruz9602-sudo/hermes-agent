@@ -384,6 +384,16 @@ def build_turn_context(
     # Guard stdio against OSError from broken pipes (systemd/headless/daemon).
     install_safe_stdio()
 
+    # Bloque O.6.2 (27 Jul 2026): self-healing restore of any tools override
+    # left by a previous turn's incident-check gate (see below). Placed at
+    # the very top, unconditionally, so it self-heals even if that turn
+    # exited early (compression exhaustion, error, interrupt) without ever
+    # reaching finalize_turn -- a per-turn override left un-restored would
+    # otherwise permanently disable tool calls for the rest of the session.
+    if hasattr(agent, "_o6_original_tools"):
+        agent.tools = agent._o6_original_tools
+        del agent._o6_original_tools
+
     # NOTE: the DB session row is created later, AFTER the system prompt is
     # restored/built (see _ensure_db_session() below the system-prompt block).
     # Creating it here — before _cached_system_prompt is populated — inserts a
@@ -1280,6 +1290,22 @@ def build_turn_context(
             plugin_user_context = (
                 f"{plugin_user_context}\n\n{_te_pre_ctx}" if plugin_user_context else _te_pre_ctx
             )
+            # Bloque O.6.2 (27 Jul 2026): un backstop de PROMPT no basta --
+            # confirmado en vivo que el modelo puede ignorar la instruccion
+            # "no leas otros logs" y llamar read_file/terminal por su cuenta
+            # sobre un log VIEJO/rotado, presentandolo como si fuera el
+            # estado actual (mismo patron ya documentado en
+            # reporte_bloque_o_22jul.md: "el modelo prioriza narrativa
+            # coherente sobre instrucciones explicitas"). Unica forma real
+            # de evitarlo: quitarle la posibilidad de llamar CUALQUIER
+            # herramienta este turno, forzandolo a responder solo con la
+            # evidencia real ya inyectada arriba. Restaurado de forma
+            # self-healing al inicio del siguiente turno (ver arriba).
+            from agent.complexity_detector import looks_like_incident_check
+
+            if looks_like_incident_check(original_user_message or ""):
+                agent._o6_original_tools = agent.tools
+                agent.tools = []
     except Exception as exc:
         logger.warning("Bloque O.1 (gather_pre_response_context) failed: %s", exc)
 

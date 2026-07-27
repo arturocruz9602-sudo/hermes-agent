@@ -946,7 +946,13 @@ def run_incident_verification(window_minutes: int = 45) -> str:
             "ESTRICTA: cita SOLO lo que aparece aquí abajo, con las líneas "
             "reales. Si 'hay_evidencia_real' es false, dilo explícitamente "
             "-- PROHIBIDO inventar timestamps, causas, o líneas de log que "
-            "no estén en este bloque.]\n{}"
+            "no estén en este bloque. PROHIBIDO ADEMÁS: llamar read_file/"
+            "terminal/search_files sobre OTROS logs para responder esto -- "
+            "la evidencia de arriba ya es la verificación completa y "
+            "actualizada (hallazgo real 27 Jul: sin esta regla, el modelo "
+            "leyó un log rotado de hace un mes y lo presentó como el "
+            "estado actual). Si el bloque de abajo no alcanza, dilo así, "
+            "no busques por tu cuenta en otros archivos.]\n{}"
         ).format(window_minutes, output)
     except Exception as e:
         return (

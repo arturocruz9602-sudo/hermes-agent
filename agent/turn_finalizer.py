@@ -109,6 +109,28 @@ _NO_FABRICATION_FALLBACK = (
     "más específico, o dime qué falta para poder hacerlo."
 )
 
+# Bloque O.6.1 (27 Jul 2026): post-validacion contra la evidencia real
+# inyectada por run_incident_verification() (Bloque O.6,
+# agent/complexity_detector.py). Hallazgo real en vivo: incluso con la
+# inyeccion llegando correctamente al prompt (confirmado con
+# instrumentacion), el modelo puede ignorarla por completo -- llamar su
+# propia herramienta sin relacion y afirmar despues "no mostro errores"
+# citando un "analisis anterior" no verificable, pese a que la
+# evidencia real de ESTE turno decia hay_evidencia_real=true con lineas
+# reales de fallo. Es el riesgo que reporte_bloque_o_22jul.md dejo
+# pendiente explicitamente: "post-validar la respuesta contra la
+# evidencia real, no solo inyectar y confiar en que se use". Backstop
+# mecanico y deliberadamente estrecho (mismo espiritu que
+# _FABRICATED_SUCCESS_RE): solo dispara cuando SABEMOS que hubo
+# evidencia real este turno Y la respuesta la niega explicitamente --
+# no intenta validar cada afirmacion del modelo, eso queda fuera de
+# alcance.
+_O6_EVIDENCE_DENIAL_RE = re.compile(
+    r"no\s+(mostr\w*|encontr\w*|hab[ií]a|hay|existe\w*|indic\w*)\s+"
+    r"(ning[uú]n\w*\s+)?(error\w*|evidencia\w*|problema\w*|incidente\w*|fall\w*)",
+    re.IGNORECASE,
+)
+
 
 def _strip_accents_for_match(text: str) -> str:
     """Normalize accents away so _FABRICATED_SUCCESS_RE doesn't need to
@@ -633,6 +655,27 @@ def finalize_turn(
                     final_response[:200],
                 )
                 final_response = _NO_FABRICATION_FALLBACK
+
+    # Bloque O.6.1 (27 Jul 2026): ver comentario junto a
+    # _O6_EVIDENCE_DENIAL_RE arriba. Solo dispara si O.6 SI inyecto
+    # evidencia real este turno (agent._te_pre_response_data_summary,
+    # poblado en agent/turn_context.py) con hay_evidencia_real=true, y
+    # la respuesta final la contradice explicitamente.
+    if final_response and not interrupted:
+        _o6_summary = getattr(agent, "_te_pre_response_data_summary", None)
+        if _o6_summary and '"hay_evidencia_real": true' in _o6_summary:
+            if _O6_EVIDENCE_DENIAL_RE.search(_strip_accents_for_match(final_response)):
+                logger.warning(
+                    "Bloque O.6.1: respuesta contradice evidencia real "
+                    "inyectada este turno (hay_evidencia_real=true): %r",
+                    final_response[:200],
+                )
+                final_response = (
+                    "⚠️ Iba a decirte que no había evidencia de esto, pero "
+                    "SÍ encontré evidencia real este turno -- te la paso tal "
+                    "cual, sin interpretar, para no arriesgarme a "
+                    "contradecirla:\n\n" + _o6_summary
+                )
 
     # Bloque O.4 (22 Jul 2026): enforcement de español. Corre despues del
     # backstop anti-fabricacion (para no re-traducir el mensaje de
