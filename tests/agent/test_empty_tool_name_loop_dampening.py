@@ -154,6 +154,17 @@ def agent_env():
         yield agent, _MockHandler
     finally:
         srv.shutdown()
+        # AIAgent(...) construction wires up hermes_logging's rotating file
+        # handler pointed at test_home/.hermes/logs/agent.log. Detach it
+        # BEFORE deleting the directory below, or every subsequent log call
+        # in this pytest process (any later test, not just this file) hits
+        # a FileNotFoundError trying to reopen/rotate a deleted path -- and
+        # logging.raiseExceptions makes each one print a full "Logging
+        # error" traceback to stderr instead of failing the test that
+        # caused it. Confirmed live (26 jul 2026): a full tests/agent/ run
+        # accumulated 2000+ of these after this fixture's first use.
+        import hermes_logging
+        hermes_logging._reset_queued_handlers()
         shutil.rmtree(test_home, ignore_errors=True)
         if prev_home is None:
             os.environ.pop("HERMES_HOME", None)
