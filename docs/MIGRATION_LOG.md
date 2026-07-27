@@ -331,3 +331,65 @@ reaplicar el fix aquí.
   sintaxis en todo el árbol (`ast.parse` sobre cada `.py`).
 - Riesgo a producción: CERO (worktree aislado, nunca se tocó
   `~/.hermes/hermes-agent`).
+
+## Bloque 6.1 — cierre real de la verificación E2E de Fase 2 (27 Jul 2026)
+
+El criterio de verificación de Fase 2 pide simular una actualización
+FUTURA y que el procedimiento la resuelva "sin intervención creativa"
+-- el ensayo del Bloque 5 (mismo día) midió el dolor pero abortó a
+propósito en el primer conflicto, sin completarlo. Esta sección cierra
+esa vuelta pendiente: rebase real, de principio a fin, en una rama
+desechable nueva (`fase2-cierre-rebase`, sobre `arturo/base` ya en
+producción tras el corte de Bloque 6 -- nunca se tocó producción de
+nuevo).
+
+**Alcance:** 761 commits nuevos de upstream desde el corte de hoy
+(`git fetch origin main`) -- 47 de ellos aplicables por delante de
+donde ya estaba `arturo/base` en su propia rama de trabajo.
+
+### Commit 8/47 — `plugins/platforms/telegram/adapter.py`
+
+- **Commit propio en conflicto:** `b64e6b9ac` "i18n(telegram):
+  Spanish-translate the tool-approval card and add a risk/resource
+  line".
+- **Qué hace HEAD (upstream, ya aplicado):** reorganiza los botones de
+  aprobación en filas de 2x2 en vez de una sola fila de 4 -- arregla que
+  las etiquetas se veían truncadas en móvil ("Allo… / Ses… / …").
+- **Qué hace el commit propio:** traduce las etiquetas de los botones al
+  español ("Denegar" en vez de "Deny", + las demás ya traducidas antes
+  en el mismo commit: "Permitir una vez", "Esta sesión", "Siempre").
+- **Resolución:** NO son cambios que compitan -- se combinan los dos.
+  Se conserva el layout 2x2 de upstream (`rows = [buttons[i:i+2] ...]`)
+  con la etiqueta en español (`"❌ Denegar"`). Ninguno de los dos
+  arreglos se pierde.
+- **Efecto en pruebas:** `tests/gateway/test_telegram_approval_buttons.py`
+  traía 5 aserciones hardcodeadas con las etiquetas en inglés de
+  upstream (`"❌ Deny"`, `"✅ Allow Once"`, `"✅ Session"`,
+  `"✅ Always"`) -- actualizadas a las etiquetas reales en español
+  (mismo criterio que el propio commit `b64e6b9ac` ya establecía antes
+  del rebase). 26/26 verde tras el ajuste.
+
+### Resultado final
+
+- 47/47 commits aplicados, un solo conflicto real (arriba), resuelto
+  combinando ambos lados -- no fue necesario descartar ningún cambio.
+- `git status` limpio, 0 errores de sintaxis en todo el árbol
+  (`ast.parse` sobre cada `.py`, corrida en paralelo).
+- 29/29 smoke tests (los 10 escenarios de Fase 2 + los agregados en
+  Bloque 4) en verde.
+- `tests/gateway/test_telegram_approval_buttons.py`: 26/26 verde tras
+  actualizar las 5 aserciones de etiquetas.
+- Riesgo a producción: CERO -- rama `fase2-cierre-rebase` desechable,
+  nunca se tocó `arturo/base` ni `~/.hermes/hermes-agent`. Adoptar estos
+  47 commits a producción es una decisión FUTURA separada, no requerida
+  para cerrar la verificación de Fase 2 (el criterio es que el
+  PROCEDIMIENTO funcione de punta a punta, no mantenerse siempre al
+  día).
+
+**Con esto, el criterio de verificación E2E de Fase 2 queda cerrado de
+verdad**: los 10 smoke tests pasan en el venv nuevo (ya confirmado en
+Bloque 4/6), y una actualización futura simulada se resolvió por
+completo con el procedimiento documentado, sin intervención creativa
+-- el único conflicto real se resolvió entendiendo qué hacía cada lado
+(regla del propio procedimiento), no "tomando lo que parecía más
+nuevo".
