@@ -17,12 +17,19 @@ instead of failing at import time, so the rest of the codebase can import
 this module freely even on a machine that never runs the QA account.
 
 Usage once L13 is closed and Arturo has supplied api_id/api_hash from
-my.telegram.org (one-time, see docs/HAS.md OT-QA step (d)):
+my.telegram.org (one-time, see docs/HAS.md OT-QA step (d)). Login is a
+TWO-STEP process on purpose (``start_login`` / ``complete_login``)
+instead of Telethon's blocking ``client.start()`` -- that call does a
+synchronous ``input()`` for the verification code, which has no
+terminal to read from when driven from an automated tool call. Each
+step is its own process-safe call (only ``phone_code_hash`` needs to
+survive between them, not a live connection):
 
-    from tools.telegram_userbot import login_and_store_session
-    await login_and_store_session(api_id, api_hash, phone_number, vault_passphrase)
-    # (interactive: Telethon prompts for the login code Telegram sends
-    # to the QA account -- relay it once, same as the pairing-code flow)
+    from tools.telegram_userbot import start_login, complete_login
+    phone_code_hash = await start_login(api_id, api_hash, phone_number)
+    # Telegram just sent a real code to the QA account -- Arturo relays it
+    await complete_login(api_id, api_hash, phone_number, phone_code_hash,
+                          code, vault_passphrase)
 
     from tools.telegram_userbot import TelegramUserbot
     bot = TelegramUserbot(api_id, api_hash, vault_passphrase)
@@ -96,16 +103,21 @@ def _get_session_string(vault_passphrase: str) -> Optional[str]:
     return None
 
 
-async def login_and_store_session(
-    api_id: int, api_hash: str, phone_number: str, vault_passphrase: str
-) -> None:
-    """One-time interactive login for the QA account. Telethon will
-    prompt for the verification code Telegram sends to that account --
-    relay it once (same pattern as the DM pairing code flow). The
-    resulting session string is written to the vault via
-    ``vault_save`` -- the SAME real save path every other credential
-    uses, so this benefits from whatever L13 fix landed (it is not a
-    parallel, unaudited storage mechanism).
+class TwoFactorPasswordNeeded(RuntimeError):
+    """Raised by complete_login() when the QA account has a 2FA cloud
+    password set. Not handled automatically on purpose -- that password
+    is a separate secret this module has no story for yet; surfacing a
+    clear error beats silently prompting for one more credential."""
+
+
+async def start_login(api_id: int, api_hash: str, phone_number: str) -> str:
+    """Step 1 of 2 for the one-time QA account login (see module
+    docstring). Connects just long enough to request a real login code
+    -- Telegram sends it to the QA account for real at this point.
+    Returns ``phone_code_hash``: pass it to ``complete_login()`` along
+    with the code Arturo relays. Disconnects immediately after; the
+    live connection does not need to survive until step 2, only this
+    hash does (Telethon's ``sign_in`` accepts it standalone).
 
     MUST NOT be called until L13 is confirmed closed -- see the module
     docstring. Deliberately not gated in code (the vault itself refuses
@@ -114,9 +126,45 @@ async def login_and_store_session(
     is verified live, same standard as everything else in this project.
     """
     _require_telethon()
-    async with TelegramClient(StringSession(), api_id, api_hash) as client:
-        await client.start(phone=phone_number)
+    client = TelegramClient(StringSession(), api_id, api_hash)
+    await client.connect()
+    try:
+        sent = await client.send_code_request(phone_number)
+        return sent.phone_code_hash
+    finally:
+        await client.disconnect()
+
+
+async def complete_login(
+    api_id: int, api_hash: str, phone_number: str, phone_code_hash: str,
+    code: str, vault_passphrase: str,
+) -> None:
+    """Step 2 of 2: submits the code Arturo relayed, completes the
+    login, and writes the resulting session string to the vault via
+    ``vault_save`` -- the SAME real save path every other credential
+    uses, so this benefits from whatever L13 fix landed (it is not a
+    parallel, unaudited storage mechanism)."""
+    _require_telethon()
+    from telethon.errors import SessionPasswordNeededError
+
+    client = TelegramClient(StringSession(), api_id, api_hash)
+    await client.connect()
+    try:
+        try:
+            await client.sign_in(
+                phone=phone_number, code=code, phone_code_hash=phone_code_hash,
+            )
+        except SessionPasswordNeededError as exc:
+            raise TwoFactorPasswordNeeded(
+                "La cuenta QA tiene una contraseña de dos pasos (2FA) "
+                "configurada -- este flujo no la maneja todavía. "
+                "Desactívala temporalmente en Telegram (Ajustes > "
+                "Privacidad y seguridad > Verificación en dos pasos) o "
+                "dime la contraseña para agregarla al flujo."
+            ) from exc
         session_string = client.session.save()
+    finally:
+        await client.disconnect()
     vault_save(_VAULT_SERVICE_NAME, session_string, vault_passphrase)
 
 
