@@ -909,12 +909,23 @@ def looks_like_incident_check(user_message: str) -> bool:
     return bool(_INCIDENT_CHECK_RE.search(folded))
 
 
-def run_incident_verification(window_minutes: int = 10) -> str:
+def run_incident_verification(window_minutes: int = 45) -> str:
     """Bloque O.6: corre verificar_incidente.py con "ahora" como
-    timestamp aproximado (ventana amplia -- el usuario normalmente
-    pregunta poco después de que algo falló) y arma el bloque de
-    contexto con instrucciones estrictas: solo citar lo real, decir
-    "sin evidencia" si no hay nada, nunca inventar."""
+    timestamp aproximado y arma el bloque de contexto con instrucciones
+    estrictas: solo citar lo real, decir "sin evidencia" si no hay nada,
+    nunca inventar.
+
+    Hallazgo real (27 Jul 2026, diagnóstico en vivo): con el default
+    original (±10 min), un incidente real de hace 16 minutos quedó
+    FUERA de la ventana -- el script correctamente no encontró nada
+    relevante, pero el resto de la ventana (ruido rutinario de litellm)
+    sí calificó como "hay_evidencia_real: true", exactamente el patrón
+    de "fragmentos reales pero irrelevantes presentados como si fueran
+    la evidencia pedida" descrito en reporte_bloque_o_22jul.md. Subido
+    a 45 min: la ventana ES simétrica (verificar_incidente.py no acepta
+    un rango asimétrico), pero un piso más alto de reach hacia atrás
+    cubre demoras realistas ("hace un momento", "hace rato") sin tocar
+    el contrato del script (usado también a mano por Arturo)."""
     try:
         import subprocess
         import time as _time

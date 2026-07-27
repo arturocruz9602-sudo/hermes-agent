@@ -252,6 +252,18 @@ def _compression_warrants_another_preflight_pass(
 ESCALATION_SAFE_TRIGGER_TOKENS = 30_000
 ESCALATION_HARD_CAP_TOKENS = 40_000
 
+# Bloque S.5 (27 Jul 2026): el target normal de compresion
+# (threshold_tokens * summary_target_ratio) se calcula sobre el contexto
+# del modelo PRIMARIO (p.ej. ~524,288 * 0.20 =~ 104,857 con Gemini) --
+# muy por encima de ESCALATION_SAFE_TRIGGER_TOKENS/HARD_CAP. Cuando la
+# compresion se dispara por la escalera de respaldo (no por el umbral del
+# primario), ese target nunca cae bajo el disparador, así que el turno
+# SIGUIENTE vuelve a disparar compresión de inmediato -- para siempre.
+# Hallazgo real: sesión de pruebas compactándose 2, 3+ veces seguidas sin
+# completar el turno (ver docs/BLOQUES.md). Mientras el disparo sea por
+# escalera, el target real debe apuntar aquí, no al 20% del primario.
+ESCALATION_TARGET_TOKENS = 20_000
+
 
 def _should_run_preflight_estimate(
     messages: List[Dict[str, Any]],
@@ -888,6 +900,23 @@ def build_turn_context(
             )
             if _preflight_status:
                 agent._emit_status(_preflight_status)
+            # Bloque S.5: mientras el disparo sea por la escalera de
+            # respaldo, apunta el target real de compresión a
+            # ESCALATION_TARGET_TOKENS (no al 20% del primario) para que
+            # el resultado quede bajo el disparador y no se re-dispare
+            # de inmediato en el siguiente turno. Restaurado abajo, al
+            # salir del bucle de pasadas (mismo alcance que ese bucle).
+            _escalation_orig_threshold = (
+                _compressor.threshold_tokens if _escalation_triggered else None
+            )
+            if _escalation_triggered:
+                # getattr guard: minimal compressor doubles (SimpleNamespace/
+                # fakes in tests) may lack this attribute -- 0.20 matches
+                # ContextCompressor's own default (see __init__ above).
+                _escalation_ratio = getattr(_compressor, "summary_target_ratio", 0.20)
+                _compressor.threshold_tokens = int(
+                    ESCALATION_TARGET_TOKENS / max(_escalation_ratio, 0.01)
+                )
             # Preflight passes honor the same configured per-turn cap
             # (compression.max_attempts) as the loop's compression sites;
             # default 3 preserves the prior hardcoded behavior.
@@ -962,6 +991,13 @@ def build_turn_context(
                         f"{_preflight_tokens:,}",
                     )
                     break
+
+            # Bloque S.5: restaura el threshold real del primario -- el
+            # override de arriba solo debe vivir durante las pasadas de
+            # este turno, nunca fuera de este bloque (afecta should_compress()
+            # en cualquier otro llamador que comparta el mismo compressor).
+            if _escalation_orig_threshold is not None:
+                _compressor.threshold_tokens = _escalation_orig_threshold
 
             # Bloque S.1 (E11): tope duro absoluto. Si tras 3 pasadas de
             # compresión normal (resumen vía Gemini + últimos N mensajes
