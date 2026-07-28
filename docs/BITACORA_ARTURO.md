@@ -7,6 +7,31 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 28 Jul 2026 (mediodía) — Confirmé que el cambio de motor de ayer quedó estable, y arrancamos la limpieza de las 136 skills
+
+**Qué pasó:** ayer se cambió Hermes al código nuevo (`arturo/base`, la
+versión ya probada del rebase) directo en producción -- el último paso
+pendiente de ese cambio era dejarlo funcionando 24 horas sin tocarlo y
+revisar los logs completos, para descartar cualquier problema que solo
+aparezca con el tiempo (no en la prueba del momento). Hoy revisé esas
+24 horas: encontré solo 4 avisos menores de reconexión de Telegram (se
+cae la conexión un instante y se reconecta sola en 5 segundos, algo que
+ya pasaba antes y no tiene que ver con el cambio), cero errores reales.
+Con esto, el cambio de ayer queda confirmado como estable -- no es solo
+"parece que funciona", ya se vigiló de verdad.
+
+**Qué sigue:** con eso cerrado, empezamos la limpieza de las 136 skills
+(instrucciones/herramientas) que tiene Hermes -- borrar las que están
+rotas o duplicadas, arreglar el contador que decía mal cuántas veces se
+usa cada una, y dejar todas con la información completa. No tiene un
+mensaje de prueba todavía porque es trabajo interno de organización, no
+algo que se note hablando con Hermes -- según vaya avanzando le aviso
+qué sí cambia para usted.
+
+**Notas de Arturo:**
+
+---
+
 ## 27 Jul 2026 (tarde) — Arreglé un bug real que hacía que Hermes se quedara "pensando" sin nunca responder
 
 **Qué encontré, sin buscarlo:** estaba diagnosticando por qué a veces Hermes

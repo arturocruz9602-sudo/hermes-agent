@@ -1,38 +1,29 @@
-# Estado de Hermes — actualizado 27 Jul 2026, noche
+# Estado de Hermes — actualizado 28 Jul 2026, mediodía
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
 
 ## ESTADO ACTUAL — leer esto primero, antes que nada más abajo
 
-**Fase activa: Fase 3 (Ciclo de vida de skills) — SIN EMPEZAR, y NO
-arranca sola.** Fases 0, 0.5, 1 y 2 del HAS quedaron CERRADAS hoy (27
-Jul 2026), con evidencia real cada una — ver sus secciones más abajo
-si hace falta el detalle, pero **no hay nada pendiente de esas 4 fases
-que revisar o retomar.**
+**Fase activa: Fase 3 (Ciclo de vida de skills) — AUTORIZADA Y EN
+CURSO (arrancó 28 Jul 2026, mediodía).** Fases 0, 0.5, 1 y 2 del HAS
+quedaron CERRADAS de verdad (27-28 Jul 2026), con evidencia real cada
+una, **incluido el Bloque 6** (corte a producción) que hasta hoy
+seguía "EN OBSERVACIÓN" pese a que el banner ya decía Fase 2 cerrada
+-- contradicción real detectada y corregida hoy: ventana de 24h de
+logs revisada (23.3h limpias, 0 tracebacks, ver sección Bloque 6 más
+abajo), Bloque 6 cerrado, Fase 2 cerrada en sus 6 pasos, no solo de
+nombre.
 
-**Regla explícita de Arturo (27 Jul, noche): Fase 3 NO arranca hasta
-que él lo autorice directamente en la sesión.** No asumir luz verde
-por el simple hecho de que las fases anteriores ya cerraron -- esperar
-su mensaje explícito antes de tocar cualquier skill.
+Arturo autorizó Fase 3 explícitamente el 28 Jul ("comienzas con la
+fase 3"). Primer paso en curso: respaldo de `~/.hermes/skills` (OT-3
+Bloque 1.1) antes de inventariar/tocar nada.
 
-Pendientes reales sueltos, ninguno bloquea Fase 3 cuando se autorice:
+Pendientes reales sueltos, ninguno bloquea Fase 3:
 - Disco Seagate: Arturo pendiente de correr `sudo smartctl -a /dev/sda`
   (hallazgo del 27 Jul, ver Bloque 6 más abajo) -- no urgente.
 - `recover@telegram.org` puede contestar en cualquier momento (correo
   enviado el 27 Jul) -- irrelevante ya, OT-QA se resolvió por otra vía
   (ver sección OT-QA más abajo, cuenta QA ya autenticada y funcionando).
-- `docs/HAS.md` SÍ vive versionado en este repo (`git ls-files` lo
-  confirma) -- corrección a una nota anterior de este mismo archivo que
-  decía lo contrario. Ya está en v1.5, sincronizado con la copia de
-  `~/hermes-019`.
-
-**Cuando Arturo autorice Fase 3:** abrir `docs/HAS.md` secciones "Fase
-3" + "OT-3" + el nuevo "F2v2" (v1.5, compuerta de edición de skills) +
-"F10" (recetario, ya con 2 recetas reales) antes de tocar nada,
-inventariar las 136 skills reales contra lo
-que describe, y empezar por lo primero accionable (basura-404 con
-respaldo). **No arrancar ni el inventario inicial sin la autorización
-explícita de Arturo** (regla suya del 27 Jul, noche).
 
 ## Bloque S.5 + fix de ventana O.6 — cascada de compactación infinita, CERRADO (27 Jul 2026)
 
@@ -136,7 +127,7 @@ fallas confirmadas pre-existentes con `git stash`). Desplegado a
 producción (13:13:33, tercer reinicio de la sesión). Detalle completo
 con las 3 reproducciones reales en `docs/BLOQUES.md`.
 
-## HAS Fase 2 — Bloque 6 (corte real a producción) — EN OBSERVACIÓN (27 Jul 2026)
+## HAS Fase 2 — Bloque 6 (corte real a producción) — CERRADO (28 Jul 2026, verificado)
 
 Corte ejecutado con Arturo presente, siguiendo el procedimiento de la
 skill `hermes-upgrade`. Antes de tocar nada, verificación real (no
@@ -187,10 +178,17 @@ verificado con `diff` = 0 contra el `main` anterior.
    `litellm` activos, sin errores/tracebacks en logs desde el
    reinicio.
 
-**NO cerrado todavía** -- falta la ventana de 24h de observación real
-de logs (paso 6 del procedimiento) antes de declarar Bloque 6, y con
-él HAS Fase 2 completa, cerrado. Revisar logs mañana (28 Jul) antes de
-cualquier declaración de cierre.
+**Ventana de 24h revisada (28 Jul 2026, ~12:30):** 23.3h reales desde el
+reinicio de las 13:13:29 del 27 Jul (`journalctl --user -u
+hermes-gateway.service --since "2026-07-27 13:13:29"`), 18 líneas de log
+en total, 0 tracebacks/excepciones/CRITICAL -- las únicas 4 líneas de
+WARNING son reconexiones de red transitorias de Telegram
+(`httpx.ReadError`, attempt 1/10, reconectado en 5s cada vez, mismo
+mecanismo de reintento ya existente, sin relación con el corte). `litellm.service`
+en la misma ventana: 1 línea total, 0 errores. Con esto se cierra el
+paso 6 pendiente del procedimiento -- **Bloque 6 cerrado, y con él HAS
+Fase 2 queda cerrada de verdad en sus 6 pasos, no solo en el banner de
+arriba** (esta sección contradecía al banner hasta ahora; corregido).
 
 ## HAS Fase 2 (Blindaje y actualización) — Bloques 4 y 5 CERRADOS (27 Jul 2026)
 

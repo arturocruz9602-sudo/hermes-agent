@@ -160,7 +160,7 @@ modelo ignorando texto, modelo llamando herramientas sin relación), fix
 real y mecánico en cada una, verificado en vivo, no solo instrucción de
 prompt.
 
-## Bloque 6 (HAS Fase 2) — corte real a producción (27 Jul 2026) — EN OBSERVACIÓN, no cerrado
+## Bloque 6 (HAS Fase 2) — corte real a producción (27-28 Jul 2026) — CERRADO
 
 Ejecutado con Arturo presente, siguiendo el procedimiento de 6 bloques
 de la skill `hermes-upgrade` (ver Bloque 5). Resumen completo con
@@ -251,9 +251,25 @@ cierre, pendiente de diagnóstico dedicado".
    Bloque 4) ya está en el `hermes_state.py` real. `hermes-gateway` y
    `litellm` activos, 0 errores/tracebacks en logs desde el reinicio.
 
-**NO cerrado.** Falta la ventana de 24h de observación real de logs
-(paso 6 del procedimiento de `hermes-upgrade`) antes de declarar
-Bloque 6 -- y con él, HAS Fase 2 completa -- cerrado.
+**Paso 6 cerrado (28 Jul 2026, ~12:30), con evidencia real:**
+```
+$ journalctl --user -u hermes-gateway.service --since "2026-07-27 13:13:29" | grep -iE "error|traceback|exception|critical" | grep -v "error_classifier|FailoverReason|ErrorClass"
+jul 27 16:51:36 ... WARNING [Telegram] Telegram network error (attempt 1/10), reconnecting in 5s. Error: httpx.ReadError:
+jul 27 20:21:11 ... WARNING [Telegram] Telegram network error (attempt 1/10), reconnecting in 5s. Error: httpx.ReadError:
+(2 pares repetidos = 4 líneas WARNING en total, 0 tracebacks/CRITICAL)
+
+$ journalctl --user -u hermes-gateway.service --since "2026-07-27 13:13:29" | wc -l
+18
+$ journalctl --user -u litellm.service --since "2026-07-27 13:13:29" | wc -l
+1
+```
+23.3 horas reales desde el reinicio (`ActiveEnterTimestamp=Mon
+2026-07-27 13:13:29`), 18 líneas de log en total en `hermes-gateway`,
+1 en `litellm`, 0 tracebacks/excepciones no manejadas. Las 4 líneas
+WARNING son reconexiones de red transitorias de Telegram
+(`httpx.ReadError`), mecanismo de reintento ya existente que se
+resuelve solo en 5s -- no un síntoma del corte. **Con esto, Bloque 6
+cerrado y con él HAS Fase 2 completa, cerrada de verdad.**
 
 ## HAS v1.5 — resuelve la incoherencia sobre quién puede editar skills (27 Jul 2026, tarde-noche)
 
