@@ -2602,8 +2602,10 @@ def _build_job_prompt(job: dict, prerun_script: Optional[tuple] = None) -> str:
             continue
 
         # Bump usage so the curator sees this skill as actively used.
+        # skill_dir disambiguates two skills sharing a name (see tools.skill_usage).
         try:
-            bump_use(skill_name)
+            raw_dir = loaded.get("skill_dir")
+            bump_use(skill_name, skill_dir=Path(raw_dir) if raw_dir else None)
         except Exception:
             logger.debug("Cron job: failed to bump skill usage for '%s'", skill_name, exc_info=True)
 

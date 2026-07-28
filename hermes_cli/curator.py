@@ -254,7 +254,8 @@ def _cmd_pin(args) -> int:
             "(only agent-created skills participate in curation)"
         )
         return 1
-    skill_usage.set_pinned(args.skill, True)
+    skill_dir = skill_usage._find_skill_dir(args.skill)
+    skill_usage.set_pinned(args.skill, True, skill_dir=skill_dir)
     print(f"curator: pinned '{args.skill}' (will bypass auto-transitions)")
     return 0
 
@@ -267,7 +268,8 @@ def _cmd_unpin(args) -> int:
             "there's nothing to unpin (curator only tracks agent-created skills)"
         )
         return 1
-    skill_usage.set_pinned(args.skill, False)
+    skill_dir = skill_usage._find_skill_dir(args.skill)
+    skill_usage.set_pinned(args.skill, False, skill_dir=skill_dir)
     print(f"curator: unpinned '{args.skill}'")
     return 0
 
@@ -286,7 +288,8 @@ def _cmd_archive(args) -> int:
     for the user who wants to archive *now* without waiting for a run.
     """
     from tools import skill_usage
-    if skill_usage.get_record(args.skill).get("pinned"):
+    skill_dir = skill_usage._find_skill_dir(args.skill)
+    if skill_usage.get_record(args.skill, skill_dir=skill_dir).get("pinned"):
         print(
             f"curator: '{args.skill}' is pinned — unpin first with "
             f"`hermes curator unpin {args.skill}`"

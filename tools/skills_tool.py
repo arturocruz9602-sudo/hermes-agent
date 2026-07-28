@@ -1739,12 +1739,17 @@ def _skill_view_with_bump(args, **kw):
             # qualified forms ("plugin:skill") return with the canonical name.
             resolved = parsed.get("name") or name
             if resolved:
+                from pathlib import Path as _Path
                 from tools.skill_usage import bump_use, bump_view
-                bump_view(str(resolved))
+                # skill_dir disambiguates two skills sharing a name: without
+                # it the two would collide on one shared usage-counter entry.
+                raw_dir = parsed.get("skill_dir")
+                resolved_dir = _Path(raw_dir) if raw_dir else None
+                bump_view(str(resolved), skill_dir=resolved_dir)
                 # A skill_view tool call is the agent actively loading the skill
                 # to act on it — that counts as use, not just a browse/view.
                 # Curator's stale timer keys off last_used_at (see agent/curator.py).
-                bump_use(str(resolved))
+                bump_use(str(resolved), skill_dir=resolved_dir)
     except Exception:
         pass
     return result

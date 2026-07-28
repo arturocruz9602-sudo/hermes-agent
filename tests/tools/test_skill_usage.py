@@ -377,9 +377,13 @@ def test_archive_skill_moves_directory(skills_home):
     ok, msg = archive_skill("old-skill")
     assert ok, msg
     assert not skill_dir.exists()
-    assert (skills_dir / ".archive" / "old-skill" / "SKILL.md").exists()
-    assert get_record("old-skill")["state"] == "archived"
-    assert get_record("old-skill")["archived_at"] is not None
+    archived_dir = skills_dir / ".archive" / "old-skill"
+    assert (archived_dir / "SKILL.md").exists()
+    # The archive move rekeys the record from the pre-move path to the
+    # post-move (.archive/) path — look it up at its new location, not the
+    # stale pre-move bare name (see tools.skill_usage._rekey_record).
+    assert get_record("old-skill", skill_dir=archived_dir)["state"] == "archived"
+    assert get_record("old-skill", skill_dir=archived_dir)["archived_at"] is not None
 
 
 def test_archive_refuses_bundled_skill(skills_home):

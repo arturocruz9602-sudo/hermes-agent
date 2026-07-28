@@ -15415,6 +15415,8 @@ async def get_skills(profile: Optional[str] = None):
     from tools.skill_usage import (
         _read_bundled_manifest_names,
         _read_hub_installed_names,
+        _find_skill_dir,
+        _rel_path_key,
         activity_count,
         load_usage,
     )
@@ -15431,7 +15433,14 @@ async def get_skills(profile: Optional[str] = None):
         hub_names = _read_hub_installed_names()
     for s in skills:
         s["enabled"] = s["name"] not in disabled
-        s["usage"] = activity_count(usage.get(s["name"], {}))
+        # Usage is keyed by path (see tools.skill_usage); re-resolve the
+        # directory to look it up. Bare-name fallback covers legacy records
+        # from before the path-keyed migration.
+        path_key = _rel_path_key(_find_skill_dir(s["name"]))
+        record = usage.get(path_key) if path_key else None
+        if record is None:
+            record = usage.get(s["name"], {})
+        s["usage"] = activity_count(record)
         s["provenance"] = (
             "hub" if s["name"] in hub_names
             else "bundled" if s["name"] in bundled_names

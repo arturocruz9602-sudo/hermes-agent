@@ -1,9 +1,18 @@
 """Skill usage telemetry + provenance tracking for the Curator feature.
 
 Tracks per-skill usage metadata in a sidecar JSON file (~/.hermes/skills/.usage.json)
-keyed by skill name. Counters are bumped by the existing skill tools (skill_view,
-skill_manage); the curator orchestrator reads the derived activity timestamp to
-decide lifecycle transitions.
+keyed by the SKILL.md path relative to the skills dir (e.g.
+"software-development/systematic-debugging/SKILL.md") — NOT by the bare skill
+``name:``. Two skills sharing a frontmatter name (a real, recurring case; see
+Fase 3 OT-3 Bloque 3) used to collide on one dict entry and share one counter.
+Callers that already have the resolved directory pass it as ``skill_dir`` and
+get the unambiguous path key; callers that only have a bare name (CLI commands
+typed by a human) fall back to a name lookup — safe today because
+``list_agent_created_skill_names``/name resolution refuses to guess when a
+name is ambiguous (see the collision handling already used by
+``tools.skills_tool.skill_view``). Counters are bumped by the existing skill
+tools (skill_view, skill_manage); the curator orchestrator reads the derived
+activity timestamp to decide lifecycle transitions.
 
 Design notes:
   - Sidecar, not frontmatter. Keeps operational telemetry out of user-authored
@@ -84,6 +93,29 @@ def _skills_dir() -> Path:
 
 def _usage_file() -> Path:
     return _skills_dir() / ".usage.json"
+
+
+def _rel_path_key(skill_dir: Optional[Path]) -> Optional[str]:
+    """Compute the unambiguous ``.usage.json`` storage key for *skill_dir*.
+
+    The key is the ``SKILL.md`` path relative to the active skills dir (same
+    string ``tools.skills_tool.skill_view`` already exposes as its ``"path"``
+    field). Returns None when *skill_dir* is unset or lives outside the
+    skills dir (e.g. an external ``skills.external_dirs`` mount, or the
+    caller genuinely only has a bare name) — callers fall back to the name
+    key in that case.
+    """
+    if skill_dir is None:
+        return None
+    try:
+        return str((Path(skill_dir) / "SKILL.md").relative_to(_skills_dir()))
+    except ValueError:
+        return None
+
+
+def _storage_key(skill_name: str, skill_dir: Optional[Path]) -> str:
+    """Resolve the actual dict key to use: path when available, else name."""
+    return _rel_path_key(skill_dir) or skill_name
 
 
 @contextmanager
@@ -376,7 +408,13 @@ def list_agent_created_skill_names() -> List[str]:
             names.append(name)
             continue
         # Agent-authored (or local-manual) skills must opt in via their record.
-        if not _is_curator_managed_record(usage.get(name)):
+        # Path key first (current format); bare-name fallback covers records
+        # not yet migrated (see module docstring).
+        path_key = _rel_path_key(skill_md.parent)
+        record = usage.get(path_key) if path_key else None
+        if record is None:
+            record = usage.get(name)
+        if not _is_curator_managed_record(record):
             continue
         names.append(name)
     return sorted(set(names))
@@ -541,10 +579,20 @@ def save_usage(data: Dict[str, Dict[str, Any]]) -> None:
         logger.debug("Failed to write %s: %s", path, e, exc_info=True)
 
 
-def get_record(skill_name: str) -> Dict[str, Any]:
-    """Return the record for *skill_name*, creating a fresh one if missing."""
+def get_record(skill_name: str, skill_dir: Optional[Path] = None) -> Dict[str, Any]:
+    """Return the record for *skill_name*, creating a fresh one if missing.
+
+    Pass *skill_dir* (the resolved skill directory) when the caller has it —
+    that disambiguates two skills sharing a ``name:``. Falls back to a bare
+    name lookup otherwise (and, failing that, to a legacy name-keyed record
+    from before the path-keyed migration, so already-written telemetry isn't
+    silently dropped for callers not yet passing a directory).
+    """
     data = load_usage()
-    rec = data.get(skill_name)
+    key = _storage_key(skill_name, skill_dir)
+    rec = data.get(key)
+    if not isinstance(rec, dict) and key != skill_name:
+        rec = data.get(skill_name)  # legacy name-keyed fallback
     if not isinstance(rec, dict):
         return _empty_record()
     # Backfill any missing keys so callers don't need to handle old files
@@ -554,7 +602,7 @@ def get_record(skill_name: str) -> Dict[str, Any]:
     return rec
 
 
-def seed_record_if_missing(skill_name: str) -> None:
+def seed_record_if_missing(skill_name: str, skill_dir: Optional[Path] = None) -> None:
     """Persist a baseline usage record for a curation-eligible skill.
 
     Built-ins carry no usage record until something touches them, which leaves
@@ -563,20 +611,27 @@ def seed_record_if_missing(skill_name: str) -> None:
     archive/stale clock measures non-use FROM THEN — not from epoch. No-op when
     a record already exists or the skill isn't curation-eligible.
     """
-    if not skill_name or not is_curation_eligible(skill_name):
+    if not skill_name or not is_curation_eligible(skill_name, skill_dir):
         return
+    key = _storage_key(skill_name, skill_dir)
     try:
         with _usage_file_lock():
             data = load_usage()
-            if isinstance(data.get(skill_name), dict):
+            if isinstance(data.get(key), dict):
                 return
-            data[skill_name] = _empty_record()
+            data[key] = _empty_record()
             save_usage(data)
     except Exception as e:
-        logger.debug("skill_usage.seed_record_if_missing(%s) failed: %s", skill_name, e, exc_info=True)
+        logger.debug("skill_usage.seed_record_if_missing(%s) failed: %s", key, e, exc_info=True)
 
 
-def _mutate(skill_name: str, mutator, *, require_curation_eligible: bool = False) -> None:
+def _mutate(
+    skill_name: str,
+    mutator,
+    *,
+    require_curation_eligible: bool = False,
+    skill_dir: Optional[Path] = None,
+) -> None:
     """Load, apply *mutator(record)* in place, save. Best-effort.
 
     By default this records telemetry for ANY skill — bundled, hub-installed,
@@ -586,64 +641,77 @@ def _mutate(skill_name: str, mutator, *, require_curation_eligible: bool = False
     ``require_curation_eligible=True`` so they never write meaningless state
     onto a skill the curator can't manage (e.g. an ``archived`` flag on a
     hub-installed skill).
+
+    Pass *skill_dir* when known so the record is keyed by path, not name —
+    see module docstring.
     """
     if not skill_name:
         return
+    key = skill_name
     try:
-        if require_curation_eligible and not is_curation_eligible(skill_name):
+        if require_curation_eligible and not is_curation_eligible(skill_name, skill_dir):
             return
+        key = _storage_key(skill_name, skill_dir)
         with _usage_file_lock():
             data = load_usage()
-            rec = data.get(skill_name)
+            rec = data.get(key)
+            if not isinstance(rec, dict) and key != skill_name:
+                rec = data.get(skill_name)  # legacy name-keyed fallback, migrated on write
             if not isinstance(rec, dict):
                 rec = _empty_record()
             mutator(rec)
-            data[skill_name] = rec
+            data[key] = rec
+            if key != skill_name and skill_name in data:
+                del data[skill_name]  # drop the stale legacy name key once migrated
             save_usage(data)
     except Exception as e:
-        logger.debug("skill_usage._mutate(%s) failed: %s", skill_name, e, exc_info=True)
+        logger.debug("skill_usage._mutate(%s) failed: %s", key, e, exc_info=True)
 
 
 # ---------------------------------------------------------------------------
 # Public counter-bump helpers — telemetry for ALL skills (observability only)
 # ---------------------------------------------------------------------------
 
-def bump_view(skill_name: str) -> None:
+def bump_view(skill_name: str, skill_dir: Optional[Path] = None) -> None:
     """Bump view_count and last_viewed_at. Called from skill_view().
 
     Tracks every skill regardless of provenance — built-ins and hub skills
-    included. Usage telemetry is observability, not a curation signal.
+    included. Usage telemetry is observability, not a curation signal. Pass
+    *skill_dir* (the caller almost always has it) so two skills sharing a
+    ``name:`` get independent counters instead of colliding on one record.
     """
     def _apply(rec: Dict[str, Any]) -> None:
         rec["view_count"] = int(rec.get("view_count") or 0) + 1
         rec["last_viewed_at"] = _now_iso()
-    _mutate(skill_name, _apply)
+    _mutate(skill_name, _apply, skill_dir=skill_dir)
 
 
-def bump_use(skill_name: str) -> None:
+def bump_use(skill_name: str, skill_dir: Optional[Path] = None) -> None:
     """Bump use_count and last_used_at. Called when a skill is actively used
     (e.g. loaded into the prompt path or referenced from an assistant turn).
 
-    Tracks every skill regardless of provenance.
+    Tracks every skill regardless of provenance. Pass *skill_dir* when known
+    — see ``bump_view``.
     """
     def _apply(rec: Dict[str, Any]) -> None:
         rec["use_count"] = int(rec.get("use_count") or 0) + 1
         rec["last_used_at"] = _now_iso()
-    _mutate(skill_name, _apply)
+    _mutate(skill_name, _apply, skill_dir=skill_dir)
 
 
-def bump_patch(skill_name: str) -> None:
+def bump_patch(skill_name: str, skill_dir: Optional[Path] = None) -> None:
     """Bump patch_count and last_patched_at. Called from skill_manage (patch/edit).
 
-    Tracks every skill regardless of provenance.
+    Tracks every skill regardless of provenance. Pass *skill_dir* when known
+    — see ``bump_view``.
     """
     def _apply(rec: Dict[str, Any]) -> None:
         rec["patch_count"] = int(rec.get("patch_count") or 0) + 1
         rec["last_patched_at"] = _now_iso()
-    _mutate(skill_name, _apply)
+    _mutate(skill_name, _apply, skill_dir=skill_dir)
 
 
-def mark_agent_created(skill_name: str) -> None:
+def mark_agent_created(skill_name: str, skill_dir: Optional[Path] = None) -> None:
     """Opt a skill created by skill_manage into curator management.
 
     Viewing or invoking a manually authored skill may still create telemetry,
@@ -651,10 +719,10 @@ def mark_agent_created(skill_name: str) -> None:
     """
     def _apply(rec: Dict[str, Any]) -> None:
         rec["created_by"] = "agent"
-    _mutate(skill_name, _apply, require_curation_eligible=True)
+    _mutate(skill_name, _apply, require_curation_eligible=True, skill_dir=skill_dir)
 
 
-def set_state(skill_name: str, state: str) -> None:
+def set_state(skill_name: str, state: str, skill_dir: Optional[Path] = None) -> None:
     """Set lifecycle state. No-op if *state* is invalid or the skill isn't
     curator-manageable (hub skills, or built-ins with pruning disabled)."""
     if state not in _VALID_STATES:
@@ -666,27 +734,59 @@ def set_state(skill_name: str, state: str) -> None:
             rec["archived_at"] = _now_iso()
         elif state == STATE_ACTIVE:
             rec["archived_at"] = None
-    _mutate(skill_name, _apply, require_curation_eligible=True)
+    _mutate(skill_name, _apply, require_curation_eligible=True, skill_dir=skill_dir)
 
 
-def set_pinned(skill_name: str, pinned: bool) -> None:
+def set_pinned(skill_name: str, pinned: bool, skill_dir: Optional[Path] = None) -> None:
     def _apply(rec: Dict[str, Any]) -> None:
         rec["pinned"] = bool(pinned)
-    _mutate(skill_name, _apply, require_curation_eligible=True)
+    _mutate(skill_name, _apply, require_curation_eligible=True, skill_dir=skill_dir)
 
 
-def forget(skill_name: str) -> None:
-    """Drop a skill's usage entry entirely. Called when the skill is deleted."""
-    if not skill_name:
+def _rekey_record(old_key: Optional[str], new_key: Optional[str]) -> None:
+    """Move a record from *old_key* to *new_key* in place. Best-effort no-op
+    if either is unset, equal, or there's nothing to move.
+
+    Used by ``archive_skill``/``restore_skill``: physically moving a skill
+    directory changes its path-derived storage key, and without this the
+    telemetry (use_count, timestamps) accumulated under the pre-move key
+    would silently orphan instead of following the skill.
+    """
+    if not old_key or not new_key or old_key == new_key:
         return
     try:
         with _usage_file_lock():
             data = load_usage()
-            if skill_name in data:
-                del data[skill_name]
+            if old_key in data:
+                data[new_key] = data.pop(old_key)
                 save_usage(data)
     except Exception as e:
-        logger.debug("skill_usage.forget(%s) failed: %s", skill_name, e, exc_info=True)
+        logger.debug("skill_usage._rekey_record(%s -> %s) failed: %s", old_key, new_key, e, exc_info=True)
+
+
+def forget(skill_name: str, skill_dir: Optional[Path] = None) -> None:
+    """Drop a skill's usage entry entirely. Called when the skill is deleted.
+
+    Drops BOTH the path-keyed and legacy name-keyed entry (if any) so a
+    stale duplicate can't linger under the old key.
+    """
+    if not skill_name:
+        return
+    key = _storage_key(skill_name, skill_dir)
+    try:
+        with _usage_file_lock():
+            data = load_usage()
+            changed = False
+            if key in data:
+                del data[key]
+                changed = True
+            if skill_name in data and skill_name != key:
+                del data[skill_name]
+                changed = True
+            if changed:
+                save_usage(data)
+    except Exception as e:
+        logger.debug("skill_usage.forget(%s) failed: %s", key, e, exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -736,6 +836,7 @@ def archive_skill(skill_name: str) -> Tuple[bool, str]:
     if dest.exists():
         dest = archive_root / f"{skill_dir.name}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
 
+    old_key = _rel_path_key(skill_dir)
     try:
         skill_dir.rename(dest)
     except OSError as e:
@@ -746,11 +847,15 @@ def archive_skill(skill_name: str) -> Tuple[bool, str]:
         except Exception as e2:
             return False, f"failed to archive: {e2}"
 
+    # The rename/move above changed the path key -- carry the existing
+    # telemetry record over instead of losing it under the pre-move key.
+    _rekey_record(old_key, _rel_path_key(dest))
+
     # Pruning a built-in only sticks if the re-seeder is told to leave it alone.
     if is_bundled(skill_name):
         add_suppressed_name(skill_name)
 
-    set_state(skill_name, STATE_ARCHIVED)
+    set_state(skill_name, STATE_ARCHIVED, skill_dir=dest)
     return True, f"archived to {dest}"
 
 
@@ -813,6 +918,7 @@ def restore_skill(skill_name: str) -> Tuple[bool, str]:
     if dest.exists():
         return False, f"destination already exists: {dest}"
 
+    old_key = _rel_path_key(src)
     try:
         src.rename(dest)
     except OSError:
@@ -822,10 +928,14 @@ def restore_skill(skill_name: str) -> Tuple[bool, str]:
         except Exception as e:
             return False, f"failed to restore: {e}"
 
+    # The rename/move above changed the path key -- carry the existing
+    # telemetry record over instead of losing it under the pre-move key.
+    _rekey_record(old_key, _rel_path_key(dest))
+
     # Restoring a pruned built-in lifts its suppression so updates can manage it.
     remove_suppressed_name(skill_name)
 
-    set_state(skill_name, STATE_ACTIVE)
+    set_state(skill_name, STATE_ACTIVE, skill_dir=dest)
     return True, f"restored to {dest}"
 
 
@@ -880,7 +990,11 @@ def agent_created_report() -> List[Dict[str, Any]]:
     data = load_usage()
     rows: List[Dict[str, Any]] = []
     for name in list_agent_created_skill_names():
-        raw = data.get(name)
+        skill_dir = _find_skill_dir(name)
+        path_key = _rel_path_key(skill_dir)
+        raw = data.get(path_key) if path_key else None
+        if raw is None:
+            raw = data.get(name)  # legacy fallback
         persisted = isinstance(raw, dict)
         rec: Dict[str, Any] = raw if isinstance(raw, dict) else _empty_record()
         base = _empty_record()
@@ -889,6 +1003,12 @@ def agent_created_report() -> List[Dict[str, Any]]:
         row = {"name": name, **rec, "_persisted": persisted}
         row["last_activity_at"] = latest_activity_at(row)
         row["activity_count"] = activity_count(row)
+        # Carried through so callers (curator's automatic-transition walk)
+        # can pass it straight to seed_record_if_missing/set_state/etc.
+        # without re-resolving the name. Stored as a plain string (not a
+        # Path) so JSON-serializing a report row never breaks; every
+        # skill_dir= parameter in this module accepts either.
+        row["_skill_dir"] = str(skill_dir) if skill_dir else None
         rows.append(row)
     return rows
 
@@ -926,10 +1046,14 @@ def usage_report() -> List[Dict[str, Any]]:
         if is_excluded_skill_path(skill_md):
             continue
         name = _read_skill_name(skill_md, fallback=skill_md.parent.name)
-        if name in seen:
+        path_key = _rel_path_key(skill_md.parent)
+        dedupe_key = path_key or name
+        if dedupe_key in seen:
             continue
-        seen.add(name)
-        raw = data.get(name)
+        seen.add(dedupe_key)
+        raw = data.get(path_key) if path_key else None
+        if raw is None:
+            raw = data.get(name)  # legacy fallback
         persisted = isinstance(raw, dict)
         rec: Dict[str, Any] = raw if isinstance(raw, dict) else _empty_record()
         base_rec = _empty_record()

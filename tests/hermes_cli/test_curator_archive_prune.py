@@ -27,7 +27,7 @@ def test_archive_refuses_pinned(monkeypatch, capsys):
     import hermes_cli.curator as curator_cli
     import tools.skill_usage as skill_usage
 
-    monkeypatch.setattr(skill_usage, "get_record", lambda name: {"pinned": True})
+    monkeypatch.setattr(skill_usage, "get_record", lambda name, skill_dir=None: {"pinned": True})
     called = []
     monkeypatch.setattr(
         skill_usage, "archive_skill",
@@ -46,7 +46,7 @@ def test_archive_calls_archive_skill(monkeypatch, capsys):
     import hermes_cli.curator as curator_cli
     import tools.skill_usage as skill_usage
 
-    monkeypatch.setattr(skill_usage, "get_record", lambda name: {"pinned": False})
+    monkeypatch.setattr(skill_usage, "get_record", lambda name, skill_dir=None: {"pinned": False})
     monkeypatch.setattr(
         skill_usage, "archive_skill",
         lambda name: (True, f"archived to .archive/{name}"),
@@ -60,7 +60,7 @@ def test_archive_reports_failure(monkeypatch, capsys):
     import hermes_cli.curator as curator_cli
     import tools.skill_usage as skill_usage
 
-    monkeypatch.setattr(skill_usage, "get_record", lambda name: {"pinned": False})
+    monkeypatch.setattr(skill_usage, "get_record", lambda name, skill_dir=None: {"pinned": False})
     monkeypatch.setattr(
         skill_usage, "archive_skill",
         lambda name: (False, f"skill '{name}' is bundled or hub-installed; never archive"),

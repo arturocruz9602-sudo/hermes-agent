@@ -328,6 +328,7 @@ def apply_automatic_transitions(now: Optional[datetime] = None) -> Dict[str, int
     for row in _u.agent_created_report():
         counts["checked"] += 1
         name = row["name"]
+        skill_dir = row.get("_skill_dir")
         if row.get("pinned"):
             continue
 
@@ -343,7 +344,7 @@ def apply_automatic_transitions(now: Optional[datetime] = None) -> Dict[str, int
         # First sight of a curation-eligible skill with no persisted record
         # (e.g. a newly-eligible built-in): anchor its clock to now and defer.
         if not row.get("_persisted", True):
-            _u.seed_record_if_missing(name)
+            _u.seed_record_if_missing(name, skill_dir=skill_dir)
             counts["seeded"] += 1
             continue
 
@@ -364,7 +365,7 @@ def apply_automatic_transitions(now: Optional[datetime] = None) -> Dict[str, int
         if never_used and anchor > stale_cutoff:
             # Younger than the stale window — leave it alone entirely.
             if current == _u.STATE_STALE:
-                _u.set_state(name, _u.STATE_ACTIVE)
+                _u.set_state(name, _u.STATE_ACTIVE, skill_dir=skill_dir)
                 counts["reactivated"] += 1
             continue
 
@@ -373,11 +374,11 @@ def apply_automatic_transitions(now: Optional[datetime] = None) -> Dict[str, int
             if ok:
                 counts["archived"] += 1
         elif anchor <= stale_cutoff and current == _u.STATE_ACTIVE:
-            _u.set_state(name, _u.STATE_STALE)
+            _u.set_state(name, _u.STATE_STALE, skill_dir=skill_dir)
             counts["marked_stale"] += 1
         elif anchor > stale_cutoff and current == _u.STATE_STALE:
             # Skill got used again after being marked stale — reactivate.
-            _u.set_state(name, _u.STATE_ACTIVE)
+            _u.set_state(name, _u.STATE_ACTIVE, skill_dir=skill_dir)
             counts["reactivated"] += 1
 
     return counts

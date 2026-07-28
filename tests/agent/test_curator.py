@@ -167,9 +167,11 @@ def test_unused_skill_transitions_to_stale(curator_env):
     c = curator_env["curator"]
     u = curator_env["usage"]
     skills_dir = curator_env["home"] / "skills"
-    _write_skill(skills_dir, "old-skill")
+    skill_dir = _write_skill(skills_dir, "old-skill")
 
-    # Record last-use well past stale_after_days (30 default)
+    # Record last-use well past stale_after_days (30 default). Seeded under
+    # the legacy bare-name key on purpose — exercises the fallback read path
+    # (tools.skill_usage module docstring) alongside the normal path-keyed one.
     long_ago = (datetime.now(timezone.utc) - timedelta(days=45)).isoformat()
     data = u.load_usage()
     data["old-skill"] = u._empty_record()
@@ -180,7 +182,9 @@ def test_unused_skill_transitions_to_stale(curator_env):
 
     counts = c.apply_automatic_transitions()
     assert counts["marked_stale"] == 1
-    assert u.get_record("old-skill")["state"] == "stale"
+    # set_state (called with the resolved skill_dir) writes under the path
+    # key, migrating off the legacy bare-name key seeded above.
+    assert u.get_record("old-skill", skill_dir=skill_dir)["state"] == "stale"
 
 
 def test_very_old_skill_gets_archived(curator_env):
@@ -200,8 +204,9 @@ def test_very_old_skill_gets_archived(curator_env):
     counts = c.apply_automatic_transitions()
     assert counts["archived"] == 1
     assert not skill_dir.exists()
-    assert (skills_dir / ".archive" / "ancient" / "SKILL.md").exists()
-    assert u.get_record("ancient")["state"] == "archived"
+    archived_dir = skills_dir / ".archive" / "ancient"
+    assert (archived_dir / "SKILL.md").exists()
+    assert u.get_record("ancient", skill_dir=archived_dir)["state"] == "archived"
 
 
 def test_pinned_skill_is_never_touched(curator_env):
@@ -296,7 +301,9 @@ def test_cron_referenced_skill_is_not_archived(curator_env, monkeypatch):
 
     assert u.get_record("cron-dep")["state"] == "active"  # protected
     assert (skills_dir / "cron-dep").exists()
-    assert u.get_record("orphan")["state"] == "archived"  # control
+    # "orphan" got archived — its record was rekeyed to the .archive/ path.
+    archived_dir = skills_dir / ".archive" / "orphan"
+    assert u.get_record("orphan", skill_dir=archived_dir)["state"] == "archived"  # control
     assert counts["archived"] == 1
 
 
@@ -328,7 +335,8 @@ def test_unused_skill_archived_past_archive_window(curator_env):
 
     counts = c.apply_automatic_transitions()
 
-    assert u.get_record("old-unused")["state"] == "archived"
+    archived_dir = skills_dir / ".archive" / "old-unused"
+    assert u.get_record("old-unused", skill_dir=archived_dir)["state"] == "archived"
     assert counts["archived"] == 1
 
 
@@ -438,7 +446,7 @@ def test_prune_builtins_seeds_clock_on_first_sight(curator_env, monkeypatch):
     c = curator_env["curator"]
     u = curator_env["usage"]
     skills_dir = curator_env["home"] / "skills"
-    _write_skill(skills_dir, "bundled")
+    skill_dir = _write_skill(skills_dir, "bundled")
     (skills_dir / ".bundled_manifest").write_text("bundled:abc\n", encoding="utf-8")
     _enable_prune_builtins(curator_env, monkeypatch)
 
@@ -449,8 +457,9 @@ def test_prune_builtins_seeds_clock_on_first_sight(curator_env, monkeypatch):
     assert counts["seeded"] == 1
     assert counts["archived"] == 0
     assert (skills_dir / "bundled").exists()
-    # A record now exists with created_at ~ now.
-    assert isinstance(u.load_usage().get("bundled"), dict)
+    # A record now exists with created_at ~ now, keyed by path (not the bare
+    # name — see tools.skill_usage module docstring).
+    assert isinstance(u.load_usage().get(u._rel_path_key(skill_dir)), dict)
 
 
 def test_prune_builtins_archives_stale_bundled_and_suppresses(curator_env, monkeypatch):

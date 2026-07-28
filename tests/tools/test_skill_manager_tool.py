@@ -987,7 +987,7 @@ class TestExternalSkillMutations:
             set_current_write_origin,
         )
 
-        def _fake_get_record(skill_name):
+        def _fake_get_record(skill_name, skill_dir=None):
             return {"pinned": True} if skill_name == "my-skill" else {"pinned": False}
 
         with _skill_dir(tmp_path):
@@ -1129,7 +1129,7 @@ class TestPinnedGuard:
     @staticmethod
     def _pin(name: str):
         """Return a patch context that marks *name* as pinned in skill_usage."""
-        def _fake_get_record(skill_name, _name=name):
+        def _fake_get_record(skill_name, skill_dir=None, _name=name):
             return {"pinned": True} if skill_name == _name else {"pinned": False}
         return patch("tools.skill_usage.get_record", side_effect=_fake_get_record)
 
@@ -1414,14 +1414,16 @@ class TestCuratorConsolidationDeleteGuard:
         # recoverable curator archive — the record persists as archived so
         # `hermes curator restore` can bring it back.
         from tools import skill_usage
-        with _curator_pass(tmp_path, monkeypatch=monkeypatch):
+        with _curator_pass(tmp_path, monkeypatch=monkeypatch) as skills_root:
             _create_skill("umbrella", _skill_content("umbrella"))
             _create_skill("narrow", _skill_content("narrow"))
             skill_usage.mark_agent_created("narrow")
             raw = skill_manage("delete", "narrow", absorbed_into="umbrella")
             result = json.loads(raw)
             assert result["success"] is True, result
-            rec = skill_usage.get_record("narrow")
+            # archive_skill rekeys the record to its post-move (.archive/) path.
+            archived_dir = skills_root / ".archive" / "narrow"
+            rec = skill_usage.get_record("narrow", skill_dir=archived_dir)
         # Record kept (not forgotten) and marked archived.
         assert rec.get("state") == skill_usage.STATE_ARCHIVED
 

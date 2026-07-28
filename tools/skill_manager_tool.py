@@ -273,7 +273,7 @@ def _validate_delete_target(skill_dir: Path) -> Optional[str]:
     )
 
 
-def _pinned_guard(name: str) -> Optional[str]:
+def _pinned_guard(name: str, skill_dir: Optional[Path] = None) -> Optional[str]:
     """Return a refusal message if *name* is pinned, else None.
 
     Pin protects a skill from **deletion** — both the curator's auto-archive
@@ -286,7 +286,7 @@ def _pinned_guard(name: str) -> Optional[str]:
     """
     try:
         from tools import skill_usage
-        rec = skill_usage.get_record(name)
+        rec = skill_usage.get_record(name, skill_dir=skill_dir)
         if rec.get("pinned"):
             return (
                 f"Skill '{name}' is pinned and cannot be deleted by "
@@ -327,7 +327,7 @@ def _background_review_write_guard(
     # because there is no user in the loop to consent to an edit here.
     try:
         from tools import skill_usage
-        if skill_usage.get_record(name).get("pinned"):
+        if skill_usage.get_record(name, skill_dir=skill_dir).get("pinned"):
             return {
                 "success": False,
                 "error": (
@@ -386,7 +386,10 @@ def _background_review_write_guard(
         # install or direct SKILL.md authoring), which lack the
         # `created_by: "agent"` marker.
         usage_data = skill_usage.load_usage()
-        usage_rec = usage_data.get(name)
+        path_key = skill_usage._rel_path_key(skill_dir)
+        usage_rec = usage_data.get(path_key) if path_key else None
+        if usage_rec is None:
+            usage_rec = usage_data.get(name)  # legacy fallback
         if isinstance(usage_rec, dict) and not skill_usage._is_curator_managed_record(usage_rec):
             return {
                 "success": False,
@@ -1106,7 +1109,7 @@ def _delete_skill(name: str, absorbed_into: Optional[str] = None) -> Dict[str, A
     if fail_closed:
         return fail_closed
 
-    pinned_err = _pinned_guard(name)
+    pinned_err = _pinned_guard(name, skill_dir=existing["path"])
     if pinned_err:
         return {"success": False, "error": pinned_err}
 
@@ -1182,6 +1185,9 @@ def _delete_skill(name: str, absorbed_into: Optional[str] = None) -> Dict[str, A
     return {
         "success": True,
         "message": message,
+        # skill_dir no longer exists on disk, but the path itself is still
+        # needed by the dispatcher to key the usage-telemetry drop correctly.
+        "_deleted_skill_dir": str(skill_dir),
     }
 
 
@@ -1459,15 +1465,18 @@ def skill_manage(
             from tools.skill_provenance import is_background_review
             if action == "create":
                 if is_background_review():
-                    mark_agent_created(name)
+                    existing = _find_skill(name)
+                    mark_agent_created(name, skill_dir=existing["path"] if existing else None)
             elif action in {"patch", "edit", "write_file", "remove_file"}:
-                bump_patch(name)
+                existing = _find_skill(name)
+                bump_patch(name, skill_dir=existing["path"] if existing else None)
             elif action == "delete":
                 # A recoverable curator archive (routed through archive_skill)
                 # keeps its usage record as STATE_ARCHIVED so `hermes curator
                 # status`/`restore` still see it. Only a hard delete forgets.
                 if not result.get("_archived"):
-                    forget(name)
+                    deleted_dir = result.get("_deleted_skill_dir")
+                    forget(name, skill_dir=Path(deleted_dir) if deleted_dir else None)
         except Exception:
             pass
 
