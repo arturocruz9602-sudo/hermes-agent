@@ -13,16 +13,41 @@ corregida hoy: ventana de 24h de logs revisada (23.3h limpias, 0
 tracebacks, ver sección Bloque 6 más abajo), Bloque 6 cerrado, Fase 2
 cerrada en sus 6 pasos, no solo de nombre.
 
-**Fase 3, Bloque 1 de OT-3 -- CERRADO hoy** (respaldo, los 2
-archivos-404 borrados, los 3 duplicados reales resueltos con
-verificación en vivo contra el código de producción). Detalle completo
-en `docs/BLOQUES.md`, sección "HAS Fase 3 (OT-3 Bloque 1)". 141 skills
-activas → 136 (coincide con la cifra que ya citaba `docs/HAS.md`).
+**Fase 3, Bloques 1, 2 y 3 de OT-3 -- CERRADOS hoy:**
+- **Bloque 1:** respaldo, los 2 archivos-404 borrados, los 3 duplicados
+  reales resueltos con verificación en vivo contra el código de
+  producción. 141 skills activas → 136 (coincide con la cifra que ya
+  citaba `docs/HAS.md`).
+- **Bloque 2:** `powerpoint`/`ocr-and-documents` reparados (la
+  dependencia real que faltaba era `lxml`, no `validators` como decía
+  el plan -- probado con archivos reales; `thumbnail.py` sigue
+  pendiente de `libreoffice-impress`, sudo denegado, ver pendientes
+  abajo); `comfyui` archivado (confirmado `use_count: 0` real, nunca
+  usada).
+- **Bloque 3:** el bug de fondo de `.usage.json` (indexaba por nombre,
+  no por ruta -- afectaba la resolución REAL de `skill_view()`, no solo
+  el contador). Refactor real en 10 archivos de producción, autorizado
+  explícitamente por Arturo tras exponerle el alcance verdadero (57
+  puntos de llamada). 1247/1247 tests en verde, verificado en vivo
+  contra el gateway real ya reiniciado (29/29 smoke, 0 errores en
+  logs). Detalle técnico completo en `docs/BLOQUES.md` y
+  `~/.hermes/CHANGELOG_SISTEMA.md`.
 
-**Sigue de Fase 3, sin empezar:** Bloque 2 (reparar powerpoint/ocr,
-archivar comfyui), Bloque 3 (bug de fondo de `.usage.json`, indexa por
-nombre no por ruta), Bloque 4 (metadata + `nivel_riesgo` en las 136),
-Bloque 5 (`hermes skills audit`).
+**Sigue de Fase 3, sin empezar:** Bloque 4 (metadata + `nivel_riesgo`
+en las 136), Bloque 5 (`hermes skills audit`).
+
+**Hallazgos nuevos sin arreglar, fuera de alcance de OT-3 (anotados
+para su propia sesión):**
+- `tools/skill_manager_tool.py::_find_skill()` resuelve por nombre de
+  carpeta, no por `name:` de frontmatter (inconsistente con
+  `skill_usage._find_skill_dir()`).
+- `tools/skills_tool.py::_find_all_skills()` deduplica por nombre en
+  silencio -- una skill con nombre repetido desaparece de `hermes
+  skills list`/`/api/skills` en vez de mostrarse. Dormido hoy (0
+  colisiones reales), pero resurgiría con la próxima skill duplicada.
+- `thumbnail.py` de `powerpoint` necesita `sudo apt install
+  libreoffice-impress` -- permiso denegado en sesión, pendiente de que
+  Arturo lo corra él mismo o autorice explícitamente.
 
 Pendientes reales sueltos, ninguno bloquea Fase 3:
 - Disco Seagate: Arturo pendiente de correr `sudo smartctl -a /dev/sda`

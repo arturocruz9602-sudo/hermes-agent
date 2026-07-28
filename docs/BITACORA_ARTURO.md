@@ -7,6 +7,65 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 28 Jul 2026 (tarde-noche) — Arreglé un bug real que hacía que Hermes se confundiera entre 2 instrucciones con el mismo nombre, y le agregué a Word cómo hacer un índice
+
+**Lo más importante, un bug real de fondo:** encontré que cuando 2 de las
+instrucciones de Hermes tenían el mismo nombre (el caso que arreglé hoy
+temprano), el sistema no solo compartía el contador de uso -- directamente
+**se negaba a usar cualquiera de las dos**, con un error interno. Es decir,
+el problema era más grave de lo que parecía en la mañana. Lo arreglé de
+raíz (no solo un parche): ahora cada instrucción se identifica por su
+ubicación exacta, no por su nombre, así que aunque dos compartan nombre
+cada una tiene su propio contador y ninguna se bloquea. Probé el arreglo
+1247 veces con pruebas automáticas (todas en verde) y también en vivo
+contra el Hermes real ya funcionando -- confirmé que usar una de las
+instrucciones que antes chocaban ahora sube su contador sin tocar la
+otra. Reinicié el servicio para que el arreglo quedara activo: 29/29
+pruebas de humo pasaron limpio contra el Hermes real, sin errores en los
+logs.
+
+**De paso, revisé y reparé 2 herramientas de documentos:**
+- **PowerPoint:** el plan original decía que faltaba instalar algo
+  llamado "validators" -- investigué el error real y no era eso, era
+  otra pieza (`lxml`). Ya instalada y probada con un PowerPoint real:
+  3 de 4 funciones ya trabajan bien (crear diapositivas, limpiar
+  archivos huérfanos, validar el documento). La cuarta (generar una
+  miniatura/imagen de cada diapositiva) necesita un programa
+  (`libreoffice-impress`) que pedí instalar y el sistema me lo negó --
+  pendiente de que usted lo autorice o lo instale, no es nada costoso
+  ni riesgoso.
+- **Extracción de texto de PDFs:** ya funcionaba para el caso ligero
+  (probado con un PDF real); instalé también la versión pesada (mejor
+  para PDFs escaneados/con mala calidad) -- falta probarla con un
+  archivo real, quedó para la próxima sesión.
+- **ComfyUI** (generación de imágenes con IA): confirmé con datos
+  reales que nunca la ha usado, y la archivé como decía el plan. Buena
+  noticia: esa herramienta también sabe trabajar "en la nube" sin
+  necesitar la Mac Mini -- si en algún momento quiere generar imágenes
+  antes de comprar el equipo nuevo, es una opción real, ya lista.
+
+**Petición suya de hoy, ya hecha:** le agregué a la instrucción de Word
+cómo crear un índice/tabla de contenido de verdad (antes solo tenía una
+advertencia suelta, sin explicar cómo). Incluí un detalle importante que
+confirmé con la documentación oficial: el índice es un "campo" que Word
+calcula solo AL ABRIR el archivo -- así que la primera vez que abra un
+documento con índice, Word le va a preguntar si quiere actualizar los
+campos, y debe decir que SÍ, o se ve vacío.
+
+**Mensaje que puede mandarle a Hermes para probar el arreglo de las
+instrucciones duplicadas** (aunque es un cambio interno, así se ve el
+efecto): "Hermes, sigue el proceso de depuración sistemática para
+revisar por qué [algo]" -- antes, si esa instrucción hubiera chocado con
+otra del mismo nombre, se habría negado a cargarla; ahora no debería
+pasar.
+
+**Pendiente real para usted:** autorizar `sudo apt install
+libreoffice-impress` (gratis, solo agrega la parte de PowerPoint a un
+programa que ya tiene instalado) si quiere la función de miniaturas de
+diapositivas funcionando.
+
+---
+
 ## 28 Jul 2026 (mediodía) — Confirmé que el cambio de motor de ayer quedó estable, y arrancamos la limpieza de las 136 skills
 
 **Qué pasó:** ayer se cambió Hermes al código nuevo (`arturo/base`, la

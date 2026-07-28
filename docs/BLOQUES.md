@@ -4,6 +4,88 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## HAS Fase 3 (OT-3 Bloque 2) — reparar powerpoint/ocr, archivar comfyui, CERRADO (28 Jul 2026, tarde)
+
+**powerpoint/ocr-and-documents:** el plan de OT-3 asumía que faltaba
+`pip install validators marker-pdf`. Falso en el caso de `validators`
+-- investigado el error real (`ModuleNotFoundError`) y resultó ser
+`lxml`, no el paquete `validators` (que además es un paquete de PyPI
+totalmente distinto y sin relación; `office/validators/` es un
+subpaquete LOCAL de la skill, no algo que se instale). Instalado
+`lxml` + `markitdown[pptx]` (system ya tenía `Pillow`/`defusedxml`,
+`soffice`, `pdftoppm`). Probado con archivos reales generados con
+`python-pptx`: `add_slide.py`, `clean.py`, `office/validate.py`
+(`PASSED` en las 15 validaciones) -- **3 de 4 scripts funcionan**.
+`thumbnail.py` (necesita renderizar a imagen vía LibreOffice) sigue
+bloqueado: `libreoffice-impress` no está instalado (`dpkg -l` solo
+muestra Writer/Math/Base), confirmado con un `.txt→pdf` real
+(funciona) vs `.pptx→pdf` real (falla con "source file could not be
+loaded", mismo error con o sin el wrapper `run_soffice`). `sudo apt
+install libreoffice-impress` -- permiso denegado en la sesión, no se
+reintentó. `ocr-and-documents`: `extract_pymupdf.py` ya funcionaba
+(probado con texto/markdown/metadata reales); `marker-pdf` instalado
+(paquete pesado, PyTorch, corrido en segundo plano ~15 min) -- pendiente
+de probarlo con un PDF real en la próxima sesión.
+
+**comfyui:** archivada. Confirmado con datos reales (`.usage.json`:
+`use_count: 0`, `last_used_at: null` desde su creación el 5 jul) que
+Arturo nunca la usó -- coincide con el supuesto del HAS. Nota dejada en
+`.archive/comfyui/ARCHIVADO.md`: la skill YA soporta Comfy Cloud (sin
+necesitar torch local), así que reactivarla no requiere esperar a la
+Mac Mini si Arturo quiere generar imágenes antes.
+
+## HAS Fase 3 (OT-3 Bloque 3) — fix real de fondo de .usage.json, CERRADO (28 Jul 2026, tarde)
+
+Autorizado por Arturo ("refactor completo ahora") tras presentarle el
+alcance real (57 puntos de llamada por nombre en 6 archivos, no solo un
+archivo de un plan de una línea). Detalle técnico completo, con las 5
+preguntas de F2v2, en `~/.hermes/CHANGELOG_SISTEMA.md`, entrada del 28
+Jul "fix real del bug de fondo de .usage.json".
+
+**Resumen:** `.usage.json` indexaba por `name:` de frontmatter -- 2
+skills que compartan nombre compartían un solo contador Y (hallazgo más
+grave, confirmado leyendo `tools/skills_tool.py::skill_view()` real)
+`skill_view()` ya se NIEGA a resolver el nombre ambiguo con >1
+candidato. Cambiada la llave a la ruta del `SKILL.md` relativa a
+`~/.hermes/skills` (idéntica al campo `"path"` que `skill_view()` ya
+expone). 10 archivos de producción tocados, 9 call sites reales
+actualizados para pasar el directorio ya resuelto en vez de solo el
+nombre. `archive_skill`/`restore_skill` ahora re-asignan el registro a
+su nueva ruta al mover la carpeta (antes se habría perdido en
+silencio).
+
+**Regresión dirigida: 1247/1247 tests en verde** (9 tests corregidos
+para reflejar el esquema correcto -- no revertidos, documentado caso
+por caso en el diff). **Verificado en vivo contra el código real de
+producción, dos veces:** `_skill_view_with_bump({"name":
+"systematic-debugging"})` subió su contador real de 4 a 5 sin tocar
+ninguna otra skill; `hermes curator status` corrió limpio contra los
+datos ya migrados (87 skills agent-created, cifras coherentes).
+
+**Migración real de producción:** `.usage.json` real, 103 entradas →
+103 (0 perdidas): 98 migradas a su ruta activa, 2 resueltas en
+`.archive/` (comfyui, memory-and-context-recovery), 3 mantenidas con
+la llave vieja por no tener ya ninguna carpeta en ningún lado (huérfanas
+reales, no re-creadas). Respaldo previo del `.usage.json` real en
+`/mnt/seagate/backups/usage_json_pre_migracion_20260728.json`.
+
+**Desplegado a producción:** `systemctl --user restart
+hermes-gateway.service` (excepción pre-aprobada de `CLAUDE.md`, único
+uso de la sesión — primer intento encadenado con `&&` fue bloqueado
+correctamente por el hook, que exige el comando exacto sin encadenar;
+corregido). 29/29 smoke tests pasan contra el servicio real ya
+reiniciado (14:23:12). Logs reales desde el reinicio: 16 líneas
+totales, 0 errores/tracebacks.
+
+**Pendiente real, NO arreglado hoy (hallazgo nuevo, fuera de alcance):**
+`tools/skill_manager_tool.py::_find_skill()` resuelve por nombre de
+CARPETA (no por `name:` de frontmatter, a diferencia de
+`skill_usage._find_skill_dir()`), y `tools/skills_tool.py::_find_all_skills()`
+sigue deduplicando por nombre en silencio (una skill con nombre
+repetido simplemente desaparece de `hermes skills list`/`/api/skills`
+en vez de mostrarse). Con 0 colisiones reales hoy esto queda dormido,
+pero es un bug latente independiente -- requiere su propia sesión.
+
 ## HAS Fase 3 (OT-3 Bloque 1) — limpieza inicial de skills (28 Jul 2026) — CERRADO
 
 Autorizado por Arturo en sesión ("comienzas con la fase 3"). Primer bloque
