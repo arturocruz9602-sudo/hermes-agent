@@ -4,6 +4,25 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## HAS Fase 3 (OT-3 Bloque 1) — limpieza inicial de skills (28 Jul 2026) — CERRADO
+
+Autorizado por Arturo en sesión ("comienzas con la fase 3"). Primer bloque
+de OT-3 completo, con evidencia real en cada paso:
+
+**1.1 Respaldo:** `tar -czf /mnt/seagate/backups/hermes_skills_pre_fase3_20260728.tar.gz -C ~/.hermes skills` antes de tocar nada. Verificado con `tar -tzf` (1911 archivos, sin error).
+
+**1.2 Los 2 archivos-404:** `smart-home/ha-automation/SKILL.md` y `hermes-tools/apple-shortcuts/SKILL.md` no eran skills reales -- byte a byte, la página 404 de `skills.sh` (10,220 bytes, sha256 idéntico `62ad1463...`, contenido literal `<h1>404</h1>`). Un intento de descarga guardó el error en vez del contenido. Borrados (archivo + `rmdir`, sin `rm -rf` -- bloqueado correctamente por el hook, resuelto sin necesitar la excepción).
+
+**1.3 Los 3 duplicados** (`test-driven-development`, `systematic-debugging`, `requesting-code-review`, cada uno en `superpowers/` Y `software-development/`): causaban colisión real -- `tools/skills_tool.py` se niega a resolver el nombre con >1 candidato, confirmado con el código real (`skill_view()` devolvía error antes del arreglo). La suposición de OT-3 ("superpowers/ ⊇ software-development/, conservar superpowers/") resultó falsa en los 3 casos al leer el contenido completo, no solo el diff -- `software-development/` ya tenía una sección real "Hermes Agent Integration" (`delegate_task`, herramientas reales del runtime) y contenido metodológico más completo en 2 de 3. Se investigó el repo real `github.com/obra/superpowers` (v6.2.0 actual) para no decidir a ciegas: se rescataron 2 técnicas genuinamente nuevas (`condition-based-waiting.md`, `find-polluter.sh`) hacia la versión canónica antes de archivar la vainilla. `software-development/` se conserva como canónica en los 3 casos (desviación de OT-3 documentada con evidencia); `superpowers/<nombre>/` archivado a `.archive/<nombre>/` con nota explicando la decisión.
+
+**Compuerta F2v2 aplicada:** creado `~/.hermes/scripts/skill_smoke_check.py` (valida frontmatter + que cada link relativo del SKILL.md resuelva a un archivo real) + `tests/smoke.sh` en las 3 skills canónicas -- `OK` antes y después del único cambio de contenido real (`systematic-debugging` v1.1.0→v1.2.0). Las 5 preguntas de F2v2 respondidas en `~/.hermes/CHANGELOG_SISTEMA.md`.
+
+**Verificado en vivo con el código real de producción** (no solo el smoke test): `tools.skills_tool.skill_view()` contra los 3 nombres -- las 3 devuelven `success` ahora, antes del arreglo dos de tres habrían devuelto el error de colisión.
+
+**Resultado:** 141 skills activas → 136 (coincide con el número que cita `docs/HAS.md`). Confirma que "136" no era una cifra vieja del documento -- es el número correcto una vez limpiada la basura real.
+
+**Pendiente real para continuar Fase 3 (Bloque 2-5 de OT-3, no hecho hoy):** reinstalar deps de `powerpoint`/`ocr-and-documents` y probarlas con un archivo real; decidir comfyui (archivar, HAS ya lo recomienda); el bug de fondo de `.usage.json` (indexa por `name:`, no por ruta -- resuelto de facto para estos 3 nombres al quedar 1 solo archivo cada uno, pero el bug de diseño sigue latente); esquema de metadata + `nivel_riesgo` en las 136; comando `hermes skills audit`.
+
 ## Bloque S.5 + fix ventana O.6 — cascada de compactación infinita (27 Jul 2026) — CERRADO
 
 Encontrado sin buscarlo, durante un diagnóstico dedicado de O.6 (pedido

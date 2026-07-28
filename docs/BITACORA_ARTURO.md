@@ -20,13 +20,39 @@ ya pasaba antes y no tiene que ver con el cambio), cero errores reales.
 Con esto, el cambio de ayer queda confirmado como estable -- no es solo
 "parece que funciona", ya se vigiló de verdad.
 
-**Qué sigue:** con eso cerrado, empezamos la limpieza de las 136 skills
-(instrucciones/herramientas) que tiene Hermes -- borrar las que están
-rotas o duplicadas, arreglar el contador que decía mal cuántas veces se
-usa cada una, y dejar todas con la información completa. No tiene un
-mensaje de prueba todavía porque es trabajo interno de organización, no
-algo que se note hablando con Hermes -- según vaya avanzando le aviso
-qué sí cambia para usted.
+**Qué sigue, y ya avancé de verdad (28 Jul, tarde):** empezamos la
+limpieza de las 136 skills. Primer bloque cerrado hoy mismo:
+
+1. Borré 2 "skills" que en realidad nunca tuvieron contenido -- alguna
+   vez que se intentaron descargar del catálogo público, se guardó por
+   error la página de "no encontrado" del sitio en vez de la
+   instrucción real. Puro peso muerto.
+
+2. Encontré algo más importante: 3 instrucciones centrales que Hermes
+   usa constantemente para programar bien (cómo depurar un error paso a
+   paso, cómo probar código antes de darlo por bueno, cómo pedir una
+   revisión antes de aceptar un cambio) estaban duplicadas -- una copia
+   genérica bajada de internet y una copia adaptada específicamente
+   para Hermes, con el mismo nombre las dos. Cuando Hermes necesitaba
+   usar una de ellas por nombre, el sistema literalmente se negaba
+   ("hay 2, no sé cuál usar") en vez de improvisar cuál usar -- lo
+   comprobé contra el código real, no solo lo supuse. Investigué en
+   internet si la versión pública tenía mejoras que valiera la pena
+   traer, rescaté 2 técnicas reales que sí valían la pena, y dejé una
+   sola versión de cada una (la adaptada para Hermes, que ya era mejor
+   en 2 de los 3 casos).
+
+**Qué significa para usted, en concreto:** esto no es algo que note
+hablando con Hermes en el día a día -- es la calidad del trabajo que
+hace por dentro cuando programa o se corrige a sí mismo. Antes de hoy,
+si Hermes necesitaba consultar "cómo depuro esto bien" podía fallar en
+silencio o tropezar con el error de duplicado; ahora no.
+
+**Pendiente real, todavía sin tocar:** faltan las otras 4 partes de
+esta limpieza (reparar 2 skills con piezas rotas, el contador de uso
+que sigue mal indexado internamente, ponerle información completa a
+las 136, y un comando que audite todo esto solo). Le aviso conforme
+avance.
 
 **Notas de Arturo:**
 

@@ -1,22 +1,28 @@
-# Estado de Hermes — actualizado 28 Jul 2026, mediodía
+# Estado de Hermes — actualizado 28 Jul 2026, tarde
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
 
 ## ESTADO ACTUAL — leer esto primero, antes que nada más abajo
 
-**Fase activa: Fase 3 (Ciclo de vida de skills) — AUTORIZADA Y EN
-CURSO (arrancó 28 Jul 2026, mediodía).** Fases 0, 0.5, 1 y 2 del HAS
-quedaron CERRADAS de verdad (27-28 Jul 2026), con evidencia real cada
-una, **incluido el Bloque 6** (corte a producción) que hasta hoy
-seguía "EN OBSERVACIÓN" pese a que el banner ya decía Fase 2 cerrada
--- contradicción real detectada y corregida hoy: ventana de 24h de
-logs revisada (23.3h limpias, 0 tracebacks, ver sección Bloque 6 más
-abajo), Bloque 6 cerrado, Fase 2 cerrada en sus 6 pasos, no solo de
-nombre.
+**Fase activa: Fase 3 (Ciclo de vida de skills) — EN CURSO desde 28
+Jul 2026.** Fases 0, 0.5, 1 y 2 del HAS quedaron CERRADAS de verdad
+(27-28 Jul 2026), con evidencia real cada una, **incluido el Bloque 6**
+(corte a producción) que hasta hoy seguía "EN OBSERVACIÓN" pese a que
+el banner ya decía Fase 2 cerrada -- contradicción real detectada y
+corregida hoy: ventana de 24h de logs revisada (23.3h limpias, 0
+tracebacks, ver sección Bloque 6 más abajo), Bloque 6 cerrado, Fase 2
+cerrada en sus 6 pasos, no solo de nombre.
 
-Arturo autorizó Fase 3 explícitamente el 28 Jul ("comienzas con la
-fase 3"). Primer paso en curso: respaldo de `~/.hermes/skills` (OT-3
-Bloque 1.1) antes de inventariar/tocar nada.
+**Fase 3, Bloque 1 de OT-3 -- CERRADO hoy** (respaldo, los 2
+archivos-404 borrados, los 3 duplicados reales resueltos con
+verificación en vivo contra el código de producción). Detalle completo
+en `docs/BLOQUES.md`, sección "HAS Fase 3 (OT-3 Bloque 1)". 141 skills
+activas → 136 (coincide con la cifra que ya citaba `docs/HAS.md`).
+
+**Sigue de Fase 3, sin empezar:** Bloque 2 (reparar powerpoint/ocr,
+archivar comfyui), Bloque 3 (bug de fondo de `.usage.json`, indexa por
+nombre no por ruta), Bloque 4 (metadata + `nivel_riesgo` en las 136),
+Bloque 5 (`hermes skills audit`).
 
 Pendientes reales sueltos, ninguno bloquea Fase 3:
 - Disco Seagate: Arturo pendiente de correr `sudo smartctl -a /dev/sda`
