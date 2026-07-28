@@ -1,4 +1,4 @@
-# HERMES ARCHITECTURE STANDARD (HAS) — ENTREGA COMPLETA · v1.1
+# HERMES ARCHITECTURE STANDARD (HAS) — ENTREGA COMPLETA · v1.5
 **Fecha:** 21 de julio de 2026 · **Para:** Arturo De la Cruz Román · **Ejecutores posteriores:** Claude Code (Sonnet) + Hermes (Gemini/Groq)
 
 **Cambios v1.1 (aprobados por Arturo el 21-jul-2026):** (1) nuevo modo llamada interino por Gemini Live API (OT-9.5) con proyecto de Google dedicado; "Hermes en la oreja todo el día" formalmente diferido a Mac Mini. (2) Trading rediseñado: Binance como piso de operación y entrenamiento (testnet spot), Bitso como puerta regulada de pesos, laboratorio de papel **diario y permanente** + decisiones reales **semanales**, lista blanca BTC/ETH/USDT(+SOL satélite). (3) Nueva sección E10: plan financiero personal con los tres rieles de ingreso, CETES, y las metas Mac Mini → Mac Studio con números reales. (4) Estrategia de tokens adaptada al modelo "Claude un mes cada 4 meses" (ventanas de mantenimiento). (5) Nueva regla F7: evolución de esquema y versionado por cuatrimestre.
@@ -8,6 +8,8 @@
 **Cambios v1.4 (23-jul-2026 — corrección de arquitectura de trabajo):** (1) El centro de operación diario deja de ser el chat de diseño y pasa a **Claude Code**, que arranca solo leyendo `CLAUDE.md` (nuevo, raíz del repo) y propone el siguiente paso; el chat de claude.ai queda como consultor eventual. (2) Nuevo `docs/GUION_PRUEBAS.md`: el día completo de Arturo simulado, con matriz combinatoria (~1,600 combinaciones), memoria verificada en 3 capas, entrada sucia, seguridad adversarial y resiliencia. (3) Nueva **OT-P** (permisos: allowlist + sudoers acotado, para que Arturo no vuelva a teclear en terminal por rutina). (4) Nueva **OT-QA** (cuenta QA de Telegram sobre chip propio, condicionada a cerrar L13). (5) Nueva **E12**: presupuesto autónomo de pruebas ($100 MXN/mes con cortacircuitos) y metodología de verificación de memoria.
 
 **Cambios v1.3 (23-jul-2026, lecciones de la sesión de ejecución 22-23 jul):** (1) Nueva sección **F9 "Lecciones permanentes"**: las 17 fallas reales de esa sesión convertidas en reglas citables (F8 queda intacta como principio; F9 es su jurisprudencia). (2) Resolución de la falla 17 con supuesto marcado: en caída total de la escalera gratuita, Hermes nunca calla ni despacha solo — avisa modo degradado y ofrece DeepSeek con costo. (3) `docs/BITACORA_ARTURO.md` se incorpora al cierre de sesión como entregable obligatorio para cambios visibles al usuario. (4) El PROTOCOLO sube a v1.1 en paralelo (D7 "leer antes de preguntar", D8 "muestra antes de construir", P6 "arnés interno para pruebas de rutina", C13-C14).
+
+**Cambios v1.5 (27-jul-2026 — DECISIÓN DE ARTURO: resuelve la incoherencia de skills entre E9 regla 5, E9 regla 7 y F2):** Principio rector confirmado: **HERMES AUTOSUFICIENTE**. Claude (Code o chat) es la excepción cara de las ventanas de mantenimiento, no el único editor de skills — la regla #5 de E9 quedó obsoleta respecto a la meta central del proyecto (`~/.hermes/CLAUDE.md`: "minimizar el consumo de APIs de pago mediante reutilización de conocimiento") y a su propia regla #7; se corrige a favor de #7 y de un F2 reforzado. (1) **E9 regla 5 reescrita**: reparto por capacidad (qué puede pasar la compuerta), no por prohibición de agente — Hermes edita skills, Claude se reserva arquitectura/core/el propio HAS/lo que Hermes ya intentó 2 veces sin pasar la compuerta. (2) **F2 → F2v2**: "Compuerta de mejora de skills (anti-retroceso, agnóstica al agente)" — prueba de humo obligatoria por skill, flujo único respaldo→investigar→staging→probar vieja-y-nueva→solo se acepta si iguala o mejora→semver+changelog, reversión automática si falla. (3) **Nuevo campo `nivel_riesgo` en E3** (`normal`/`critico`) — clasificación pendiente de las 136 skills en Fase 3. (4) **Nueva sección F10 "RECETARIO"**: biblioteca de soluciones en `docs/recetario/`, alimentada por Claude (obligación de cierre) y por Hermes (cuando resuelve algo nuevo solo), consultada por Hermes ANTES de razonar un problema desde cero. (5) B3 actualizada para dejar de contradecir lo anterior.
 
 > **Corrección de nombres de modelos (importante para las órdenes de trabajo):** el documento maestro menciona "Claude Sonnet 5". Ese modelo no existe hoy. La línea actual de Anthropic es: **Claude Fable 5** (tope), **Claude Opus 4.8**, **Claude Sonnet 4.6** (el default de Claude Code) y **Claude Haiku 4.5**. Donde el maestro decía "Sonnet 5", léase **Sonnet 4.6**. Las reglas de escalamiento de la sección de tokens usan estos nombres reales. Verifica versiones vigentes en https://docs.claude.com si esto se ejecuta meses después.
 
@@ -79,8 +81,8 @@ Formato: **Problema → Opciones → Decisión → Por qué.**
 
 **Decisión: los dos, con roles distintos y frontera dura.**
 - **El curator es el conserje, no el editor.** Se queda como está: poda determinística activa, consolidación por LLM **apagada permanentemente**. Evidencia: 3 corridas, 0 cambios — es seguro precisamente porque es inerte. Un LLM barato editando skills sin supervisión viola la restricción dura #4 (verificación E2E) y #9 (validar contra historial real).
-- **Las mejoras sustantivas las hace Claude en sesiones dedicadas, bajo el "Protocolo de Mejora de Skill" (sección F2)**, que implementa las preguntas previas del documento fundacional: respaldo → diff → validación → versión → historial. Claude tiene lo que el curator no: criterio, conocimiento fresco, y capacidad de probar el script de la skill de verdad.
-- **Hermes (Gemini) hace el trabajo de detección, no de edición:** barrido semanal que *reporta* duplicados, skills sin uso, scripts rotos, docs incompletas — y llena la cola de candidatos que Claude atiende en la sesión mensual de mantenimiento. Detección barata, edición cara pero supervisada.
+- **Las mejoras sustantivas las hace quien pase la compuerta de F2v2 (v1.5) — ya NO es exclusivo de Claude.** Hermes edita solo, de punta a punta, las skills marcadas `nivel_riesgo: normal` (E3) si su cambio pasa la prueba de humo en la versión vieja Y la nueva sin retroceder. Claude se reserva las `nivel_riesgo: critico` (seguridad, credenciales, permisos, dinero), la arquitectura del framework, el código del core, cambios al propio HAS, y lo que Hermes haya intentado 2 veces sin pasar la compuerta (ver E9 regla 5). El principio de fondo no cambió: nadie edita sin respaldo, prueba y versión — lo que cambió es que "nadie" ya no significa "solo Claude".
+- **Hermes hace detección Y edición, ya no solo detección (v1.5):** barrido semanal que reporta duplicados, skills sin uso, scripts rotos, docs incompletas -- y para las `nivel_riesgo: normal`, aplica el arreglo él mismo si pasa la compuerta de F2v2. Solo llena la cola de la ventana de mantenimiento de Claude (cada ~4 meses, regla 7 de E9) lo que es `critico`, o lo que intentó 2 veces sin pasar la compuerta.
 
 **Por qué gana esta división:** tu propia observación — "con skill escrita, Hermes razona menos y gasta menos" — significa que **la calidad de la skill es apalancamiento de tokens**. El apalancamiento justifica gastar tokens caros (Claude) en escribirlas bien una vez, y prohíbe que un modelo barato las degrade gratis.
 
@@ -923,6 +925,7 @@ version: 2.1.0                      # semver; bump obligatorio al editar
 origin: bundled | agent | arturo | claude
 status: active | archived
 pinned: true                        # el curator no la toca
+nivel_riesgo: normal | critico       # v1.5: normal = Hermes edita solo con F2v2; critico = Hermes solo propone diff
 category: desarrollo | escuela | contenido | finanzas | sistema | ...
 deps: [python: [validators], system: []]   # para el audit de imports
 last_verified: 2026-07-21           # última vez que su script corrió OK
@@ -1008,7 +1011,7 @@ Regla codificada: cualquier objetivo fuera de la lista de equipos propios exige 
 2. **Contexto mínimo viable:** cada sesión carga solo la cabecera común + su OT + los archivos que va a tocar. Este documento completo NO se pega en Claude Code; vive en el repo (`docs/HAS.md`) y la OT referencia secciones puntuales.
 3. **`CLAUDE.md` del repo** contiene: reglas duras, rutas clave, comandos de verificación frecuentes, y el veredicto por archivo de B2 — para que ninguna sesión re-descubra el proyecto.
 4. **Subagentes en background:** solo lectura/investigación (B10). El costo de un subagente fallido no es solo tokens: es re-verificación.
-5. **Trabajo que hace Hermes gratis (Gemini/Groq), nunca Claude:** barridos semanales (skills audit, duplicados, obsoletos), extracción de candidatos de memoria, clasificación de fotos, detección espontánea de tareas, reportes de avance, diario de reflexión, resúmenes de analítica. Regla: *si la tarea tiene molde definido y su fallo es barato y visible, es de Hermes; si requiere criterio o toca código, es de Claude.*
+5. **Reparto por capacidad, no por prohibición (v1.5 — corrige la incoherencia con la regla 7 y con F2v2):** Hermes hace TODO lo que pueda demostrar con la compuerta de F2v2 — incluida la edición de skills, no solo los barridos semanales (skills audit, duplicados, obsoletos), extracción de candidatos de memoria, clasificación de fotos, detección espontánea de tareas, reportes de avance, diario de reflexión, resúmenes de analítica. Claude se reserva para: arquitectura del framework, código del core (gateway, guardias de seguridad), cambios al propio HAS, y lo que Hermes haya intentado 2 veces sin pasar la compuerta (va a la cola de la ventana de mantenimiento). Regla vieja (derogada, contradecía la regla 7 -- "si requiere criterio o toca código, es de Claude") -- se cita aquí para que quede rastro de qué se corrigió y por qué.
 6. **Escalamiento de modelo (con nombres reales):** Sonnet 4.6 por default → **Opus 4.8** solo con evidencia concreta de atasco (2 intentos fallidos verificados en el mismo problema, no "se siente difícil") → **Fable 5** solo si Opus también se atascó, y en chat de claude.ai (no en Code) para decisiones de arquitectura, una consulta puntual con el contexto destilado a mano.
 7. **Modelo de suscripción (v1.1 — el plan real de Arturo):** Claude Pro se paga **un mes cada ~4 meses**, como ventana de mantenimiento; entre ventanas, Hermes debe ser autosuficiente con sus modelos gratuitos. Implicaciones de diseño obligatorias: (a) **la ruta crítica (Fases 0-6) se cierra en la ventana actual**, mientras hay Claude — no se raciona; (b) Hermes acumula entre ventanas una **cola de mantenimiento con evidencia** (bugs con logs, skills stale, propuestas del barrido semanal) para que la sesión de mantenimiento llegue con el diagnóstico hecho y gaste tokens en arreglar, no en investigar; (c) al abrir cada ventana, la primera sesión corre `has_progress.py` + `skills audit` + los smoke tests para saber el estado real antes de tocar nada; (d) Max solo se considera dentro de una ventana si en ella pierdes ≥3 días de trabajo planificado por límites — fuera de ventanas la pregunta no existe. (Límites exactos de cada plan: verifica en https://support.claude.com al decidir.)
 8. **Contexto de Proyectos de claude.ai:** como usa RAG, es el lugar correcto para este documento en tus chats de diseño — no lo pegues completo en conversaciones; deja que el proyecto lo recupere por fragmentos.
@@ -1072,14 +1075,24 @@ Reemplaza al original **conservando su espíritu íntegro** — sus cuatro princ
 2. **Misión permanente, con métrica:** "necesitar cada vez menos ayuda externa" se mide con dos números mensuales: (a) % de tareas resueltas por Hermes sin escalar a modelos de pago, (b) tokens de Claude gastados por entregable equivalente. Ambos en la vista de Avance.
 3. **El crudo es sagrado.** Nunca comprimir destruyendo; solo se comprime el índice. Nunca eliminar conocimiento sin respaldo.
 
-## F2. Protocolo de Mejora de Skill (las "preguntas antes de mejorar")
-Antes de que CUALQUIER agente (curator, Hermes, Claude) modifique una skill, debe contestar por escrito en el changelog:
+## F2v2. Compuerta de mejora de skills (anti-retroceso, agnóstica al agente) — v1.5
+
+Reemplaza a F2 (protocolo original, 21-jul). Decisión de Arturo del 27-jul-2026: editar una skill no es privilegio de Claude, es privilegio de quien pase esta compuerta — sin importar si es Hermes (Gemini/Groq) o Claude.
+
+**Las 5 preguntas obligatorias (heredadas de F2, sin cambio):** antes de que cualquier agente modifique una skill, debe contestar por escrito en el changelog:
 1. ¿Qué evidencia concreta motiva el cambio? (uso real, fallo registrado, información nueva verificada — cita la fuente)
 2. ¿Existe respaldo? (ruta del respaldo previo)
 3. ¿Qué se prueba para validar y cuál fue el resultado? (comando + salida)
 4. ¿Sube versión? (semver obligatorio)
 5. ¿Contradice algo del HAS o del historial real? (verificado contra el índice semántico)
-Sin las 5 respuestas, el cambio no se aplica. El curator, por diseño, nunca puede contestar la 1 y la 3 — por eso solo poda y nunca edita.
+
+**a) Prueba de humo obligatoria.** Toda skill activa debe tener una prueba de humo ejecutable (`tests/smoke.sh` o equivalente) con caso de entrada y salida esperada. Skill sin prueba = skill que NADIE edita (ni Claude) hasta que la prueba exista. Crear estas pruebas es entregable obligatorio de la Fase 3 para las skills que se depuren.
+
+**b) Flujo único de edición, para cualquier agente (Hermes, Claude):** respaldo → investigar (Brave permitido y recomendado — mismo principio que "buscar en internet antes de seguir adivinando" de `CLAUDE.md`) → editar en copia staging → correr la prueba en la versión vieja Y la nueva → SOLO se acepta si la nueva pasa igual o mejor (nunca retrocede) → semver + línea en changelog con las 5 preguntas respondidas → si falla, reversión automática y registro del intento (el intento fallido cuenta para la regla 5 de E9: 2 intentos sin pasar la compuerta y el problema pasa a la cola de la ventana de mantenimiento de Claude).
+
+**c) Niveles de riesgo** (campo `nivel_riesgo` nuevo en el frontmatter de E3): `normal` = Hermes edita solo, de punta a punta, con la compuerta completa; `critico` (seguridad, credenciales, permisos, dinero) = Hermes solo PROPONE el diff (con las 5 preguntas ya respondidas), aplica Arturo o Claude en la ventana de mantenimiento. Clasificar las 136 skills existentes es entregable obligatorio de Fase 3.
+
+**d) El curator sigue igual: poda, jamás edita** — por diseño nunca puede contestar la pregunta 1 ni la 3 de la lista de arriba, así que queda estructuralmente excluido de esta compuerta, no por regla aparte.
 
 ## F3. Consolidación permanente de memoria (el fin del append-only ciego)
 - `MEMORY.md`/`USER.md` siguen siendo append-only en escritura diaria, PERO cada trimestre corre una **sesión de consolidación** (Claude, con el diff mostrado a Arturo) que aplica semántica de *supersede*: un hecho nuevo que contradice a uno viejo lo marca reemplazado con fecha, nunca lo borra.
@@ -1146,6 +1159,18 @@ Registro citable de fallas reales y la regla que nació de cada una. F8 es el pr
 - **L16** (bitácora construida sin mostrarle el formato antes): todo artefacto cuyo consumidor final es Arturo (bitácoras, tableros, reportes, formatos de mensaje) se muestra en borrador de UNA muestra antes de construirse completo.
 
 **Operación de rutina (petición explícita de Arturo, permanente):** las pruebas de rutina corren por el arnés interno del Bloque V — Claude Code/Hermes las disparan y leen sin que Arturo mande mensajes a mano. Telegram real se reserva para (a) la evidencia final de cierre de un bloque y (b) los ejemplos de `docs/BITACORA_ARTURO.md`, que es donde Arturo verifica y experimenta cada mejora en su día a día. La bitácora es entregable obligatorio del cierre de sesión cuando hubo cambios visibles al usuario (C13 del PROTOCOLO).
+
+## F10. RECETARIO (la biblioteca de soluciones) — v1.5
+
+Decisión de Arturo del 27-jul-2026, parte del mismo paquete que F2v2: el sistema no solo debe dejar de retroceder (F2v2), debe **aprender de cada problema real que ya resolvió**, sin importar quién lo resolvió.
+
+**Dónde vive:** `docs/recetario/` — una receta = un `.md`, con: síntoma, diagnóstico, solución paso a paso, verificación, fecha, autor.
+
+**Reglas:**
+a) **Claude Code tiene obligación de cierre:** todo problema no trivial que resuelva genera su receta en la MISMA sesión — no queda para después, no queda solo en `ESTADO.md`/`BLOQUES.md` (esos son la bitácora de la sesión; el recetario es la biblioteca reusable, indexada, para consulta futura).
+b) **Hermes consulta el recetario** (indexado en la memoria semántica, Fase 4) **ANTES de razonar un problema desde cero**, y puede APLICAR recetas cuyos pasos estén dentro de sus permisos (mismo principio que F2v2: normal = aplica solo, crítico = propone).
+c) **Si Hermes resuelve algo nuevo por su cuenta** (con DeepSeek autorizado, o gratis), **también escribe su receta** — el sistema aprende de ambos agentes, no solo de Claude.
+d) **Métrica mensual en la vista de avance** (E8): % de problemas resueltos por receta/Hermes sin tocar a Claude. Esa es la medida real de "necesitar cada vez menos ayuda externa" — el objetivo central del proyecto (`~/.hermes/CLAUDE.md`: minimizar el consumo de APIs de pago mediante reutilización de conocimiento), ahora con un número que lo prueba.
 
 ---
 
