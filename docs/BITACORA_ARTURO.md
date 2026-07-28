@@ -64,6 +64,30 @@ libreoffice-impress` (gratis, solo agrega la parte de PowerPoint a un
 programa que ya tiene instalado) si quiere la función de miniaturas de
 diapositivas funcionando.
 
+**Terminé también la limpieza completa de las 136 skills** (le dijo
+"sí, continúa" cuando le pregunté si seguía):
+
+- Le puse a cada una de las 135 instrucciones activas la información
+  completa que le faltaba (de dónde viene, qué tan riesgosa es tocarla,
+  categoría, qué depende de qué, cuándo se verificó por última vez).
+  Antes de tocar las 135 reales, probé el cambio completo en una copia
+  aparte para no arriesgar nada.
+- Marqué como "protegidas" (el curador automático nunca las va a borrar
+  ni archivar solas) las 30 instrucciones que tienen que ver con
+  programar bien -- decisión suya, no mía. Revisé si había instrucciones
+  de bases de datos o redes que también debieran protegerse y no
+  encontré ninguna real hoy (solo coincidencias débiles que no valía la
+  pena forzar).
+- Construí una herramienta de auditoría que revisa las 135 de un jalón
+  (archivos vacíos, nombres repetidos, código roto, instrucciones sin
+  usar hace meses). La corrí: **todo limpio**, salvo un caso ya conocido
+  (2 integraciones de Notion distintas que comparten nombre de carpeta
+  -- ya estaba en el plan juntarlas más adelante, no es un problema
+  nuevo).
+
+Con esto, la limpieza completa de las 136 skills que arrancamos hoy
+queda terminada.
+
 ---
 
 ## 28 Jul 2026 (mediodía) — Confirmé que el cambio de motor de ayer quedó estable, y arrancamos la limpieza de las 136 skills

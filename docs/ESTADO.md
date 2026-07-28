@@ -4,8 +4,12 @@
 
 ## ESTADO ACTUAL — leer esto primero, antes que nada más abajo
 
-**Fase activa: Fase 3 (Ciclo de vida de skills) — EN CURSO desde 28
-Jul 2026.** Fases 0, 0.5, 1 y 2 del HAS quedaron CERRADAS de verdad
+**Fase 3 (Ciclo de vida de skills) -- CERRADA COMPLETA hoy (28 Jul
+2026), los 5 bloques de OT-3.** Sigue Fase 4 (Memoria que encuentra) --
+**NO arranca sola, misma regla que Fase 3: espera autorización
+explícita de Arturo en la sesión antes de tocar nada.**
+
+Fases 0, 0.5, 1 y 2 del HAS quedaron CERRADAS de verdad
 (27-28 Jul 2026), con evidencia real cada una, **incluido el Bloque 6**
 (corte a producción) que hasta hoy seguía "EN OBSERVACIÓN" pese a que
 el banner ya decía Fase 2 cerrada -- contradicción real detectada y
@@ -13,41 +17,53 @@ corregida hoy: ventana de 24h de logs revisada (23.3h limpias, 0
 tracebacks, ver sección Bloque 6 más abajo), Bloque 6 cerrado, Fase 2
 cerrada en sus 6 pasos, no solo de nombre.
 
-**Fase 3, Bloques 1, 2 y 3 de OT-3 -- CERRADOS hoy:**
+**Fase 3 -- CERRADA COMPLETA (los 5 bloques de OT-3), 28 Jul 2026:**
 - **Bloque 1:** respaldo, los 2 archivos-404 borrados, los 3 duplicados
   reales resueltos con verificación en vivo contra el código de
-  producción. 141 skills activas → 136 (coincide con la cifra que ya
-  citaba `docs/HAS.md`).
+  producción. 141 → 136 skills activas.
 - **Bloque 2:** `powerpoint`/`ocr-and-documents` reparados (la
   dependencia real que faltaba era `lxml`, no `validators` como decía
-  el plan -- probado con archivos reales; `thumbnail.py` sigue
-  pendiente de `libreoffice-impress`, sudo denegado, ver pendientes
-  abajo); `comfyui` archivado (confirmado `use_count: 0` real, nunca
-  usada).
-- **Bloque 3:** el bug de fondo de `.usage.json` (indexaba por nombre,
-  no por ruta -- afectaba la resolución REAL de `skill_view()`, no solo
-  el contador). Refactor real en 10 archivos de producción, autorizado
-  explícitamente por Arturo tras exponerle el alcance verdadero (57
-  puntos de llamada). 1247/1247 tests en verde, verificado en vivo
-  contra el gateway real ya reiniciado (29/29 smoke, 0 errores en
-  logs). Detalle técnico completo en `docs/BLOQUES.md` y
-  `~/.hermes/CHANGELOG_SISTEMA.md`.
+  el plan); `comfyui` archivado (confirmado `use_count: 0` real). 136 → 135.
+- **Bloque 3, el más grande:** el bug de fondo de `.usage.json`
+  (indexaba por nombre, no por ruta -- afectaba la resolución REAL de
+  `skill_view()`, no solo el contador). Refactor real en 10 archivos de
+  producción, autorizado explícitamente por Arturo tras exponerle el
+  alcance verdadero (57 puntos de llamada). 1247/1247 tests en verde,
+  desplegado con reinicio real del gateway (29/29 smoke, 0 errores en
+  logs). De paso, una regresión propia del Bloque 1 (enlace roto en
+  `superpowers/subagent-driven-development`) encontrada y corregida
+  antes de que causara daño.
+- **Bloque 4:** esquema de metadata E3 (`docs/HAS.md`) aplicado a las
+  135 skills activas -- probado primero en una copia completa, no
+  directo a producción. Pin real (no cosmético) en las 30 skills de
+  desarrollo de software vía `.usage.json`.
+- **Bloque 5:** `~/.hermes/scripts/skills_audit.py` -- 404s, duplicados
+  por 2 mecánicas de resolución distintas, sintaxis rota, staleness,
+  frontmatter incompleto. Corrido contra producción: 0 problemas
+  reales nuevos.
 
-**Sigue de Fase 3, sin empezar:** Bloque 4 (metadata + `nivel_riesgo`
-en las 136), Bloque 5 (`hermes skills audit`).
+Detalle técnico completo de los 5 bloques en `docs/BLOQUES.md` y
+`~/.hermes/CHANGELOG_SISTEMA.md`.
 
 **Hallazgos nuevos sin arreglar, fuera de alcance de OT-3 (anotados
 para su propia sesión):**
 - `tools/skill_manager_tool.py::_find_skill()` resuelve por nombre de
   carpeta, no por `name:` de frontmatter (inconsistente con
-  `skill_usage._find_skill_dir()`).
+  `skill_usage._find_skill_dir()`). Confirmado con un caso real hoy
+  (`notion` vs `productivity/notion`, 2 skills distintas que solo
+  coinciden en nombre de carpeta -- ya planeada su consolidación en
+  Fase 5, no es un bug nuevo).
 - `tools/skills_tool.py::_find_all_skills()` deduplica por nombre en
   silencio -- una skill con nombre repetido desaparece de `hermes
   skills list`/`/api/skills` en vez de mostrarse. Dormido hoy (0
-  colisiones reales), pero resurgiría con la próxima skill duplicada.
+  colisiones por `name:` reales), pero resurgiría con la próxima skill
+  duplicada.
 - `thumbnail.py` de `powerpoint` necesita `sudo apt install
   libreoffice-impress` -- permiso denegado en sesión, pendiente de que
   Arturo lo corra él mismo o autorice explícitamente.
+- `marker-pdf` (OCR pesado) instalado pero sin probar con un PDF real.
+- Programar `skills_audit.py` semanalmente queda para Fase 5 (el propio
+  OT-3 lo dice explícitamente), no es pendiente de Fase 3.
 
 Pendientes reales sueltos, ninguno bloquea Fase 3:
 - Disco Seagate: Arturo pendiente de correr `sudo smartctl -a /dev/sda`

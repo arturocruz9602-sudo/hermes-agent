@@ -4,6 +4,53 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## HAS Fase 3 — CERRADA COMPLETA (Bloques 1-5 de OT-3), 28 Jul 2026
+
+Los 5 bloques de OT-3 cerrados en la misma sesión, autorizados por
+Arturo ("comienzas con la fase 3" → "sí, continúa con esos"). Detalle
+técnico completo de cada uno, con las 5 preguntas de F2v2 donde aplica,
+en `~/.hermes/CHANGELOG_SISTEMA.md`. Resumen:
+
+- **Bloque 1:** respaldo + 2 archivos-404 borrados + 3 duplicados
+  reales resueltos (colisión confirmada contra el código de
+  producción). 141 → 136 skills activas.
+- **Bloque 2:** powerpoint/ocr-and-documents reparados (dependencia
+  real era `lxml`, no `validators` como decía el plan); comfyui
+  archivado (`use_count: 0` real confirmado). 136 → 135.
+- **Bloque 3, el más grande:** bug de fondo de `.usage.json` (indexaba
+  por nombre -- afectaba la resolución REAL de `skill_view()`, no solo
+  el contador). Refactor de 10 archivos de producción, 1247/1247 tests,
+  desplegado con reinicio real del gateway, 29/29 smoke. **Regresión
+  propia encontrada y corregida en el camino:** un enlace real roto en
+  `superpowers/subagent-driven-development` (consecuencia del Bloque 1,
+  detectado por el propio checker de humo antes de que causara daño).
+- **Bloque 4:** esquema de metadata E3 aplicado a las 135 skills
+  (script idempotente, probado primero en una copia completa antes de
+  tocar producción). Pin real (`.usage.json`, no solo cosmético) en las
+  30 skills de desarrollo de software -- confirmado que no existen hoy
+  categorías propias de bases de datos/redes/ciberseguridad para
+  pinnear (solo coincidencias débiles, no forzadas).
+- **Bloque 5:** `~/.hermes/scripts/skills_audit.py` (404s, duplicados
+  por 2 mecánicas de resolución distintas, sintaxis rota, staleness,
+  frontmatter incompleto). Corrido contra producción: 0 problemas
+  reales nuevos -- el único "duplicado por carpeta" (`notion`) ya
+  estaba planeado para consolidarse en Fase 5, no es un bug.
+
+**Verificación E2E que pedía el HAS para Fase 3** ("dos skills
+homónimas registran contadores independientes tras usarse una vez cada
+una"): confirmada en vivo hoy contra `skill_view()`/`bump_use()` reales
+(ver Bloque 3) -- no quedan skills homónimas activas para repetir la
+prueba con 2 reales, pero el mecanismo que lo garantiza (indexado por
+ruta) está probado y desplegado.
+
+**Pendiente real para retomar, ninguno bloquea seguir con Fase 4:**
+- `sudo apt install libreoffice-impress` -- pendiente de Arturo (miniaturas de powerpoint).
+- Probar `marker-pdf` con un PDF real (instalado, sin probar).
+- `tools/skill_manager_tool.py::_find_skill()` resuelve por nombre de
+  carpeta (no por `name:`), inconsistente con `skill_usage._find_skill_dir()`.
+- `tools/skills_tool.py::_find_all_skills()` deduplica por nombre en silencio.
+- Programar `skills_audit.py` semanalmente -- explícitamente tarea de Fase 5, no de Fase 3.
+
 ## HAS Fase 3 (OT-3 Bloque 2) — reparar powerpoint/ocr, archivar comfyui, CERRADO (28 Jul 2026, tarde)
 
 **powerpoint/ocr-and-documents:** el plan de OT-3 asumía que faltaba
