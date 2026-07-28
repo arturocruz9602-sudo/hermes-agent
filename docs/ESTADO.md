@@ -1,31 +1,38 @@
-# Estado de Hermes — actualizado 27 Jul 2026, tarde
+# Estado de Hermes — actualizado 27 Jul 2026, noche
 
-**Versiones vigentes: HAS v1.4 · PROTOCOLO v1.3.1**
+**Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
 
 ## ESTADO ACTUAL — leer esto primero, antes que nada más abajo
 
-**Fase activa: Fase 3 (Ciclo de vida de skills) — SIN EMPEZAR todavía,
-lista para arrancar.** Fases 0, 0.5, 1 y 2 del HAS quedaron CERRADAS
-hoy (27 Jul 2026), con evidencia real cada una — ver sus secciones más
-abajo si hace falta el detalle, pero **no hay nada pendiente de esas 4
-fases que revisar o retomar.** No hace falta releer el historial
-completo de este archivo para saber dónde seguir: es directo, Fase 3.
+**Fase activa: Fase 3 (Ciclo de vida de skills) — SIN EMPEZAR, y NO
+arranca sola.** Fases 0, 0.5, 1 y 2 del HAS quedaron CERRADAS hoy (27
+Jul 2026), con evidencia real cada una — ver sus secciones más abajo
+si hace falta el detalle, pero **no hay nada pendiente de esas 4 fases
+que revisar o retomar.**
 
-Pendientes reales sueltos, NINGUNO bloquea empezar Fase 3:
+**Regla explícita de Arturo (27 Jul, noche): Fase 3 NO arranca hasta
+que él lo autorice directamente en la sesión.** No asumir luz verde
+por el simple hecho de que las fases anteriores ya cerraron -- esperar
+su mensaje explícito antes de tocar cualquier skill.
+
+Pendientes reales sueltos, ninguno bloquea Fase 3 cuando se autorice:
 - Disco Seagate: Arturo pendiente de correr `sudo smartctl -a /dev/sda`
   (hallazgo del 27 Jul, ver Bloque 6 más abajo) -- no urgente.
 - `recover@telegram.org` puede contestar en cualquier momento (correo
   enviado el 27 Jul) -- irrelevante ya, OT-QA se resolvió por otra vía
   (ver sección OT-QA más abajo, cuenta QA ya autenticada y funcionando).
-- `docs/HAS.md` (vive en `~/hermes-019`, no en este repo) sigue
-  marcando Fase 1 como "parcial" -- desactualizado, Fase 1 sí está
-  cerrada. Corregirlo es cosmético, no bloquea nada.
+- `docs/HAS.md` SÍ vive versionado en este repo (`git ls-files` lo
+  confirma) -- corrección a una nota anterior de este mismo archivo que
+  decía lo contrario. Ya está en v1.5, sincronizado con la copia de
+  `~/hermes-019`.
 
-**Próximo paso concreto:** abrir `docs/HAS.md` sección "Fase 3" +
-"OT-3" (en `~/hermes-019`), inventariar las 136 skills reales contra lo
+**Cuando Arturo autorice Fase 3:** abrir `docs/HAS.md` secciones "Fase
+3" + "OT-3" + el nuevo "F2v2" (v1.5, compuerta de edición de skills) +
+"F10" (recetario, ya con 2 recetas reales) antes de tocar nada,
+inventariar las 136 skills reales contra lo
 que describe, y empezar por lo primero accionable (basura-404 con
-respaldo). No requiere que Arturo esté presente para arrancar el
-diagnóstico/inventario inicial.
+respaldo). **No arrancar ni el inventario inicial sin la autorización
+explícita de Arturo** (regla suya del 27 Jul, noche).
 
 ## Bloque S.5 + fix de ventana O.6 — cascada de compactación infinita, CERRADO (27 Jul 2026)
 

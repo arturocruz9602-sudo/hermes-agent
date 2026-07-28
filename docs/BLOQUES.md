@@ -255,6 +255,72 @@ cierre, pendiente de diagnóstico dedicado".
 (paso 6 del procedimiento de `hermes-upgrade`) antes de declarar
 Bloque 6 -- y con él, HAS Fase 2 completa -- cerrado.
 
+## HAS v1.5 — resuelve la incoherencia sobre quién puede editar skills (27 Jul 2026, tarde-noche)
+
+Después de cerrar Fase 2, expliqué el reparto de trabajo del HAS
+(B3: "las mejoras sustantivas las hace Claude") como si Hermes nunca
+pudiera tocar código de una skill. Arturo señaló que eso no era lo que
+había pedido, y que además el propio documento ya se contradice: E9
+regla 5 dice "si toca código, es de Claude", pero E9 regla 7 (v1.1, más
+reciente) dice que Claude solo está disponible **un mes cada ~4 meses**
+y que "entre ventanas, Hermes debe ser autosuficiente" -- si Hermes no
+puede tocar código nunca, las skills no podrían mejorar 3 de cada 4
+meses. Pedido explícito: verificar la incoherencia con evidencia real,
+no de memoria.
+
+**Verificación real, contra los 4 documentos que gobiernan el
+proyecto** (no solo `HAS.md`): confirmado que `~/.hermes/CLAUDE.md`
+(el archivo más antiguo y permanente) no restringe esto a Claude -- su
+regla sobre skills es genérica ("antes de modificar cualquier skill:
+respaldo, comparar, validar, versionar") y su objetivo central
+declarado es "minimizar el consumo de APIs de pago mediante
+reutilización de conocimiento". `PROTOCOLO.md` no toca el tema.
+`hermes-agent/CLAUDE.md` tampoco. La incoherencia real estaba
+específicamente en 3 puntos de `HAS.md` (E9 regla 5 vs regla 7 vs F2).
+
+**Decisión de Arturo (texto completo suyo, aplicado literal en su
+mayoría) -- HAS sube a v1.5:**
+
+1. **E9 regla 5 reescrita**: reparto por capacidad (qué puede pasar
+   la compuerta), no por prohibición de agente. Hermes hace TODO lo
+   que pueda demostrar con la compuerta de F2v2, incluida edición de
+   skills. Claude se reserva: arquitectura del framework, código del
+   core, cambios al propio HAS, y lo que Hermes intentó 2 veces sin
+   pasar la compuerta.
+2. **F2 → F2v2** ("Compuerta de mejora de skills, anti-retroceso,
+   agnóstica al agente"): (a) toda skill activa necesita una prueba de
+   humo ejecutable -- sin prueba, nadie la edita, ni Claude; entregable
+   de Fase 3. (b) Flujo único para cualquier agente: respaldo →
+   investigar (Brave permitido y recomendado) → editar en staging →
+   probar versión vieja Y nueva → solo se acepta si iguala o mejora →
+   semver + changelog con las 5 preguntas de F2 respondidas → si falla,
+   reversión automática. (c) Campo nuevo `nivel_riesgo` (normal/crítico)
+   en el frontmatter de E3 -- crítico (seguridad, credenciales,
+   permisos, dinero) Hermes solo propone, nunca aplica solo.
+   Clasificar las 136 skills es entregable de Fase 3. (d) El curator
+   sigue igual, poda, jamás edita.
+3. **Nueva sección F10 "RECETARIO"**: biblioteca de soluciones real en
+   `docs/recetario/` (ya creada, con `README.md` explicando el formato
+   y 2 recetas reales de esta misma sesión como primer uso real de la
+   regla: `telethon-signin-cliente-distinto-al-que-pidio-codigo.md` y
+   `compactacion-en-cascada-target-mayor-al-disparador.md`). Claude
+   tiene obligación de cierre (toda sesión que resuelva algo no trivial
+   escribe su receta); Hermes la consulta antes de razonar desde cero y
+   también escribe receta cuando resuelve algo solo. Métrica mensual: %
+   de problemas resueltos sin tocar a Claude.
+4. **B3 actualizada** en 2 puntos (el segundo no estaba en la lista
+   explícita de Arturo, lo agregué por consistencia y se lo confirmé
+   antes de aplicar): ya no dice "solo Claude edita", y la línea
+   siguiente ("Hermes solo detecta, nunca edita... sesión mensual de
+   mantenimiento") también corregida -- contradecía lo de arriba y
+   citaba la cadencia vieja.
+
+**Verificado, diff completo mostrado a Arturo antes de commitear (regla
+D8 del PROTOCOLO: mostrar antes de construir), confirmado por él
+explícitamente antes de aplicar.** Espejo aplicado también a
+`~/hermes-019` (rama `arturo/base`), donde vive la copia de trabajo del
+rebase -- ambas copias de `HAS.md` quedan idénticas otra vez.
+
 ## HAS Fase 2 — cierre real de la verificación E2E (27 Jul 2026, tarde) — CERRADA
 
 Pedido explícito de Arturo: "Termina de cerrar la fase dos y de ahí ya

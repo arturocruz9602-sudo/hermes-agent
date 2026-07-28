@@ -55,6 +55,36 @@ inmediato -- sería señal de que el arreglo no cubrió todos los casos.
 
 ---
 
+## 27 Jul 2026 (noche) — Corregí cómo entendía el plan: usted sí quiere que Hermes edite sus propias herramientas
+
+**Qué pasó:** le expliqué mal una parte del plan grande -- dije que solo
+yo (Claude) podía mejorar las "skills" (las herramientas que Hermes usa).
+Usted me corrigió: nunca dijo eso, y de hecho el plan ya apuntaba a que
+Hermes hiciera más, no menos, sobre todo porque a mí solo me tiene
+disponible un mes cada ~4 meses.
+
+**Lo verifiqué de verdad** (no le di la razón porque sí) contra los 4
+documentos que gobiernan el proyecto, y encontré que el documento del
+plan (HAS) SÍ se contradecía a sí mismo en esto -- una parte decía "solo
+Claude toca código", otra parte (más reciente) decía "Hermes debe ser
+autosuficiente casi todo el año". No podían ser ciertas las dos.
+
+**Su decisión, ya aplicada:** Hermes ahora SÍ puede mejorar sus propias
+herramientas solo, pero con reglas duras para que nunca empeore nada:
+tiene que probar la herramienta en su versión vieja y la nueva, y solo
+se queda con el cambio si la nueva es igual o mejor -- si no, se
+revierte sola. Las herramientas más delicadas (seguridad, dinero,
+credenciales) siguen pasando por usted o por mí. Y arrancamos un
+"recetario": cada problema real que resolvemos (yo o Hermes) queda
+guardado paso a paso, para que la próxima vez no haya que pensarlo
+desde cero -- ya escribí las primeras 2 recetas de hoy mismo.
+
+**Importante:** usted pidió explícito que la Fase 3 (donde se aplica
+todo esto) NO arranque sola -- se queda lista, esperando que usted diga
+que sí.
+
+---
+
 ## 27 Jul 2026 (tarde, continuación 3) — Fase 2 del plan queda cerrada de verdad, ya vamos a la Fase 3
 
 **Qué era esto:** el plan grande de Hermes tiene 12 fases. Íbamos por la
