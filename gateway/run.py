@@ -14792,7 +14792,18 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 bool(agent_result.get("failed"))
                 and _failure_reason in ("rate_limit", "billing")
             )
-            _pending_entry = self._pending_reprocess_ids.pop(id(event), None)
+            # getattr fallback (Bloque AF fix, 29 Jul 2026): real GatewayRunner
+            # instances always have this dict (set in __init__), but several
+            # test fixtures construct the runner via object.__new__() and skip
+            # __init__ entirely (see the object.__new__ test pattern note
+            # elsewhere in this file) -- those never set
+            # _pending_reprocess_ids, so a plain attribute access here raised
+            # AttributeError on every turn that reached this line (5 tests
+            # failing, confirmed via git stash against unmodified code).
+            # Falling back to {} is the CORRECT behavior for such a runner,
+            # not a workaround: no prior call ever registered a pending
+            # reprocess entry for it, so "nothing pending" is the true state.
+            _pending_entry = getattr(self, "_pending_reprocess_ids", {}).pop(id(event), None)
             _pending_id = _pending_entry.get("row_id") if _pending_entry else None
             _pending_via = _pending_entry.get("via") if _pending_entry else None
 

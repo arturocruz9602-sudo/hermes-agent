@@ -643,3 +643,40 @@ def test_short_conversation_never_triggers_compression():
 
     assert agent._compress_calls == 0
     assert agent._emitted == []
+
+
+# ---------------------------------------------------------------------------
+# HAS Fase 4, Bloque 2: inyección automática del índice semántico de memoria.
+# ---------------------------------------------------------------------------
+
+def _fake_search_result(score, source="skill", content="contenido de ejemplo"):
+    from agent.memory_semantic import SearchResult
+
+    return SearchResult(
+        chunk_id=1, source=source, source_ref="ref-1", content=content,
+        created_at="2026-01-01T00:00:00", importancia=0.5, score=score,
+    )
+
+
+def test_strong_memory_match_gets_injected():
+    agent = _FakeAgent()
+    strong = _fake_search_result(0.8, content="procedimiento de actualizacion de Hermes")
+    with patch("agent.memory_semantic.buscar", return_value=[strong]):
+        ctx = _build(agent)
+    assert "procedimiento de actualizacion de Hermes" in ctx.plugin_user_context
+    assert "ref-1" in ctx.plugin_user_context
+
+
+def test_weak_memory_match_is_not_injected():
+    agent = _FakeAgent()
+    weak = _fake_search_result(0.1, content="ruido sin relacion real")
+    with patch("agent.memory_semantic.buscar", return_value=[weak]):
+        ctx = _build(agent)
+    assert "ruido sin relacion real" not in ctx.plugin_user_context
+
+
+def test_memory_search_failure_does_not_break_the_turn():
+    agent = _FakeAgent()
+    with patch("agent.memory_semantic.buscar", side_effect=RuntimeError("boom")):
+        ctx = _build(agent)
+    assert ctx.user_message == "hello"

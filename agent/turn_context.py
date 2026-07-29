@@ -1309,6 +1309,33 @@ def build_turn_context(
     except Exception as exc:
         logger.warning("Bloque O.1 (gather_pre_response_context) failed: %s", exc)
 
+    # HAS Fase 4, Bloque 2 (29 Jul 2026) -- inyección automática del índice
+    # semántico de memoria (agent/memory_semantic.py). Mismo patrón que el
+    # bloque O.1 de arriba (inyecta ANTES de que el modelo responda, en vez
+    # de que el modelo tenga que acordarse de llamar memory_search). Umbral
+    # de score deliberadamente alto (0.6, SUPUESTO -- no hay todavía un caso
+    # real de producción para calibrar contra) para que un saludo o mensaje
+    # sin relación con nada indexado no inyecte ruido en cada turno; la tool
+    # memory_search (invocación explícita del agente) usa un umbral más bajo
+    # para búsquedas donde el agente ya decidió que vale la pena buscar.
+    # Fail-safe: cualquier error aquí nunca bloquea el turno normal.
+    try:
+        from agent.memory_semantic import buscar as _memoria_buscar
+        from agent.memory_semantic import format_for_prompt as _memoria_format
+
+        _MEMORIA_MIN_SCORE = 0.6
+        _memoria_resultados = [
+            r for r in _memoria_buscar(original_user_message or "")
+            if r.score >= _MEMORIA_MIN_SCORE
+        ]
+        if _memoria_resultados:
+            _memoria_ctx = _memoria_format(_memoria_resultados)
+            plugin_user_context = (
+                f"{plugin_user_context}\n\n{_memoria_ctx}" if plugin_user_context else _memoria_ctx
+            )
+    except Exception as exc:
+        logger.warning("Fase 4 Bloque 2 (memory_semantic auto-injection) failed: %s", exc)
+
     # Bloque W.2 (23 Jul 2026) -- confirmación obligatoria antes de guardar
     # en la bóveda cuando el origen es transcripción de voz. Real gate de
     # dos turnos (mismo patrón que Tarea E), no solo instrucción de prompt --

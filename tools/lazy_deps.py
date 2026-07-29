@@ -152,6 +152,11 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
     # instance and the provider silently reports itself unavailable.
     "memory.supermemory": ("supermemory==3.50.0",),
     "memory.mem0": ("mem0ai==2.0.10",),
+    # Local semantic memory index (HAS Fase 4, Bloque 2) -- sqlite-vec +
+    # sentence-transformers (e5-small embeddings, fully local/free).
+    # Loaded lazily by agent/memory_semantic.py at first indexing/search
+    # call, not eagerly at gateway startup.
+    "memory.semantic_index": ("sqlite-vec==0.1.9", "sentence-transformers==5.6.1"),
 
     # ─── Messaging platforms (lazy-installable on demand) ──────────────────
     "platform.telegram": ("python-telegram-bot[webhooks]==22.6",),

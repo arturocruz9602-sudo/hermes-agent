@@ -4,6 +4,115 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## HAS Fase 4, Bloques 2-3 (índice semántico de memoria) + limpieza de deuda pendiente, CERRADO (29 Jul 2026, mañana)
+
+Pedido explícito de Arturo: "todo de una vez pero inicia con lo más
+difícil" -- 4 tareas en una sesión. Detalle completo en `docs/ESTADO.md`.
+
+**1. Índice semántico de memoria (HAS §B9/§E4, lo más difícil).**
+`agent/memory_semantic.py` nuevo -- esquema `memoria_semantica.db`
+(chunks + FTS5 + sqlite-vec), embeddings locales
+(`intfloat/multilingual-e5-small`, 384 dim) + retrieval híbrido
+(FTS5 top-20 + vector top-20, re-rankeado 0.5·similitud + 0.3·recencia +
+0.2·importancia, exacto a HAS §E4). Dependencias nuevas
+(`sqlite-vec==0.1.9`, `sentence-transformers==5.6.1`) via el patrón
+lazy-install del proyecto (`tools/lazy_deps.py`, extra
+`memory-semantic`), no eager -- mismo tratamiento que supermemory/mem0.
+
+- **2 bugs reales encontrados y arreglados durante la verificación
+  contra el modelo real** (no en el diseño en papel): (a) sintaxis de
+  sqlite-vec -- `k=` y `LIMIT` juntos truena ("Only LIMIT or k=? can be
+  provided"); (b) FTS5 sin filtrar palabras funcionales del español
+  ("la", "por", "me", "como") hacía match contra CUALQUIER chunk que las
+  compartiera, rankeando contenido sin relación real por encima de un
+  match semántico genuino -- confirmado con el propio caso de prueba
+  ("SSH a la MacBook") antes de arreglarlo.
+- **Indexador** (`~/.hermes/scripts/memoria_indexador.py`, fuera del
+  repo, mismo patrón que `fase2_extract_candidates.py`): backfill real
+  corrido en vivo -- 282 chunks de `hermes_raw` (2,814 mensajes reales),
+  2 hechos de `memoria_estructurada`, 142 skills activas (de 153
+  totales). RAM pico medida: 1.68GB de 7.1GB totales -- muy por debajo
+  del umbral de degradación del HAS (85% del sistema), sin necesidad de
+  bajar a `paraphrase-multilingual-MiniLM-L12-v2`. Tiempo: 2:25 min
+  (dominado por la carga única del modelo, no por el volumen real).
+  Incremental verificado (segunda corrida: "nada nuevo" en raw/hechos).
+- **Obsidian NO indexado -- gap real, documentado, no fabricado:** el
+  vault vive en la MacBook remota: no hay canal de sync (ni rsync ni
+  montaje) hacia esta HP. La prueba E2E literal del HAS ("SSH a la
+  MacBook, 565 notas") no se pudo correr por esto -- se avisa en el log
+  del indexador cada corrida, nunca en silencio.
+- **Diario de reflexión** (`~/.hermes/scripts/memoria_diario_reflexion.py`):
+  corrida real en vivo -- Gemini (chat-primary, nunca DeepSeek) leyó 200
+  mensajes reales de los últimos 7 días y escribió 5 observaciones
+  reales (verificadas a mano, sin alucinación evidente), indexadas con
+  importancia=0.9.
+- **Tool `memory_search`** (`tools/memory_search_tool.py`) registrada en
+  el toolset core (`toolsets.py`, `_HERMES_CORE_TOOLS` + 3 perfiles más)
+  -- búsqueda explícita del agente, umbral bajo (0.35). Además,
+  **inyección automática** en `agent/turn_context.py` (mismo patrón que
+  Bloque O.1) con umbral más alto (0.6, SUPUESTO marcado en el código --
+  sin caso real todavía para calibrar).
+- **Bug de rendimiento encontrado y arreglado antes de que llegara a
+  producción:** conectar la inyección automática a `build_turn_context`
+  hacía que CUALQUIER test que ejercitara esa función real (no solo los
+  de memoria) cargara el modelo de embeddings -- `test_turn_context.py`
+  pasó de 2.4s a 14.4s. Fix: `buscar()` ahora sale temprano
+  (`SELECT 1 FROM chunks LIMIT 1`) si el índice está vacío, antes de
+  tocar el modelo -- correcto también en producción (un índice recién
+  instalado no debe intentar embeddings sin nada que comparar).
+- **Verificación real de retrieval** (no sintética) contra el corpus
+  real ya indexado: "como actualizo Hermes a una version nueva sin
+  romper nada" -> `hermes-upgrade/SKILL.md` en el top-1 (score 0.803);
+  "en que ha estado trabajando Arturo esta semana" -> observación de
+  reflexión real en el top-1 (score 0.911).
+- **Systemd timers reales, armados y confirmados con
+  `systemctl --user list-timers`:** `hermes-memoria-index.timer` (diario
+  3am) y `hermes-memoria-reflexion.timer` (domingos 8am), ambos
+  `Persistent=true` (recuperan si la laptop estaba apagada/con la tapa
+  cerrada a esa hora).
+- **21 tests nuevos** (`tests/agent/test_memory_semantic.py`,
+  `tests/tools/test_memory_search_tool.py`, 3 en
+  `tests/agent/test_turn_context.py`) + toda la suite de
+  `tests/agent/`, `tests/tools/`, `tests/test_toolsets.py`,
+  `tests/test_toolset_distributions.py`, `tests/test_project_metadata.py`
+  corrida sin fallas nuevas.
+- **Pendiente real para otra sesión:** confirmar 3 noches seguidas de
+  reindexado automático sin intervención (criterio literal de HAS §OT-4
+  Bloque 3.3) -- el timer se armó hoy, necesita tiempo real de calendario
+  para confirmarse, no se puede simular.
+
+**2. Bug `_pending_reprocess_ids` (Bloque AF), CERRADO -- resultó ser
+más grande de lo registrado.** El registro decía "2 tests fallando";
+la corrida real de toda la suite de `tests/gateway/` mostró **15 tests**
+con el mismo `AttributeError: 'GatewayRunner' object has no attribute
+'_pending_reprocess_ids'` (10 de ellos solo en `test_session_hygiene.py`,
+nunca contados antes). Causa: varios fixtures de test construyen
+`GatewayRunner` vía `object.__new__()` (saltándose `__init__`, patrón ya
+documentado en el propio archivo), así que nunca inicializan ese dict.
+Fix de una línea en `gateway/run.py` (~línea 14795): `getattr(self,
+"_pending_reprocess_ids", {})` en vez de acceso directo -- correcto
+también en producción (un runner real siempre tiene el dict via
+`__init__`; el fallback a `{}` es el comportamiento correcto para un
+runner al que nunca se le registró nada pendiente). Los 15 tests pasan;
+~1,600 tests de regresión de `tests/gateway/` sin fallas nuevas
+(comparado contra el código sin tocar vía `git stash`).
+
+**3. Auditoría del backlog del 22 Jul, CERRADO.** El registro de "4
+bugs abiertos sin resolver" nunca se había re-verificado contra el
+código actual, pese a que otras secciones de este mismo `ESTADO.md`
+(27-28 Jul) ya reportaban 2 de los 4 arreglados -- contradicción real.
+Verificado uno por uno contra código/sistema real (no repitiendo el
+texto viejo): (1) fabricación de evidencia O.6 -- CERRADO, confirmado
+en código Y visto disparar en vivo hoy mismo; (2) O.4 sin rastro de
+ejecución -- probablemente ya no aplica (el código actual siempre deja
+rastro salvo un caso deliberado de diseño), sin poder confirmar el caso
+original sin el mensaje real; (3) hueco O.1 vs `web_search` nativo --
+SIGUE ABIERTO, confirmado por grep real, nadie lo tocó; (4) cron roto de
+`vigilar_hermes.sh` -- CERRADO, confirmado con `crontab -l` real (0
+entradas, script no existe). Detalle en `docs/ESTADO.md`.
+
+**Commits:** pendiente de commit al cierre de esta sesión (ver git log).
+
 ## Falso positivo de Tarea E sobre respuesta ya completa, CERRADO (29 Jul 2026, mañana)
 
 Encontrado probando en vivo los fixes del bloque de abajo. Detalle

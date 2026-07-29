@@ -67,7 +67,7 @@ def test_lazy_installable_extras_excluded_from_all():
         "messaging", "slack", "matrix", "dingtalk", "feishu",
         "telegram-userbot",  # telethon -- QA automation account (HAS OT-QA)
         "honcho", "hindsight",
-        "supermemory", "mem0",
+        "supermemory", "mem0", "memory-semantic",
         "mistral",  # mistralai — Voxtral STT/TTS, lazy-installed (stt.mistral / tts.mistral)
     }
     all_extra_specs = optional_dependencies["all"]

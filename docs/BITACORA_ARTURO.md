@@ -7,6 +7,47 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 29 Jul 2026 (mañana) — Hermes ya puede "acordarse" de cosas viejas, no solo de lo que aprueba a mano
+
+Le pedí que hiciera 4 cosas de un jalón empezando por la más difícil: el
+índice de memoria por significado que estaba pendiente en el HAS
+(Fase 4), un bug de pruebas que arrastraba desde hace días, y una
+revisión de una lista vieja de pendientes del 22 de julio que nadie
+había vuelto a checar.
+
+**Lo importante para usted: Hermes ahora puede buscar en TODO su
+historial real (no solo en los ~2 hechos que usted ha aprobado a mano
+con `/memoria`), usando significado y no solo palabras exactas.** Antes,
+si preguntaba algo con palabras distintas a como lo escribió la primera
+vez, Hermes simplemente no lo encontraba aunque estuviera ahí. Ya
+indexé de verdad sus ~2,800 mensajes reales, sus 142 skills activas, y
+armé un "diario de reflexión" semanal donde Hermes (gratis, con Gemini)
+anota 5 observaciones sobre su semana cada domingo -- ya corrí la
+primera y son reales, no inventadas (una de ellas: que ha estado
+guardando contraseñas en la bóveda seguido).
+
+**Probado de verdad, no solo en teoría:** le pregunté "¿cómo actualizo
+Hermes a una versión nueva sin romper nada?" y encontró exactamente la
+skill de actualización, primer lugar, sin que yo mencionara su nombre.
+
+**Lo que NO pude hacer y por qué (para que no lo dé por hecho):** sus
+notas de Obsidian NO están indexadas todavía -- viven en su MacBook y no
+existe un canal para traerlas a esta laptop. Cuando eso se resuelva
+(necesita algo tipo sincronización por SSH), el índice ya está listo
+para sumarlas.
+
+**Se corre solo, ya programado:** cada noche a las 3am reindexará lo
+nuevo, y cada domingo a las 8am escribirá el diario de reflexión --
+ambos configurados para recuperar el turno si la laptop estaba apagada
+o con la tapa cerrada a esa hora.
+
+**De paso, arreglé un bug de pruebas** que resultó ser más grande de lo
+que decía el registro (15 pruebas fallando, no 2) y **revisé una lista
+vieja de 4 pendientes del 22 de julio** -- 2 ya estaban resueltos sin
+que quedara anotado, uno sigue sin arreglar (un hueco donde Hermes no
+avisa si un precio que él mismo buscó en internet contradice el precio
+real), y uno no lo pude confirmar sin el mensaje original.
+
 ## 29 Jul 2026 (mañana) — La segunda oferta de DeepSeek rara que le salió al probar, ya arreglada
 
 Cuando probó los fixes de arriba, le llegaron dos mensajes: uno bueno y

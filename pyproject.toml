@@ -188,6 +188,13 @@ honcho = ["honcho-ai==2.2.0"]
 # can't break fresh installs.
 supermemory = ["supermemory==3.50.0"]
 mem0 = ["mem0ai==2.0.10"]
+# Local semantic memory index (HAS Fase 4, Bloque 2) -- embeddings
+# locales (intfloat/multilingual-e5-small, ~470MB) + sqlite-vec como
+# almacén vectorial. Cero servicio externo, cero costo por llamada
+# (todo corre local vía sentence-transformers/torch, ya core-dependency).
+# Lazy-installed via tools/lazy_deps.py (memory.semantic_index) at first
+# use by the indexer/retrieval tool, not eagerly for every session.
+memory-semantic = ["sqlite-vec==0.1.9", "sentence-transformers==5.6.1"]
 # Image resize recovery for the vision tools. Pillow is now a CORE dependency
 # (see the main `dependencies` list above) since the byte/pixel shrink paths are on
 # the default vision-embed path and the mid-session lazy install deadlocked the

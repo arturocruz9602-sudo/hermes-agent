@@ -59,6 +59,10 @@ _HERMES_CORE_TOOLS = [
     # off every CLI/messaging/cron schema (narrow waist).
     # Session history search
     "session_search",
+    # Semantic memory search (HAS Fase 4, Bloque 2) -- searches by meaning
+    # over indexed raw history, approved facts, and skills (session_search
+    # above is keyword/FTS5-only, scoped to the current session DB).
+    "memory_search",
     # Clarifying questions
     "clarify",
     # Code execution + delegation
@@ -227,6 +231,12 @@ TOOLSETS = {
         "includes": []
     },
 
+    "memory_search": {
+        "description": "Semantic search over indexed raw history, approved facts, and skills (HAS Fase 4)",
+        "tools": ["memory_search"],
+        "includes": []
+    },
+
     "project": {
         "description": "Desktop Projects — create/switch named workspaces (GUI sessions only)",
         "tools": ["project_list", "project_create", "project_switch"],
@@ -360,7 +370,7 @@ TOOLSETS = {
             "browser_press", "browser_get_images",
             "browser_vision", "browser_console", "browser_cdp", "browser_dialog",
             "todo", "memory",
-            "session_search", "clarify",
+            "session_search", "memory_search", "clarify",
             "execute_code", "delegate_task",
         ],
         "includes": [],
@@ -392,7 +402,7 @@ TOOLSETS = {
             "browser_press", "browser_get_images",
             "browser_vision", "browser_console", "browser_cdp", "browser_dialog",
             "todo", "memory",
-            "session_search",
+            "session_search", "memory_search",
             "execute_code", "delegate_task",
         ],
         "includes": []
@@ -419,7 +429,7 @@ TOOLSETS = {
             # Planning & memory
             "todo", "memory",
             # Session history search
-            "session_search",
+            "session_search", "memory_search",
             # Code execution + delegation
             "execute_code", "delegate_task",
             # Cronjob management

@@ -989,29 +989,54 @@ Arturo reenvíe los 2 mensajes de prueba (O.6 y ETH/O.1). Q.3-Q.5 sin
 empezar. Detalle completo en `~/.hermes/hermes-agent` `BLOQUES.md`,
 sección "Bloque Q". El fix de Q.1 sigue **no confirmado end-to-end**.
 
-## Bugs abiertos, confirmados con evidencia real, SIN resolver
+## Bugs abiertos del 22 Jul -- AUDITADOS de nuevo contra el código real (29 Jul 2026, mañana)
 
-1. **CRÍTICO — Fabricación de evidencia de incidentes (O.6).** Pese a 3
-   capas de defensa (skill, disparo automático forzado, guard de Tarea 1),
-   Hermes sigue inventando líneas de log/timestamps al responder "verifica
-   qué falló". Evidencia completa en `~/.hermes/reporte_bloque_o_22jul.md`
-   y en la respuesta de O.7 (22 Jul). Falló 2 de 2 intentos reales.
-   Requiere sesión de diagnóstico dedicada (estilo Bloque H, con `print()`
-   en vez de `logger`, por el blind spot conocido de
-   `agent.conversation_loop`).
-2. **O.4 sin rastro de ejecución en un caso real.** Mensaje real 100% en
-   inglés (id 15885, 22-jul 17:10:10) no generó ninguna línea de log de
-   O.4 (ni éxito ni el except que sí loguea). No diagnosticado.
-3. **Hueco arquitectónico en O.1 vs `web_search` nativo.** La regla de
-   conflicto de precios de O.1 solo ve los datos que el propio código
-   inyecta antes del turno (Brave/CoinGecko) -- no tiene visibilidad
-   sobre los datos que el modelo obtiene por su cuenta llamando a
-   `web_search` durante el turno. Confirmado con un caso real (ETH
-   $1,917-1,929 vs $1,736.63 presentados sin aviso, mensaje 15885) donde
-   el conflicto vino de 3 llamadas nativas a `web_search`, no de la
-   inyección de O.1. No mitigado.
-4. Cron roto apuntando a `~/.hermes/scripts/vigilar_hermes.sh`
-   (inexistente) -- hallazgo de Bloque K, fuera de alcance, sin tocar.
+El registro de abajo databa del 22 Jul y nunca se había re-verificado
+contra el código actual pese a que otras secciones de este mismo archivo
+(fechadas 27-28 Jul) ya reportaban arreglos de al menos 2 de los 4
+puntos -- contradicción real que se detectó pidiendo auditar este
+backlog. Verificado uno por uno contra el código y el sistema real, no
+repitiendo el texto viejo sin más:
+
+1. **CRÍTICO -- Fabricación de evidencia de incidentes (O.6). CERRADO,
+   confirmado.** La sección "Bloque O.6 -- CERRADO (27 Jul 2026)" de este
+   mismo archivo ya lo documentaba; confirmado además leyendo el código
+   real hoy: `agent/turn_context.py` (~línea 1306) le quita las tools al
+   agente por completo (`agent.tools = []`) en el turno cuando detecta
+   una pregunta de verificación de incidente, y `agent/turn_finalizer.py`
+   (Bloque O.6.1) reemplaza la respuesta final si contradice evidencia
+   real ya inyectada ese turno -- vi este segundo backstop dispararse EN
+   VIVO hoy mismo durante la prueba de los fixes de redelivery/log (ver
+   sección de arriba). Ya no es "sin resolver".
+2. **O.4 sin rastro de ejecución -- probablemente ya no aplica, sin
+   poder confirmar el caso original.** El código actual
+   (`agent/turn_finalizer.py` líneas 685-729) envuelve TODO el bloque en
+   un try/except que siempre deja rastro: si detecta inglés, loguea
+   "regenerando"; si algo lanza, el except loguea "fallo el
+   enforcement". El único camino sin log hoy es deliberado, no un bug:
+   `response_looks_like_english()` (`agent/complexity_detector.py:824`)
+   se sale sin marcar nada si la respuesta tiene menos de 20 palabras
+   alfabéticas (para no disparar falsos positivos en respuestas cortas
+   tipo "OK"). No tengo acceso al contenido original del mensaje 15885
+   para confirmar si cayó en ese caso -- no repito el hallazgo viejo como
+   vigente, pero tampoco lo cierro sin poder probarlo contra el caso
+   real.
+3. **Hueco arquitectónico en O.1 vs `web_search` nativo -- SIGUE
+   ABIERTO, confirmado.** Búsqueda real en el código (`grep web_search`
+   sobre `turn_finalizer.py`/`complexity_detector.py`): no existe ningún
+   mecanismo de reconciliación posterior para precios que el modelo haya
+   obtenido por su cuenta llamando a `web_search` durante el turno -- O.1
+   sigue viendo solo lo que el propio código inyecta ANTES (Brave/
+   CoinGecko). Nadie lo tocó desde el 22 Jul. Sigue siendo un hueco real.
+4. **Cron roto apuntando a `vigilar_hermes.sh` -- CERRADO, confirmado.**
+   `crontab -l` real hoy solo tiene la limpieza de `/tmp` (agregada tras
+   el incidente del 24-25 Jul) -- ninguna entrada de `vigilar_hermes.sh`,
+   y el script tampoco existe en disco. Coincide con la sospecha ya
+   anotada en BLOQUES.md ("probable: lo reemplazó el watchdog real").
+
+**Pendiente real que queda de este backlog:** solo el punto 3 (hueco
+O.1 vs `web_search`) sigue genuinamente sin resolver -- no se tocó hoy,
+fuera del alcance de esta auditoría (que era verificar, no arreglar).
 
 ## Cobertura de pruebas real (O.7, 22 Jul)
 
