@@ -4,6 +4,21 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Falso positivo de Tarea E sobre respuesta ya completa, CERRADO (29 Jul 2026, mañana)
+
+Encontrado probando en vivo los fixes del bloque de abajo. Detalle
+completo en `docs/ESTADO.md`. Resumen: `agent/complexity_detector.py::
+self_assess_response` (Bloque O.2) conflaba "no supe decidir" con
+"le devolví correctamente la decisión al usuario" -- una respuesta
+completa que terminaba preguntándole a Arturo si reiniciar su sesión o
+no disparaba una oferta de DeepSeek de todos modos. Fix: rúbrica
+(`_SELF_ASSESS_RUBRIC`) con excepción explícita para decisiones que le
+corresponden al usuario; sin tocar lógica de código. Verificado con el
+modelo barato real (no mock) contra el caso real de Arturo + 3 casos de
+control (insegura, multivariable con hueco real, trivial certera) + 5
+tests nuevos + 57 de regresión, 0 fallas. Aplicado en vivo (reinicio
+09:23).
+
 ## Diagnóstico y fix de la respuesta rota del 29 Jul madrugada, CERRADO (29 Jul 2026, mañana)
 
 Detalle completo en `docs/ESTADO.md` (sección "Respuesta rota en la

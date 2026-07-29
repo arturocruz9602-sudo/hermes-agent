@@ -7,6 +7,28 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 29 Jul 2026 (mañana) — La segunda oferta de DeepSeek rara que le salió al probar, ya arreglada
+
+Cuando probó los fixes de arriba, le llegaron dos mensajes: uno bueno y
+completo explicando lo de la compactación, y luego uno raro ofreciendo
+DeepSeek diciendo que "se quedó corta". Ya vi por qué: Hermes se
+autorevisa después de responder, y su rúbrica interna confundía "no
+supe qué contestar" con "le pregunté a usted porque es su decisión, no
+mía" — terminar preguntándole "¿reiniciamos o seguimos?" es correcto,
+no una respuesta incompleta, pero la rúbrica lo marcaba como si le
+hubiera fallado.
+
+**Ya corregido y probado contra el modelo real** (no solo en teoría):
+con la misma pregunta y la misma respuesta suya de hoy, ya NO sale la
+oferta de más. Y comprobé que sigue funcionando cuando SÍ debe ofrecer
+— si la respuesta es de verdad insegura o le falta resolver algo real,
+la oferta sigue apareciendo igual que antes.
+
+**Cómo probarlo:** la próxima vez que Hermes le dé una respuesta
+completa que termine preguntándole algo que a usted le toca decidir
+(reiniciar o no, opción A o B), ya no debería salirle la oferta de
+DeepSeek pegada encima.
+
 ## 29 Jul 2026 (mañana) — Ya arreglé la respuesta rota de la madrugada, con evidencia de que quedó bien
 
 Confirmé las 2 causas reales (no adivinando) y ya están corregidas y

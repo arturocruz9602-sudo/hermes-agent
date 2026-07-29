@@ -2,6 +2,38 @@
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
 
+## Falso positivo de Tarea E (oferta de DeepSeek sobre respuesta ya completa), CERRADO (29 Jul 2026, mañana)
+
+Encontrado en vivo probando los dos fixes de arriba: tras una respuesta
+buena y completa sobre el incidente de compresión (terminaba
+correctamente preguntándole a Arturo "¿reiniciamos con `/new` o
+seguimos así?" -- decisión que le corresponde a él, no a Hermes), llegó
+una SEGUNDA oferta de Tarea E ("Mi respuesta se quedó corta en: una
+decisión clara sobre el curso de acción... ¿Le entro con DeepSeek?").
+Mismo patrón que ya aparecía descrito en el incidente original del 29
+Jul madrugada -- preexistente, no causado por los fixes de hoy.
+
+**Causa raíz confirmada:** `agent/complexity_detector.py::self_assess_response`
+(Bloque O.2) evalúa la propia respuesta de Hermes con una llamada barata
+a Gemini. La rúbrica vieja (`_SELF_ASSESS_RUBRIC`) marcaba
+`resolvi_con_confianza=false` para cualquier respuesta que "presentara
+opciones sin decidirse por una" -- sin distinguir entre "no supe
+decidir" (sí amerita ofrecer razonamiento profundo) y "le devolví
+correctamente la decisión al usuario porque es su preferencia personal,
+no algo que Hermes deba decidir solo" (NO amerita ofrecer nada, ya
+estaba completa).
+
+**Fix:** rúbrica actualizada con una excepción explícita para el segundo
+caso -- sin tocar `should_offer_v2()` ni la lógica de código, solo el
+prompt. Verificado con el modelo barato REAL (no mock) contra 4 casos:
+el caso real de Arturo (ya no ofrece), una respuesta genuinamente
+insegura (sigue ofreciendo), una decisión multivariable con hueco real
+sin resolver (sigue ofreciendo), y una respuesta trivial certera (no
+ofrece, sin cambio). 5 tests nuevos
+(`tests/agent/test_complexity_detector_self_assess.py`) + 57 tests de
+regresión de `turn_finalizer`/`complexity_detector`, 0 fallas. Aplicado
+en vivo con reinicio del servicio (09:23), sin errores nuevos.
+
 ## Respuesta rota en la cuenta real de Arturo (29 Jul 2026, ~1:31am) — DIAGNÓSTICO CONFIRMADO Y FIX APLICADO EN VIVO (29 Jul, mañana)
 
 Causas raíz confirmadas por lectura de código real (no hipótesis) y

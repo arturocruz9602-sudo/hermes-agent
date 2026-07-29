@@ -642,13 +642,28 @@ resolvi_con_confianza=true SOLO si diste una respuesta completa, decisiva, sin
 lenguaje de duda ("podría ser", "prueba con", "no estoy seguro") y sin presentar
 múltiples causas/opciones sin decidirte por una.
 
+EXCEPCIÓN IMPORTANTE (no es lo mismo "no decidí" que "correctamente le
+devolví la decisión al usuario"): resolvi_con_confianza=true TAMBIÉN
+cuando ya investigaste/explicaste todo lo que había que explicar y la
+respuesta termina pidiéndole al usuario que elija entre opciones ya
+presentadas, PORQUE la decisión depende de su preferencia personal o
+afecta algo que solo él debe decidir (ej. reiniciar su propia sesión o
+no, elegir entre A o B cuando ambas son válidas y correctas, autorizar
+un gasto o una acción). Ahí no te faltó nada real -- preguntarle a él es
+la respuesta correcta, no una respuesta incompleta. Reserva
+resolvi_con_confianza=false para cuando TÚ deberías haber podido decidir
+o afirmar algo con la información que ya tenías, y no lo hiciste
+(lenguaje de duda, causas sin diagnosticar, technical open questions que
+te correspondía resolver a ti).
+
 multivariable=true si la pregunta involucraba múltiples factores/variables
 dependientes entre sí que interactúan de forma no trivial (ej. varias posiciones
 financieras, interacción entre varios componentes de un sistema).
 
 que_me_falto: si tu respuesta se quedó corta en algo real (no aplica si
-resolvi_con_confianza=true Y multivariable=false), describe en una frase corta
-QUÉ te faltó resolver. null si no te faltó nada.
+resolvi_con_confianza=true Y multivariable=false, NI cuando terminaste
+correctamente con una pregunta de la EXCEPCIÓN de arriba), describe en
+una frase corta QUÉ te faltó resolver. null si no te faltó nada.
 
 Pregunta del usuario: {user_message}
 
