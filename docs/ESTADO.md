@@ -1,15 +1,126 @@
-# Estado de Hermes — actualizado 28 Jul 2026, noche
+# Estado de Hermes — actualizado 29 Jul 2026, madrugada
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
 
 ## ESTADO ACTUAL — leer esto primero, antes que nada más abajo
 
-**Fase 4 (Memoria que encuentra) — AUTORIZADA Y EN CURSO (28 Jul 2026,
-noche).** Arturo autorizó explícitamente arrancarla tras una sesión de
-contexto completo del proyecto. OT-4 Bloque 1 (aprobación de
-candidatos) tiene avance real, ver sección propia más abajo
+**HALLAZGO CRÍTICO DE SEGURIDAD, CERRADO (29 Jul 2026, madrugada):** el
+escáner de secretos (`tools/threat_patterns.py`) no detectaba
+contraseñas humanas dichas en prosa en español (solo llaves de API con
+formato reconocible). Se coló una contraseña real de prueba ("Cisco",
+del test de la bóveda del 23 Jul -- confirmado por Arturo que NO es una
+credencial real vigente) a un archivo de candidatos de memoria. Ya
+contenida en cuarentena (`~/.hermes/cuarentena_credenciales_28jul/`,
+permisos 600) y el escáner arreglado con 2 patrones nuevos (verificados
+contra los 4 casos reales que se colaron + 11 frases benignas sin falsos
+positivos + 484 tests de regresión, 0 fallas). Ver sección propia más
+abajo, "Hallazgo de seguridad -- escáner de contraseñas en español".
+
+**Fase 4 (Memoria que encuentra) — AUTORIZADA Y EN CURSO (28-29 Jul
+2026, noche/madrugada).** Arturo autorizó explícitamente arrancarla tras
+una sesión de contexto completo del proyecto. OT-4 Bloque 1 (aprobación
+de candidatos) tiene avance real, incluido el resumen semanal
+automático de los domingos (nuevo esta madrugada). Ver secciones propias
+más abajo
 ("Fase 4 -- Bloque 1"). Bloques 2-3 (índice semántico, verificación
 E2E) sin empezar.
+
+## Hallazgo de seguridad -- escáner de contraseñas en español, CERRADO (29 Jul 2026, madrugada)
+
+Probando el resumen semanal de memoria contra los candidatos reales
+pendientes, la lista generada por Gemini incluyó 4 candidatos con
+contraseñas REALES en texto plano ("La contraseña para Cisco es MOTO y
+la palabra clave es redes", "la frase es silencio y la contraseña es
+blindar", etc. -- del test en vivo de la bóveda del 23 Jul, Bloque T).
+Arturo confirmó que no son credenciales reales vigentes (fue el ejemplo
+usado para probar la bóveda entonces), pero el hallazgo del escáner es
+real e independiente de eso.
+
+**Causa raíz:** `tools/threat_patterns.py` línea 137 (patrón genérico de
+secretos) exige la palabra en INGLÉS "password/token/secret/api_key" +
+sintaxis `clave=valor` + un token de 20+ caracteres. Una contraseña
+humana dicha en español natural ("la contraseña ... es MOTO") no cumple
+ninguna de las 3 condiciones -- ni el idioma, ni la sintaxis, ni la
+longitud (las palabras reales eran de 4-9 caracteres).
+
+**Contención inmediata:** los 2 archivos `fase2_pendientes_*.json` con
+las contraseñas movidos a `~/.hermes/cuarentena_credenciales_28jul/`
+(permisos 600, fuera de la ruta que `/memoria`/el resumen semanal leen).
+Confirmado que ningún otro candidato pendiente tiene contenido similar
+(barrido completo con el escáner ya arreglado, 0 hits).
+
+**Fix aplicado (`tools/threat_patterns.py`):** 2 patrones nuevos, scope
+`strict`, deliberadamente NO genéricos -- anclados a "contraseñ*" y
+"frase de paso" (palabras casi nunca ambiguas en español) seguidas de un
+verbo de asignación con hasta 4 palabras de por medio. Se descartó a
+propósito un patrón para "clave" sola por ser demasiado ambigua ("la
+clave del éxito"). Verificado: los 4 casos reales que se colaron ahora
+SÍ se detectan; 11 frases benignas de español normal ("la clave del
+éxito", "cuál es la mejor frase", "mi contraseña favorita para explicar
+el tema es esta analogía", etc.) NO generan falso positivo. Regresión:
+484 tests (`test_threat_patterns`, `test_memory_tool`,
+`test_turn_finalizer_*`, `test_prompt_builder`,
+`test_tool_dispatch_helpers`, `test_cronjob_tools`, `tests/smoke/`), 0
+fallas.
+
+**Pendiente real, bajo riesgo, sin arreglar:** el mismo tipo de
+contenido (contraseñas dichas en prosa) sigue en texto plano en
+`state.db` y `/mnt/seagate/hermes_raw/` desde el 23 Jul -- por diseño
+del proyecto ("el crudo es sagrado", nunca se borra/edita el historial
+crudo), y porque Arturo confirmó que no es una credencial real vigente,
+no se tocó. Si en el futuro aparece un caso real (credencial vigente),
+el procedimiento es rotar la credencial (como en OT-0.5), no editar
+`state.db`.
+
+## Fase 4 -- OT-4 Bloque 1.3 (resumen semanal automático), CONSTRUIDO Y VERIFICADO (29 Jul 2026, madrugada)
+
+Arturo pidió que la revisión de memoria no dependa de que él se acuerde
+de escribir `/memoria` -- que Hermes le avise solo. Decisión de diseño
+explícita, con su acuerdo: versión de TEXTO (Hermes manda un resumen
+narrado los domingos 9pm y Arturo corre `/memoria` cuando quiera para
+aprobar/rechazar con botones), no botones automáticos -- eso último
+necesitaría un mecanismo de entrega con botones que hoy no existe en
+ningún cron de Hermes, quedó anotado como upgrade futuro, no como parte
+de este bloque.
+
+**Excepción permanente y acotada autorizada por Arturo** (documentada en
+`~/.hermes/CLAUDE.md`): SOLO para esta corrida semanal, si Gemini y Groq
+fallan, se usa DeepSeek (`chat-reasoning` = `deepseek-v4-pro` en
+litellm -- no existe una variante "flash" separada configurada hoy)
+automáticamente, sin pedir autorización por llamada. No aplica a nada
+más del proyecto.
+
+**Construido:** `~/.hermes/scripts/memoria_resumen_semanal.py` -- pone
+al día la extracción (bucle acotado a 10 rondas), junta los candidatos
+reales pendientes, y le pide a un modelo que redacte el resumen
+(escalera Gemini→Groq→DeepSeek). Stdout vacío si no hay candidatos
+(corrida silenciosa, no molesta si no hay nada nuevo).
+
+**Cron real creado** (`hermes cron create`, job `b0bc302007b0`,
+schedule `0 21 * * 0`, `--no-agent`, `--deliver telegram:8899197004`).
+
+**Bug real encontrado y diagnosticado en la verificación en vivo:**
+`hermes cron run <id>` (para probar sin esperar al domingo) ejecuta el
+script como proceso aparte del gateway (`source=direct` en
+`executions.db`) -- el script corre bien, pero la entrega por Telegram
+falla con timeout porque ese proceso no tiene la conexión viva del
+adaptador. Confirmado leyendo el estado del job después:
+`⚠ Delivery failed: delivery error: Telegram send failed: Timed out`.
+**El mecanismo real (el tick interno del gateway, `source=builtin`) SÍ
+funciona** -- verificado creando un job de prueba de un solo disparo
+(`--repeat 1`) apuntado a la cuenta QA, dejando que el tick real del
+gateway (cada 60s) lo disparara solo: llegó completo a Telegram (3
+partes, por el límite de longitud), confirmado leyendo los mensajes
+reales de la cuenta QA. Job de prueba autoeliminado tras dispararse
+(`--repeat 1`). El job real de Arturo (domingo) no se tocó -- su
+"Last run: failed" en el estado actual es de mi prueba fallida por CLI,
+se sobreescribe solo con la corrida real del domingo.
+
+**Pendiente real:** confirmar el domingo 2 de agosto que la entrega
+real a la cuenta de Arturo funciona igual que la prueba con QA (misma
+ruta de código, alta confianza, pero no verificado con su cuenta real
+todavía -- decisión explícita de no volver a probar contra su cuenta
+real tras el primer intento fallido).
 
 **Fase 3 (Ciclo de vida de skills) -- CERRADA COMPLETA (28 Jul
 2026), los 5 bloques de OT-3.** Después, Arturo pidió expandir la

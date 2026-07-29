@@ -4,6 +4,44 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Hallazgo crítico + OT-4 Bloque 1.3, CERRADO (29 Jul 2026, madrugada)
+
+Continuación directa de la sesión de Fase 4 de esta misma noche. Detalle
+completo en `docs/ESTADO.md` (secciones "Hallazgo de seguridad --
+escáner de contraseñas en español" y "OT-4 Bloque 1.3"). Resumen:
+
+1. **Hallazgo real, contenido:** el escáner de secretos
+   (`tools/threat_patterns.py`) no cubría contraseñas humanas dichas en
+   prosa en español -- dejó pasar 4 candidatos con contraseñas reales de
+   una prueba de bóveda del 23 Jul (confirmado por Arturo: no vigentes).
+   Cuarentena inmediata de los 2 archivos afectados
+   (`~/.hermes/cuarentena_credenciales_28jul/`, permisos 600). Fix: 2
+   patrones nuevos anclados a "contraseñ*"/"frase de paso" (no a "clave"
+   sola, por ambigüedad). Verificado contra los 4 casos reales + 11
+   frases benignas (0 falsos positivos) + 484 tests de regresión, 0
+   fallas nuevas.
+2. **OT-4 Bloque 1.3 construido:** `~/.hermes/scripts/memoria_resumen_semanal.py`
+   (fuera del repo, backup post-fix en `~/.hermes/backups/scripts/`) +
+   cron real domingos 9pm (`hermes cron create`, job `b0bc302007b0`,
+   `--no-agent --deliver telegram:8899197004`). Excepción permanente y
+   acotada de DeepSeek automático para esta corrida documentada en
+   `~/.hermes/CLAUDE.md` (autorizada por Arturo, sin techo de gasto
+   aparte, sigue contando contra el presupuesto real de $100 MXN/mes).
+3. **Bug real encontrado en la verificación en vivo:** `hermes cron run`
+   ejecuta fuera del proceso del gateway (`source=direct`) y no logra
+   entregar por Telegram (timeout, sin adaptador vivo). El mecanismo real
+   (`source=builtin`, el tick interno del gateway) SÍ entrega -- probado
+   con un job desechable (`--repeat 1`) dirigido a la cuenta QA,
+   confirmado leyendo los 3 mensajes reales recibidos. El job real de
+   Arturo (domingo 2 de agosto) queda sin verificación end-to-end contra
+   su cuenta real -- se decidió no reintentar contra su cuenta después
+   del primer intento fallido, para no seguir mandándole ruido de
+   pruebas.
+
+**Commits:** `2831838f9` (feature `/memoria` + fix de identidad,
+sesión anterior) + fix de `tools/threat_patterns.py` de esta sección
+(pendiente de commit al cierre).
+
 ## Fase 4 — OT-4 Bloque 1 (aprobación de candidatos), EN CURSO (28 Jul 2026, noche)
 
 Autorizada por Arturo tras compartir el contexto completo del proyecto

@@ -150,6 +150,20 @@ _PATTERNS: List[Tuple[str, str, str]] = [
     (r'\bgsk_[A-Za-z0-9]{20,}\b', "hardcoded_secret", "strict"),          # Groq
     (r'\bsk-or-v1-[A-Za-z0-9]{20,}\b', "hardcoded_secret", "strict"),     # OpenRouter
     (r'\bsk-[A-Za-z0-9]{32,}\b', "hardcoded_secret", "strict"),           # OpenAI/DeepSeek-style
+
+    # Contraseñas humanas dichas en prosa en español (28 Jul 2026,
+    # descubierto real: "la contraseña para Cisco es MOTO y la palabra
+    # clave es redes" pasó de largo sin detectarse -- confirmado con el
+    # texto real de fase2_pendientes del 23 Jul). A diferencia de las
+    # llaves de API de arriba, una contraseña humana no tiene un FORMATO
+    # reconocible (es solo una palabra común) -- el único ancla posible es
+    # la palabra clave del idioma ("contraseña"/"frase de paso") seguida
+    # de un verbo de asignación, igual que el patrón en inglés de la línea
+    # 137. Deliberadamente NO se agrega un patrón para "clave" sola --
+    # "clave" es demasiado ambiguo en español ("la clave del éxito", "el
+    # punto clave") y generaría falsos positivos constantes.
+    (r'contraseñ[a-záéíóúñ]*\s+(?:[a-záéíóúñ]+\s+){0,4}(es|son|sea)\s+\S+', "hardcoded_secret_es", "strict"),
+    (r'frase\s+de\s+paso\s+(?:[a-záéíóúñ]+\s+){0,4}(es|son|sea)\s+\S+', "hardcoded_secret_es", "strict"),
 ]
 
 # Invisible / bidirectional unicode characters used in injection attacks.

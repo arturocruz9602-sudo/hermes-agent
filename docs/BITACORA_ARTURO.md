@@ -7,6 +7,56 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 29 Jul 2026 (madrugada) — Encontré una fuga real de contraseñas, y le construí el aviso de los domingos
+
+**Lo que descubrí probando el resumen semanal:** al armar la lista de
+candidatos para mandarle, encontré que **contraseñas reales que usted
+escribió en el chat hace días (la prueba de la bóveda del 23 de julio:
+"Cisco", "MOTO", "silencio", "blindar") se colaron sin que el filtro de
+seguridad las detectara.** Usted mismo confirmó que ya no son
+contraseñas que use de verdad, así que no hay nada que cambiar en
+ningún dispositivo — pero el hueco de seguridad sí era real: Hermes
+tenía un filtro que solo sabe detectar llaves de programación en
+inglés (`password=algo123...`), no una contraseña dicha normal como
+"la contraseña es MOTO".
+
+**Ya está arreglado y probado.** El filtro ahora también detecta
+"la contraseña es X" y "la frase de paso es X" dichas en español
+normal, sin generar falsas alarmas con frases inocentes como "esa es la
+clave del éxito". Las 2 conversaciones donde se coló la contraseña vieja
+quedaron aparte, protegidas, fuera del alcance de cualquier revisión de
+memoria.
+
+**Lo que esto significa para usted:** de aquí en adelante, si alguna
+vez le dicta una contraseña real a Hermes por chat (aunque no debería
+ser su hábito — mejor usar la bóveda), ya no corre el riesgo de que se
+la ofrezca de vuelta como "candidato a recordar" sin que el filtro la
+detecte primero.
+
+**Lo nuevo que le pidió y ya construí:** el aviso automático de los
+domingos. Cada domingo a las 9pm, si detecté hechos nuevos esa semana,
+le voy a mandar un mensaje con la lista y una explicación de cada uno
+— usted no tiene que acordarse de escribir nada. Cuando quiera
+aprobar/rechazar con botones, manda `/memoria` como ya sabe.
+
+**Ejemplo de lo que le va a llegar el próximo domingo** (probado hoy de
+verdad, solo que se lo mandé a mi cuenta de pruebas, no a la suya, para
+no molestarlo):
+
+> Jefe, aquí tienes el resumen de los N hechos candidatos detectados
+> esta semana... [una explicación por cada uno] ...Cuando estés listo,
+> manda /memoria y los revisamos uno por uno.
+
+**Un detalle honesto:** probé forzar el envío antes del domingo con un
+atajo mío y le llegó vacío/nunca llegó a su cuenta real — encontré por
+qué (el atajo no usa la misma conexión que el Hermes que corre 24/7) y
+ya confirmé que el mecanismo real si funciona, probándolo con mi cuenta
+de pruebas. El domingo 2 de agosto será la primera vez que le llegue de
+verdad a usted — si no le llega nada y sí tenía candidatos pendientes,
+avíseme.
+
+---
+
 ## 28 Jul 2026 (noche, tras el apagón) — Hermes ya empieza a recordar solo, y usted decide qué se queda
 
 **Lo que me pidió:** le pasó a Hermes todo el contexto de su proyecto
