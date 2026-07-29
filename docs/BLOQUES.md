@@ -4,6 +4,46 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Bloque O.1.2 (hueco web_search) + arranque Fase 5, CERRADO parcial (29 Jul 2026, mañana)
+
+Continuación de la misma sesión, tras cerrar las 4 tareas de arriba.
+Arturo pidió arreglar el único pendiente real de la auditoría (hueco
+O.1 vs `web_search`) y arrancar Fase 5. Detalle completo en
+`docs/ESTADO.md`.
+
+1. **O.1.2:** `agent/turn_finalizer.py` -- chequeo POST-respuesta que
+   detecta si se llamó `web_search` este turno (`messages` con
+   `role="tool", name="web_search"`) y compara cualquier precio
+   mencionado en la respuesta final contra CoinGecko real, mismo
+   umbral >5% que O.1. Verificado contra la API real (no mock) con un
+   caso de conflicto deliberado. 6 tests nuevos + 47 de regresión de
+   `turn_finalizer`, 0 fallas.
+2. **Notion, OT-5 Bloque 1:** consolidación con una desviación
+   documentada del texto literal de la orden -- el contenido real
+   estaba al revés de lo que el nombre sugería (la skill "personal" no
+   tenía mecánica de API real, la "bundled" de comunidad sí). Se
+   conservó `productivity/notion/` (renombrada `notion-api`), con una
+   sección nueva "Estructura de Arturo" fusionada desde la delgada
+   antes de archivarla en `.archive/notion-personal-thin/`
+   (`ARCHIVADO.md` con la justificación completa, incluyendo que la
+   archivada tenía una referencia a "Tony" sin corregir desde OT-1).
+   `skills_audit.py` confirma 0 duplicados/404 tras el cambio.
+3. **Cola v2 (Tarea C -> task_queue), NO iniciada a propósito.**
+   Es una migración de un mecanismo de entrega en producción viva
+   (`mensajes_pendientes`, usado hoy por el auto-watcher y la
+   autorización manual de DeepSeek) a un esquema y máquina de estados
+   nuevos con escalera de reintentos y watchdog -- se recomendó a
+   Arturo tratarla como sesión dedicada en vez de apurarla al final de
+   una sesión ya larga con 6 piezas de trabajo distintas.
+4. **Obsidian: decisión de arquitectura presentada, no resuelta.**
+   Arturo preguntó por el diseño real; se le explicó la separación
+   Notion (operación) / Obsidian (conocimiento, HAS §B7) y se le dieron
+   2 caminos (sync gratis por job programado vs. Obsidian Sync de
+   pago) -- queda esperando su decisión antes de construir el canal de
+   sync hacia el HP.
+
+**Commits:** pendiente de commit al cierre de esta sesión (ver git log).
+
 ## HAS Fase 4, Bloques 2-3 (índice semántico de memoria) + limpieza de deuda pendiente, CERRADO (29 Jul 2026, mañana)
 
 Pedido explícito de Arturo: "todo de una vez pero inicia con lo más

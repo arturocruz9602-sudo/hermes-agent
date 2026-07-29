@@ -2,6 +2,66 @@
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
 
+## Hueco O.1 vs web_search + arranque de Fase 5, CERRADO parcial (29 Jul 2026, mañana)
+
+**Bloque O.1.2 -- hueco de web_search nativo, CERRADO.** El único punto
+que quedó genuinamente abierto de la auditoría del backlog del 22 Jul
+(arriba) ya se arregló: `agent/turn_finalizer.py` gana un chequeo
+POST-respuesta (mismo patrón que O.6.1) -- si el modelo llamó
+`web_search` este turno y la respuesta final menciona una moneda
+conocida + una cifra en dólares, se compara contra CoinGecko real
+(misma función que ya usaba O.1 para el caso Brave) y se avisa si
+difieren >5%. No reemplaza la respuesta (no sabemos cuál número está
+mal, solo que hay conflicto) -- solo la marca. Verificado contra la API
+real de CoinGecko (no mock): con un precio de BTC deliberadamente viejo
+($10,000) detectó el conflicto contra el precio real ($63,699) y agregó
+el aviso. 6 tests nuevos (`tests/agent/test_turn_finalizer_o1_2_web_search_price_conflict.py`)
++ 47 de regresión de `turn_finalizer`, 0 fallas.
+
+**Fase 5, arranque -- consolidación de la skill de Notion, CERRADO.**
+OT-5 Bloque 1 pedía "consolida en notion-api, archiva la bundled" --
+pero verificando el contenido real (no solo el nombre) resultó ser al
+revés de lo que el texto sugería: la skill "personal" (`notion-api`,
+40 líneas) no tenía ninguna mecánica real de la API (ni token, ni CLI,
+ni curl), solo la estructura de bases de datos de Arturo; la "bundled"
+de comunidad (`productivity/notion/`, 456 líneas + referencia de tipos
+de bloque) es la que de verdad implementa la integración completa.
+Desviación documentada y aplicada: se conservó la comprensiva
+(renombrada `notion-api` en su frontmatter, como pedía el HAS), se le
+agregó una sección "Estructura de Arturo" con sus bases de datos reales
+(Finanzas/Proyectos/Tareas académicas/Ideas) tomada de la delgada antes
+de archivarla. `~/.hermes/scripts/skills_audit.py` confirma 0
+duplicados/404 tras el cambio. De paso, la skill archivada tenía una
+referencia a "Tony" (el trato prohibido desde OT-1) -- documentado en su
+nota de archivado, no corregido porque se está retirando, no
+manteniendo.
+
+**Pendiente real, requiere acción de Arturo:** pegar `NOTION_API_KEY`
+en `.env` (instrucciones dadas en el chat) antes de poder verificar la
+integración con una escritura real, como pide el HAS. La migración de
+`mensajes_pendientes` (Tarea C) a la tabla `task_queue` v2 (máquina de
+estados + escalera de reintentos + watchdog, HAS §E5/OT-5 Bloque 3) NO
+se tocó hoy -- es una migración de un mecanismo de entrega en
+producción viva, se recomendó tratarla como sesión dedicada en vez de
+apurarla al final de una sesión ya larga.
+
+## Obsidian -- decisión de arquitectura pendiente de Arturo (29 Jul 2026, mañana)
+
+Arturo preguntó cómo se imaginaba el acceso a su vault de Obsidian
+(para el índice semántico, Fase 4 Bloque 2 -- ver sección de arriba) y
+si podía usar la misma cuenta de Notion en HP+MacBook. Aclarado en el
+chat: Notion (tablero de operación) y Obsidian (biblioteca de
+conocimiento, nodos/enlaces, "segundo cerebro") son productos distintos
+con roles distintos (HAS §B7) -- lo que él describe (ideas conectadas,
+grafo, que Hermes las vea para dar ideas de vuelta) es Obsidian, no
+Notion. Dos caminos presentados: (1) gratis -- job programado que copia
+el vault de la Mac hacia la HP cada noche, solo de lectura para Hermes,
+Arturo sigue trabajando 100% normal en su Mac sin tocar nada; (2)
+Obsidian Sync oficial (~$4-8 USD/mes) -- sync en vivo en ambos
+sentidos, pero es gasto nuevo recurrente que requiere su autorización
+explícita (choca con "cero servicios de paga nuevos" por default).
+Recomendé la opción 1. Esperando su respuesta antes de construir nada.
+
 ## Falso positivo de Tarea E (oferta de DeepSeek sobre respuesta ya completa), CERRADO (29 Jul 2026, mañana)
 
 Encontrado en vivo probando los dos fixes de arriba: tras una respuesta

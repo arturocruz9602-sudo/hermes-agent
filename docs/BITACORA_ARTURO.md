@@ -7,6 +7,16 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 29 Jul 2026 (mañana) — Ya no le va a decir un precio viejo sin avisarle, y la skill de Notion quedó lista para cuando pegue su llave
+
+**Arreglé el hueco que quedó pendiente de la revisión del backlog:** si Hermes busca en internet por su cuenta (no cuando yo le doy el dato de antemano) y encuentra un precio de cripto que no cuadra con el precio real de ahorita, ya se lo va a decir en la misma respuesta en vez de quedarse callado. Probado de verdad contra el precio real de Bitcoin (no inventado): metí a propósito un precio viejo y sí lo cachó.
+
+**Dejé lista la skill de Notion** para cuando usted consiga su llave (instrucciones arriba en el chat) -- había dos versiones duplicadas y resultó que la que se suponía era "la de usted" en realidad no tenía nada de la mecánica real para hablar con Notion, solo la lista de sus bases de datos. Junté lo bueno de las dos en una sola.
+
+**Todavía sin tocar, a propósito:** la cola de tareas más robusta que pide la Fase 5 (para que ninguna tarea encolada se pierda) -- es algo que ya está funcionando en producción hoy con el mecanismo viejo, y prefiero no apurar ese cambio al final de una sesión larga. Queda para otro día con calma.
+
+**Pendiente de que usted decida:** cómo traer sus notas de Obsidian a la HP (le expliqué las dos opciones arriba en el chat, gratis vs. de paga) -- no construyo nada de eso hasta que me diga cuál prefiere.
+
 ## 29 Jul 2026 (mañana) — Hermes ya puede "acordarse" de cosas viejas, no solo de lo que aprueba a mano
 
 Le pedí que hiciera 4 cosas de un jalón empezando por la más difícil: el

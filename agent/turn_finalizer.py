@@ -677,6 +677,54 @@ def finalize_turn(
                     "contradecirla:\n\n" + _o6_summary
                 )
 
+    # Bloque O.1.2 (29 Jul 2026): cierra el hueco arquitectónico de O.1 vs
+    # web_search nativo. O.1 (agent/turn_context.py) solo reconcilia precios
+    # contra Brave/CoinGecko que EL PROPIO CÓDIGO inyecta antes del turno --
+    # no tiene visibilidad sobre datos que el modelo obtiene por su cuenta
+    # llamando a web_search DURANTE el turno. Bug real confirmado
+    # (docs/ESTADO.md): ETH $1,917-1,929 vs $1,736.63 real presentados sin
+    # aviso, mensaje 15885, conflicto originado en 3 llamadas nativas a
+    # web_search, no en la inyección de O.1. Igual que O.6.1: corre
+    # POST-respuesta, sobre el texto final real. A diferencia de O.6.1, NO
+    # reemplaza la respuesta (no sabemos cuál número específico está mal,
+    # solo que hay un conflicto real) -- solo la marca, mismo criterio de
+    # >5% que ya usa O.1 para el conflicto Brave-vs-CoinGecko.
+    if final_response and not interrupted and current_turn_user_idx is not None:
+        try:
+            _called_web_search_this_turn = any(
+                isinstance(m, dict) and m.get("role") == "tool" and m.get("name") == "web_search"
+                for m in messages[current_turn_user_idx:]
+            )
+            if _called_web_search_this_turn:
+                from agent.complexity_detector import (
+                    _PRICE_MENTION_RE, fetch_coingecko_prices,
+                )
+
+                _real_prices = fetch_coingecko_prices(final_response) or {}
+                _mentioned = [
+                    float(m.replace(",", "")) for m in _PRICE_MENTION_RE.findall(final_response)
+                ]
+                for _coin, _real_price in _real_prices.items():
+                    if not _real_price:
+                        continue
+                    _conflicting = [
+                        p for p in _mentioned if abs(p - _real_price) / _real_price > 0.05
+                    ]
+                    if _conflicting:
+                        logger.warning(
+                            "Bloque O.1.2: respuesta con web_search real menciona "
+                            "$%.2f para %s, CoinGecko real dice $%.2f (>5%% diff)",
+                            _conflicting[0], _coin, _real_price,
+                        )
+                        final_response += (
+                            f"\n\n⚠️ Posible conflicto de precio: mencioné una cifra "
+                            f"que no coincide con el precio real y actual de {_coin} "
+                            f"ahora mismo (CoinGecko: ${_real_price:,.2f}) -- puede "
+                            f"que haya usado una cifra vieja de la búsqueda."
+                        )
+        except Exception:
+            logger.warning("Bloque O.1.2: fallo el chequeo de conflicto de precios", exc_info=True)
+
     # Bloque O.4 (22 Jul 2026): enforcement de español. Corre despues del
     # backstop anti-fabricacion (para no re-traducir el mensaje de
     # fallback, que ya esta en español) y antes de Tarea E (para que la
