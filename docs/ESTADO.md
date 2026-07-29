@@ -4,15 +4,113 @@
 
 ## ESTADO ACTUAL — leer esto primero, antes que nada más abajo
 
+**Fase 4 (Memoria que encuentra) — AUTORIZADA Y EN CURSO (28 Jul 2026,
+noche).** Arturo autorizó explícitamente arrancarla tras una sesión de
+contexto completo del proyecto. OT-4 Bloque 1 (aprobación de
+candidatos) tiene avance real, ver sección propia más abajo
+("Fase 4 -- Bloque 1"). Bloques 2-3 (índice semántico, verificación
+E2E) sin empezar.
+
 **Fase 3 (Ciclo de vida de skills) -- CERRADA COMPLETA (28 Jul
 2026), los 5 bloques de OT-3.** Después, Arturo pidió expandir la
 limpieza más allá de OT-3 (11 skills nuevas/consolidadas, incluida la
 ciberseguridad doméstica de E7 -- ver sección "Post-Fase 3" en
 `docs/BLOQUES.md` y `~/.hermes/CHANGELOG_SISTEMA.md` para el detalle
 completo). 142 skills activas al cierre, auditoría limpia (0
-problemas reales). Sigue Fase 4 (Memoria que encuentra) -- **NO
-arranca sola, misma regla que Fase 3: espera autorización explícita de
-Arturo en la sesión antes de tocar nada.**
+problemas reales).
+
+## Fase 4 -- Bloque 1 (aprobación de candidatos), EN CURSO (28 Jul 2026, noche)
+
+Arturo pidió arrancar Fase 4 tras compartir el contexto completo del
+proyecto (visión de trading, estudio automatizado, segundo cerebro,
+finanzas, y una propuesta externa sobre memoria por significado/dedup
+de imágenes). Antes de tocar código se hizo el análisis comparativo:
+casi todo lo que describió ya estaba especificado en las Fases 4-11 del
+HAS -- no hubo que rediseñar nada, solo autorizar y ejecutar.
+
+**Hallazgo real que cambió el plan de OT-4 1.2:** la premisa ("corre el
+proceso con los 20 candidatos verificados existentes") estaba
+desactualizada. En disco solo había 1 archivo con 3 candidatos (ya
+descartados según `HISTORIAL.md`); la corrida de 156 candidatos del 20
+Jul que el historial menciona no existe en ningún lado (ni
+`/mnt/seagate`, ni respaldos). Corriendo la extracción real (3 lotes,
+60 mensajes) se confirmó la causa raíz: `raw_layer_export.py` exportaba
+**todos** los mensajes de `messages` sin filtrar por identidad --
+mezclaba tráfico real de Arturo con el arnés E2E interno
+(`user_id="u1"`), la cuenta QA, y sesiones cli/cron/subagent/webhook. De
+~200 sesiones en `state.db`, solo 8 eran de la identidad real aprobada
+de Arturo (`8899197004`, confirmado contra
+`platforms/pairing/telegram-approved.json`).
+
+**Fix aplicado y verificado en vivo:** `ARTURO_USER_ID` agregado como
+filtro en `scripts/raw_layer_export.py` (JOIN contra `sessions.user_id`)
+y `scripts/fase2_extract_candidates.py` (filtra por `session_id`
+perteneciente a una sesión real de Arturo). Confirmado en vivo: una
+corrida real descartó 28 mensajes de ruido y produjo candidatos
+genuinos de conversación real. Quedan **8 candidatos reales pendientes
+de revisión** (3 viejos del 19 Jul re-surgidos porque nada en disco los
+marcaba revisados, más 5 limpios de conversación reciente real).
+
+**Bloque 1.1 (interfaz de revisión) construido y verificado en vivo
+contra Telegram real, no solo por código:**
+- `tools/memoria_review.py` (nuevo): cola de candidatos con botones
+  Aprobar/Rechazar, INSERT real a `memoria_estructurada` con escáner de
+  secretos antes de escribir. v1 deliberadamente sin botón "Editar"
+  (supuesto marcado -- un hecho mal redactado se rechaza y se dicta
+  directo por chat).
+- Comando `/memoria` (`gateway/run.py::_handle_memoria_command`,
+  registrado en `hermes_cli/commands.py`, ruteado por `/hermes memoria`
+  en Slack por el tope de 50 slots).
+- **Aislamiento por identidad real, no solo por sesión:** la cola REAL
+  de Arturo solo se sirve a `user_id=8899197004`. Cualquier otra
+  identidad (QA, pruebas) recibe una cola sintética aislada
+  (`build_test_queue`) -- mismo principio que Bloque AG (memoria QA
+  separada por `origen`/`user_id` en la misma tabla). Esto se decidió
+  DESPUÉS de notar que la implementación original hubiera dejado que la
+  cuenta QA aprobara/rechazara los candidatos reales de Arturo sin que
+  él lo supiera.
+- **Bug real encontrado y arreglado durante la prueba en vivo:** el
+  prefijo de callback `mr:` colisionaba con un catch-all ya existente
+  del selector de modelos (`data.startswith(("mp:", ..., "mr"))` en
+  `adapter.py:6102`, sin dos puntos) -- los botones nunca llegaban a mi
+  código, respondían "Picker expired". Renombrado a `revm:`, verificado
+  de nuevo en vivo.
+- **Verificación E2E real, con la cuenta QA de Telegram** (`api_id`/
+  `api_hash` de la app personal de Arturo en my.telegram.org + passphrase
+  de la bóveda): `/memoria` real → candidato sandbox con botones →
+  Aprobar → fila real insertada (`origen='qa'`, `user_id=8727618189`) →
+  encadenó al siguiente candidato → Rechazar → cola vacía, mensaje de
+  cierre correcto. Confirmado con SQL directo que los 8 candidatos
+  reales de Arturo NO se tocaron. Fila de prueba limpiada con
+  `limpiar_memoria_qa.py` (1 borrada, hechos reales antes/después: 0/0).
+- Regresión: 256 tests en `tests/gateway/test_telegram_*` + `tests/smoke/`
+  + `tests/hermes_cli/test_commands.py` + `tests/tools/test_slash_confirm.py`,
+  0 fallas nuevas (2 preexistentes, confirmadas con `git stash`, mismo
+  bug `_pending_reprocess_ids` de Bloque AF).
+- Desplegado a producción 2 veces (fix de identidad + fix de colisión
+  de callback), con la excepción de reinicio pre-aprobada
+  (`systemctl --user restart hermes-gateway.service`), ambas veces
+  confirmado `is-active` + logs limpios.
+
+**Corte de luz real durante la sesión (~21:10-21:17):** el gateway
+perdió conexión a Telegram (red completa, no solo Telegram, confirmado
+con `ping`/`nmcli`) por ~7 minutos tras un reinicio que coincidió con el
+apagón que reportó Arturo. Se reconectó solo al volver la red, sin
+intervención, sin pérdida de datos.
+
+**Pendiente real, sin arreglar:**
+- Los **8 candidatos reales de Arturo siguen sin revisar** -- están
+  listos, solo falta que él corra `/memoria` en su Telegram real.
+- v1 de `/memoria` no tiene botón "Editar" ni fallback de texto para
+  plataformas sin botones (supuesto marcado, ver arriba).
+- `docs/BLOQUES.md` línea 706 tiene un `api_id`/`api_hash` de Telegram
+  en texto plano committeado a git -- es el par viejo que Telegram
+  rechazó (`ApiIdInvalidError`, ya muerto), pero sigue siendo una
+  credencial expuesta en el historial del repo. Bajo riesgo (no
+  funciona), no arreglado, pendiente de que Arturo decida si vale la
+  pena reescribir esa parte del historial.
+- OT-4 Bloque 1.3 (cron semanal de extracción) sin agendar.
+- OT-4 Bloque 2 (índice semántico, sqlite-vec + e5-small) sin empezar.
 
 Fases 0, 0.5, 1 y 2 del HAS quedaron CERRADAS de verdad
 (27-28 Jul 2026), con evidencia real cada una, **incluido el Bloque 6**

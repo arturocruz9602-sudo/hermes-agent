@@ -7,6 +7,59 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 28 Jul 2026 (noche, tras el apagón) — Hermes ya empieza a recordar solo, y usted decide qué se queda
+
+**Lo que me pidió:** le pasó a Hermes todo el contexto de su proyecto
+(trading, estudio, segundo cerebro, finanzas, cómo debería guardar sus
+fotos) para comparar contra lo ya diseñado, y luego autorizó arrancar
+la Fase 4 (la memoria que de verdad recuerda cosas suyas, no solo del
+sistema).
+
+**Lo nuevo que ya puede usar hoy:** mande `/memoria` por Telegram.
+Hermes le va a mostrar, uno por uno, hechos reales sobre usted que
+detectó en sus conversaciones (sus preferencias, decisiones, proyectos
+en curso) con dos botones: ✅ Aprobar o ❌ Rechazar. Nada se guarda en
+su memoria permanente sin que usted lo apruebe a mano, candidato por
+candidato — así evitamos que Hermes decida solo qué es importante
+recordar de usted. Tiene **8 candidatos reales esperando** ahora mismo;
+los primeros 3 son de hace unos días y se ven medio confusos (ya los
+había descartado mentalmente, solo nunca quedó anotado); los últimos 5
+son limpios, de esta semana.
+
+**Ejemplo que puede mandar literal:** `/memoria`
+
+**Lo que arreglé antes de que usted lo notara:** al revisar por qué la
+memoria nueva no tenía candidatos limpios, encontré que Hermes llevaba
+semanas mezclando SUS conversaciones reales con mensajes de prueba
+(pruebas automáticas mías, cuenta de pruebas QA) al momento de decidir
+qué vale la pena recordar — por eso salían cosas como "¿5 es primo?"
+como si fuera un hecho real sobre usted. Ya está separado: solo sus
+mensajes reales de Telegram entran a la memoria candidata de aquí en
+adelante.
+
+**Un detalle de seguridad que corregí sobre la marcha:** al probar el
+`/memoria` con la cuenta de pruebas, me di cuenta que, tal como lo
+construí primero, esa cuenta hubiera podido aprobar o rechazar SUS
+candidatos reales sin que usted se enterara. Lo corregí antes de
+probarlo de verdad: ahora solo su cuenta real de Telegram puede tocar
+sus candidatos; cualquier otra cuenta (incluida la mía de pruebas) solo
+ve candidatos de práctica, aislados, que nunca se mezclan con los suyos.
+
+**Hallazgo nuevo, sin arreglar, de bajo riesgo:** encontré una llave de
+Telegram vieja (ya inválida, Telegram la rechazó hace días) guardada en
+texto plano dentro de un archivo de la bitácora técnica que sí se sube
+a GitHub. No representa un riesgo real hoy porque esa llave ya no
+funciona, pero técnicamente sigue "expuesta" en el historial. Cuando
+tenga tiempo, dígame si quiere que la limpiemos del historial de git o
+si lo dejamos así por ser de bajo riesgo.
+
+**Aparte, durante la sesión se fue la luz un rato (~7 minutos) y Hermes
+se quedó sin poder hablar con Telegram** hasta que volvió la red —
+se recuperó solo, sin que nadie tuviera que reiniciar nada a mano, y no
+se perdió ningún mensaje.
+
+---
+
 ## 28 Jul 2026 (noche) — Le construí a Hermes 8 instrucciones nuevas que le faltaban y le arreglé el desorden que sospechaba
 
 **Lo que me pidió, en corto:** revisar si Hermes tiene huecos reales en

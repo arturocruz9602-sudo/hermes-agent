@@ -12658,6 +12658,9 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         if canonical == "reload-mcp":
             return await self._handle_reload_mcp_command(event)
 
+        if canonical == "memoria":
+            return await self._handle_memoria_command(event)
+
         if canonical == "reload-skills":
             return await self._handle_reload_skills_command(event)
 
@@ -17562,6 +17565,67 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             return None
         # Text fallback — return the prompt message as the direct reply.
         return message
+
+    async def _handle_memoria_command(self, event: MessageEvent) -> Optional[str]:
+        """Handle /memoria — revisión interactiva de candidatos (HAS OT-4
+        Bloque 1.1). Arma la cola de candidatos reales pendientes (todo lo
+        que scripts/fase2_extract_candidates.py dejó en
+        ~/.hermes/fase2_pendientes_*.json sin revisar) y presenta el
+        primero con botones Aprobar/Rechazar. v1 solo funciona con botones
+        — sin fallback de texto (ver tools/memoria_review.py).
+
+        La cola REAL de Arturo solo se sirve a su identidad real de
+        Telegram (memoria_review.ARTURO_USER_ID) -- cualquier otra
+        identidad (cuenta QA, pruebas E2E) recibe una cola sintética
+        aislada (build_test_queue) para poder ejercer el mecanismo de
+        botones sin jamás tocar los hechos reales de Arturo. Mismo
+        principio que Bloque AG (memoria QA separada por origen/user_id).
+        """
+        from tools import memoria_review as _memoria_review_mod
+
+        source = event.source
+        caller_user_id = str(getattr(source, "user_id", "") or "")
+        is_arturo_real = (
+            getattr(source, "platform", None) == Platform.TELEGRAM
+            and caller_user_id == _memoria_review_mod.ARTURO_USER_ID
+        )
+        if is_arturo_real:
+            queue = _memoria_review_mod.build_queue()
+            actor_user_id, origen = _memoria_review_mod.ARTURO_USER_ID, "arturo_revision_telegram"
+        else:
+            queue = _memoria_review_mod.build_test_queue()
+            actor_user_id, origen = caller_user_id or "desconocido", "qa"
+
+        if not queue:
+            return "No hay candidatos de memoria pendientes de revisión."
+
+        session_key = self._session_key_for_source(source)
+        adapter = self._adapter_for_source(source)
+        if adapter is None or not hasattr(adapter, "send_memoria_review"):
+            return (
+                f"Hay {len(queue)} candidato(s) pendiente(s), pero este canal no "
+                "soporta botones todavía — /memoria solo funciona por Telegram por ahora."
+            )
+
+        import uuid as _uuid
+        confirm_id = _uuid.uuid4().hex[:10]
+        _memoria_review_mod.register(session_key, confirm_id, queue, actor_user_id, origen)
+        first = queue[0]
+        metadata = self._thread_metadata_for_source(source, self._reply_anchor_for_event(event))
+        result = await adapter.send_memoria_review(
+            chat_id=source.chat_id,
+            texto=first.get("texto", ""),
+            categoria=first.get("categoria", "?"),
+            fuente=first.get("fuente_verificada", ""),
+            session_key=session_key,
+            confirm_id=confirm_id,
+            metadata=metadata,
+            remaining=len(queue) - 1,
+        )
+        if result and getattr(result, "success", False):
+            return None
+        _memoria_review_mod.clear(session_key)
+        return "No se pudo enviar el primer candidato de memoria (falló el envío de botones)."
 
     def _read_user_config(self) -> Dict[str, Any]:
         """Read the user's raw config.yaml (cached) for gate lookups.

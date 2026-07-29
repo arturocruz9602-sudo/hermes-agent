@@ -219,6 +219,8 @@ COMMAND_REGISTRY: list[CommandDef] = [
                cli_only=True),
     CommandDef("reload-mcp", "Reload MCP servers from config", "Tools & Skills",
                aliases=("reload_mcp",)),
+    CommandDef("memoria", "Revisar candidatos de memoria pendientes (aprobar/rechazar por botones)",
+               "Tools & Skills", gateway_only=True),
     CommandDef("reload-skills", "Re-scan ~/.hermes/skills/ for newly installed or removed skills",
                "Tools & Skills", aliases=("reload_skills",)),
     CommandDef("browser", "Connect browser tools to your live Chromium-family browser via CDP", "Tools & Skills",
@@ -1172,7 +1174,10 @@ _SLACK_PRIORITY_ALIASES = ("btw", "bg")
 #     displacing existing native Slack slash commands at the 50-command cap.
 #   - debug: the log/report upload surface; reached via /hermes debug on Slack.
 #   - egress: Docker-only proxy status; reachable as /hermes egress on Slack.
-_SLACK_VIA_HERMES_ONLY = frozenset({"topup", "moa", "debug", "egress"})
+#   - memoria: HAS OT-4 Bloque 1.1 memory-candidate review; v1 only has a
+#     Telegram button implementation anyway, reached via /hermes memoria
+#     elsewhere until (if ever) a Slack button UI is built for it.
+_SLACK_VIA_HERMES_ONLY = frozenset({"topup", "moa", "debug", "egress", "memoria"})
 
 
 def _sanitize_slack_name(raw: str) -> str:

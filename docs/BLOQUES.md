@@ -4,6 +4,166 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Fase 4 — OT-4 Bloque 1 (aprobación de candidatos), EN CURSO (28 Jul 2026, noche)
+
+Autorizada por Arturo tras compartir el contexto completo del proyecto
+(visión de trading/estudio/segundo cerebro/finanzas + una propuesta
+externa de memoria por significado). Comparado contra `docs/HAS.md`
+completo: casi todo lo pedido ya estaba especificado en Fases 4-11, sin
+necesidad de rediseño.
+
+**Hallazgo real (invalida la premisa de OT-4 1.2):** "los 20 candidatos
+verificados existentes" no existen -- solo hay 1 archivo en disco con 3
+candidatos ya descartados (`HISTORIAL.md`). La corrida de 156
+candidatos del 20 Jul que el historial cita no está en ningún lado
+(verificado: `/mnt/seagate/backups/`, disco actual, nada). Corriendo
+`fase2_extract_candidates.py` en vivo (3 lotes reales, 60 mensajes,
+venv correcto tras un primer fallo por `ModuleNotFoundError: dotenv`
+usando el intérprete de sistema) salieron 14 candidatos, casi todos
+ruido de depuración de código de prueba ("la función suma debería
+devolver 4", "¿5 es primo?").
+
+**Causa raíz confirmada por SQL directo:** `raw_layer_export.py`
+exportaba TODA la tabla `messages` sin filtrar por identidad. Consulta
+real contra `sessions` (`GROUP BY user_id, chat_id, source`): de ~200
+sesiones, 120 son el arnés E2E interno (`user_id="u1", chat_id="123"`,
+`tests/e2e/hermes_harness.py`), 32 son `source=cli`, y solo **8 son la
+identidad real aprobada de Arturo** (`8899197004`, confirmado contra
+`platforms/pairing/telegram-approved.json`). La cuenta QA
+(`8727618189`) aparece 1 vez.
+
+**Fix, en 2 scripts (`~/.hermes/scripts/`, fuera del repo):**
+- `ARTURO_USER_ID = "8899197004"` agregado como constante (mismo patrón
+  que `tools/qa_identity.py::QA_USER_ID` y
+  `tests/e2e/hermes_harness.py::_ARTURO_USER_ID`).
+- `raw_layer_export.py`: `JOIN sessions` + `WHERE s.source='telegram'
+  AND s.user_id=?` en la query de exportación -- la capa cruda deja de
+  mezclar identidades desde ahora (verificado en vivo, `exit 0`, sin
+  mensajes nuevos que exportar porque ya estaba al día en 16780).
+- `fase2_extract_candidates.py`: `_real_arturo_session_ids()` consulta
+  `sessions` una vez por corrida y filtra `read_new_user_messages()` por
+  esa lista antes de mandar nada al modelo. Verificado en vivo: la
+  siguiente corrida real descartó 28 mensajes de ruido y solo mandó
+  mensajes de sesiones reales de Arturo al extractor -- los candidatos
+  resultantes ya no son ruido sintético (aunque sí son sobre desarrollo
+  de Hermes, porque es de lo que Arturo habla actualmente por Telegram).
+- 3 archivos `fase2_pendientes_*.json` generados durante el diagnóstico
+  ANTES del fix (contaminados con el arnés E2E) se borraron -- no eran
+  candidatos reales, eran artefacto de la investigación.
+- **Resultado: 8 candidatos reales pendientes** (3 viejos del 19 Jul
+  re-surgidos porque nada en disco los marcaba revisados + 5 limpios
+  nuevos), listos para que Arturo los revise con `/memoria`.
+
+**OT-4 Bloque 1.1 (interfaz interactiva) construida y verificada
+E2E contra Telegram real:**
+
+1. `tools/memoria_review.py` (nuevo, ~230 líneas) -- mismo patrón de
+   estado que `tools/slash_confirm.py` (dict a nivel de módulo, keyed
+   por `session_key`) pero con una COLA en vez de una sola confirmación.
+   `_insert_fact()` corre `scan_for_threats(scope="strict")` antes de
+   cualquier INSERT real a `memoria_estructurada`. Mapeo documentado
+   (supuesto marcado) entre las categorías del extractor
+   (preferencia/dato_dispositivo/proyecto_en_curso/correccion/decision)
+   y el `CHECK` constraint real de la tabla
+   (personal/académico/técnico/financiero/meta) -- son ejes distintos,
+   no hay equivalencia exacta.
+2. `plugins/platforms/telegram/adapter.py`: `send_memoria_review()`
+   (calcado de `send_slash_confirm`, 2 botones en vez de 3) +
+   `_memoria_review_state` dict + rama de callback dedicada.
+3. `gateway/run.py`: `_handle_memoria_command()` +
+   dispatch `if canonical == "memoria"`.
+4. `hermes_cli/commands.py`: `CommandDef("memoria", ...)` agregado al
+   `COMMAND_REGISTRY`. Rompió `test_telegram_parity` al principio --
+   causa real: el registro ya estaba exactamente en el tope de 50 slots
+   de Slack (comentario preexistente lo documentaba), cualquier comando
+   nuevo desplaza a otro fuera de la lista nativa. Arreglado agregando
+   `"memoria"` a `_SLACK_VIA_HERMES_ONLY` (mismo mecanismo ya usado para
+   `topup`/`moa`/`debug`/`egress`) -- reachable vía `/hermes memoria` en
+   Slack, nativo en Telegram/CLI/Discord.
+
+**Aislamiento por identidad real (decisión tomada a medio camino, no
+estaba en el diseño original):** la primera versión servía la cola de
+`~/.hermes/fase2_pendientes_*.json` a QUIEN SEA que mandara `/memoria`,
+sin verificar identidad -- hubiera dejado que la cuenta QA
+aprobara/rechazara los candidatos REALES de Arturo sin que él se
+enterara, justo cuando lo estaba por usar para probar el mecanismo.
+Corregido antes de la primera prueba real: `_handle_memoria_command`
+ahora compara `source.user_id` contra `ARTURO_USER_ID`; solo esa
+identidad ve `build_queue()` (la cola real); cualquier otra
+(`build_test_queue()`) recibe 2 candidatos sintéticos
+("PRUEBA QA: ..."), nunca toca los archivos reales. `register()`/
+`resolve()`/`_insert_fact()` llevan `actor_user_id`/`origen` explícitos
+en vez de asumir Arturo -- mismo principio de aislamiento que Bloque AG
+(memoria QA por `origen`/`user_id` en la misma tabla).
+
+**Bug real encontrado y arreglado EN LA PRUEBA EN VIVO (no en código
+estático):** primer intento con la cuenta QA -- botones se veían bien,
+pero al hacer clic la respuesta fue "Picker expired — use /model
+again." en vez de mi mensaje. Causa raíz leída en el código:
+`adapter.py:6102` tiene `data.startswith(("mp:", "mpg:", "mpv:", "mm:",
+"mc:", "mb", "mx", "mg:", "mr"))` como catch-all del selector de
+modelos -- el prefijo `"mr"` (sin dos puntos) que yo había elegido para
+memoria-review coincidía como prefijo de CUALQUIER string que empezara
+con esas 2 letras, incluido mi propio `"mr:aprobar:..."`. Los callbacks
+nunca llegaban a mi código. Renombrado a `revm:` (no colisiona con
+ningún prefijo existente), verificado con una segunda corrida completa.
+
+**Verificación E2E real, con la cuenta QA de Telegram (no solo
+simulación local):** credenciales (`api_id`/`api_hash` REDACTADOS aquí a
+propósito, de la app personal de Arturo en my.telegram.org, provistas
+por Arturo en esta sesión, sesión ya en la bóveda desde
+el 27 Jul, passphrase provista por Arturo en esta sesión) usadas para
+conectar `tools/telegram_userbot.py` de verdad. Secuencia real,
+confirmada mensaje por mensaje:
+1. `/memoria` real → bot respondió con el candidato SANDBOX (confirma
+   el aislamiento por identidad funcionando en producción, no solo en
+   simulación).
+2. Click real en "Aprobar" (`message.click(0)`) → respuesta
+   `"✅ Aprobado"` → mensaje de confirmación → encadenó automáticamente
+   al segundo candidato con sus propios botones.
+3. Click real en "Rechazar" → `"❌ Rechazado"` → "Listo, no quedan más
+   candidatos por revisar."
+4. Confirmado con SQL directo: la fila aprobada quedó con
+   `origen='qa', user_id=8727618189` (nunca `arturo_revision_telegram`);
+   los 8 candidatos reales de Arturo siguieron en 8, sin tocar.
+5. Limpieza con `~/.hermes/scripts/limpiar_memoria_qa.py`: 1 fila `qa`
+   borrada, hechos reales antes/después: 0/0.
+
+**Regresión, en 2 pasadas (antes y después del fix de `revm:`):**
+`tests/gateway/test_telegram_*.py` (1518 tests) + `tests/smoke/` (221) +
+`tests/hermes_cli/test_commands.py` + `tests/tools/test_slash_confirm.py`
+-- 0 fallas nuevas en ambas pasadas. Las 2 fallas presentes en ambas
+(`TestTelegramExecApproval::test_smart_deny_owner_override_only_offers_once_and_deny`,
+`test_non_smart_allow_permanent_false_keeps_session`) confirmadas
+preexistentes con `git stash` (mismo `AttributeError:
+'_pending_reprocess_ids'` de Bloque AF, sin relación con este trabajo).
+Desplegado a producción 2 veces con la excepción de reinicio
+pre-aprobada, ambas verificadas con `is-active` + logs limpios.
+
+**Corte de luz real durante la sesión:** ~21:10-21:17, coincidiendo con
+un reinicio del gateway -- confirmado con `ping`/`nmcli` que fue caída
+de red completa (no solo Telegram), se recuperó sola en ~7 min sin
+intervención ni pérdida de datos.
+
+**Hallazgo de seguridad, sin arreglar, bajo riesgo:** `docs/BLOQUES.md`
+(este mismo archivo, línea ~706 en la versión de hoy) tiene un
+`api_id`/`api_hash` de Telegram REAL en texto plano, committeado a git
+-- es el par que Telegram rechazó (`ApiIdInvalidError`, muerto, no el
+que funciona hoy). Bajo riesgo porque ya no es válido, pero sigue
+siendo una credencial expuesta en el historial del repo. Pendiente de
+que Arturo decida si vale reescribir esa parte del historial de git.
+
+**Pendiente real, ninguno bloquea seguir:**
+- Los 8 candidatos reales de Arturo, sin revisar -- listos para que él
+  corra `/memoria`.
+- `/memoria` v1: sin botón "Editar", sin fallback de texto (supuesto
+  marcado, documentado en `tools/memoria_review.py`).
+- OT-4 Bloque 1.3 (cron semanal de `fase2_extract_candidates.py`) sin
+  agendar.
+- OT-4 Bloque 2 (índice semántico `memoria_semantica.db`, sqlite-vec +
+  e5-small) sin empezar -- HAS advierte medir RAM en el i3 antes de
+  comprometerse al modelo de embeddings grande.
+
 ## Post-Fase 3 — 11 skills nuevas/consolidadas por pedido directo de Arturo, CERRADO (28 Jul 2026, noche)
 
 Tras cerrar Fase 3 completa, Arturo pidió expandir la limpieza de

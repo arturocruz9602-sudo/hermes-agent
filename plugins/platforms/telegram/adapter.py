@@ -807,6 +807,10 @@ class TelegramAdapter(BasePlatformAdapter):
         # Clarify button state: clarify_id → session_key (for the clarify tool's
         # multiple-choice prompts; see GatewayRunner clarify_callback wiring).
         self._clarify_state: Dict[str, str] = {}
+        # Memoria-review button state: confirm_id → session_key (HAS OT-4
+        # Bloque 1.1, /memoria; see tools.memoria_review + GatewayRunner
+        # ._request_memoria_review).
+        self._memoria_review_state: Dict[str, str] = {}
         # Notification mode for message sends.
         # "important" — only final responses, approvals, and slash confirmations
         #               trigger notifications; tool progress, streaming, status
@@ -5235,6 +5239,63 @@ class TelegramAdapter(BasePlatformAdapter):
             logger.warning("[%s] send_slash_confirm failed: %s", self.name, _redact_telegram_error_text(e))
             return SendResult(success=False, error=_redact_telegram_error_text(e))
 
+    async def send_memoria_review(
+        self, chat_id: str, texto: str, categoria: str, fuente: str,
+        session_key: str, confirm_id: str, metadata: Optional[Dict[str, Any]] = None,
+        remaining: int = 0,
+    ) -> SendResult:
+        """Render one memoria-candidate review prompt (HAS OT-4 Bloque 1.1).
+
+        Two buttons only (Aprobar/Rechazar) -- no "Editar" in v1, see
+        ``tools/memoria_review.py`` module docstring for the supuesto
+        marcado. Callback data uses the ``revm:`` prefix, kept separate from
+        ``sc:`` (slash-confirm) and ``cl:`` (clarify) so the three flows
+        never collide in the dispatcher.
+        """
+        if not self._bot:
+            return SendResult(success=False, error="Not connected")
+
+        try:
+            header = f"🧠 Candidato a memoria ({categoria})"
+            if remaining:
+                header += f" -- quedan {remaining} después de este"
+            body = f"{header}\n\n{texto}\n\nFuente: {fuente}" if fuente else f"{header}\n\n{texto}"
+            preview = self.format_message(body if len(body) <= 3800 else body[:3800] + "...")
+
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("✅ Aprobar", callback_data=f"revm:aprobar:{confirm_id}"),
+                    InlineKeyboardButton("❌ Rechazar", callback_data=f"revm:rechazar:{confirm_id}"),
+                ],
+            ])
+
+            thread_id = self._metadata_thread_id(metadata)
+            kwargs: Dict[str, Any] = {
+                "chat_id": normalize_telegram_chat_id(chat_id),
+                "text": preview,
+                "parse_mode": ParseMode.MARKDOWN_V2,
+                "reply_markup": keyboard,
+                **self._link_preview_kwargs(),
+            }
+            reply_to_id = self._reply_to_message_id_for_send(None, metadata, reply_to_mode=self._reply_to_mode)
+            kwargs["reply_to_message_id"] = reply_to_id
+            kwargs.update(
+                self._thread_kwargs_for_send(
+                    chat_id,
+                    thread_id,
+                    metadata,
+                    reply_to_message_id=reply_to_id,
+                    reply_to_mode=self._reply_to_mode
+                )
+            )
+
+            msg = await self._send_message_with_thread_fallback(**kwargs)
+            self._memoria_review_state[confirm_id] = session_key
+            return SendResult(success=True, message_id=str(msg.message_id))
+        except Exception as e:
+            logger.warning("[%s] send_memoria_review failed: %s", self.name, _redact_telegram_error_text(e))
+            return SendResult(success=False, error=_redact_telegram_error_text(e))
+
     async def send_clarify(
         self,
         chat_id: str,
@@ -6246,6 +6307,80 @@ class TelegramAdapter(BasePlatformAdapter):
                         await self._send_message_with_thread_fallback(**send_kwargs)
                 except Exception as exc:
                     logger.error("[%s] slash-confirm callback failed: %s", self.name, exc, exc_info=True)
+            return
+
+        # --- Memoria-review callbacks (revm:aprobar:confirm_id | revm:rechazar:confirm_id) ---
+        # HAS OT-4 Bloque 1.1 -- ver tools/memoria_review.py.
+        if data.startswith("revm:"):
+            parts = data.split(":", 2)
+            if len(parts) == 3:
+                choice = parts[1]  # aprobar, rechazar
+                confirm_id = parts[2]
+
+                caller_id = str(getattr(query.from_user, "id", ""))
+                if not self._is_callback_user_authorized(
+                    caller_id,
+                    chat_id=query_chat_id,
+                    chat_type=str(query_chat_type) if query_chat_type is not None else None,
+                    thread_id=str(query_thread_id) if query_thread_id is not None else None,
+                    user_name=query_user_name,
+                ):
+                    await query.answer(text="⛔ No autorizado para responder esto.")
+                    return
+
+                session_key = self._memoria_review_state.pop(confirm_id, None)
+                if not session_key:
+                    await query.answer(text="Este candidato ya se resolvió.")
+                    return
+
+                label_map = {"aprobar": "✅ Aprobado", "rechazar": "❌ Rechazado"}
+                label = label_map.get(choice, "Resuelto")
+                await query.answer(text=label)
+
+                try:
+                    await query.edit_message_text(
+                        text=self.format_message(label), parse_mode=ParseMode.MARKDOWN_V2,
+                        reply_markup=None,
+                    )
+                except Exception:
+                    pass
+
+                try:
+                    from tools import memoria_review as _memoria_review_mod
+                    result_text, next_item = _memoria_review_mod.resolve(
+                        session_key, confirm_id, choice,
+                    )
+                    if result_text and query.message:
+                        await self._send_message_with_thread_fallback(
+                            chat_id=int(query.message.chat_id),
+                            text=self.format_message(result_text),
+                            parse_mode=ParseMode.MARKDOWN_V2,
+                            **self._link_preview_kwargs(),
+                        )
+                    if next_item and query.message:
+                        import uuid as _uuid
+                        next_confirm_id = _uuid.uuid4().hex[:10]
+                        entry = _memoria_review_mod.get_pending(session_key)
+                        if entry is not None:
+                            _memoria_review_mod.register(session_key, next_confirm_id, entry["queue"])
+                            await self.send_memoria_review(
+                                chat_id=str(query.message.chat_id),
+                                texto=next_item.get("texto", ""),
+                                categoria=next_item.get("categoria", "?"),
+                                fuente=next_item.get("fuente_verificada", ""),
+                                session_key=session_key,
+                                confirm_id=next_confirm_id,
+                                remaining=len(entry["queue"]) - 1,
+                            )
+                    elif query.message:
+                        await self._send_message_with_thread_fallback(
+                            chat_id=int(query.message.chat_id),
+                            text=self.format_message("Listo, no quedan más candidatos por revisar."),
+                            parse_mode=ParseMode.MARKDOWN_V2,
+                            **self._link_preview_kwargs(),
+                        )
+                except Exception as exc:
+                    logger.error("[%s] memoria-review callback failed: %s", self.name, exc, exc_info=True)
             return
 
         # --- Clarify callbacks (cl:clarify_id:idx | cl:clarify_id:other) ---
