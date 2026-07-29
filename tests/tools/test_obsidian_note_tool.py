@@ -95,6 +95,22 @@ def test_check_requirements_true_when_vault_exists(vault):
     assert check_obsidian_note_requirements() is True
 
 
+def test_accented_title_and_tags_are_not_unicode_escaped(vault):
+    """Bug real (29 Jul 2026, primera nota creada por el agente en
+    producción): json.dumps por defecto escapa acentos/ñ como \\u00f3 en
+    vez de escribir el caracter literal -- se ve mal si Arturo abre el
+    .md crudo fuera de Obsidian, aunque YAML lo parseara bien igual."""
+    result = json.loads(obsidian_save_note(
+        titulo="Sincronización de información",
+        contenido="Cuerpo con ñ y acentos: canción, región.",
+        tags=["segundo cerebro", "sincronización"],
+    ))
+    text = (vault / result["path"]).read_text(encoding="utf-8")
+    assert "\\u" not in text
+    assert "Sincronización" in text
+    assert "sincronización" in text
+
+
 def test_tags_appear_in_frontmatter(vault):
     result = json.loads(obsidian_save_note(titulo="Con tags", contenido="cuerpo", tags=["ideas", "video"]))
     text = (vault / result["path"]).read_text(encoding="utf-8")

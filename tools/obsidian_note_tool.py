@@ -58,10 +58,17 @@ def _unique_note_path(folder: Path, date_prefix: str, slug: str) -> Path:
 
 
 def _format_frontmatter(*, title: str, tags: list[str], created: str) -> str:
-    tags_yaml = "[" + ", ".join(json.dumps(t) for t in tags) + "]" if tags else "[]"
+    # ensure_ascii=False -- sin esto, cualquier acento/ñ sale escapado como
+    # ó en el archivo (JSON valido, YAML lo parsea bien, pero se ve
+    # feo si Arturo abre el .md crudo fuera de Obsidian). Bug real
+    # encontrado en la primera nota real creada por el agente (29 Jul 2026).
+    tags_yaml = (
+        "[" + ", ".join(json.dumps(t, ensure_ascii=False) for t in tags) + "]"
+        if tags else "[]"
+    )
     return (
         "---\n"
-        f"title: {json.dumps(title)}\n"
+        f"title: {json.dumps(title, ensure_ascii=False)}\n"
         f"created: {created}\n"
         f"tags: {tags_yaml}\n"
         "origin: hermes\n"
