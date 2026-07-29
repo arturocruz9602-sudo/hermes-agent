@@ -7,6 +7,16 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 29 Jul 2026 (mañana) — Su segundo cerebro en Obsidian ya funciona de verdad
+
+Con el `sudo` que corrió usted mismo, ya quedó armado todo lo que platicamos: puede escribirle/decirle a Hermes una idea, nota, o algo que investigó, y él la va a guardar organizada en `/mnt/seagate/obsidian/` — sin que usted mueva nada a mano, sin sync, sin costo.
+
+**Probado con una nota real**, no de mentiras: le pedí que guardara una nota de prueba, la guardó bien formateada, corrí el reindexado y ya la puede encontrar buscando por significado (le pregunté "qué es el segundo cerebro de Arturo" y la encontró).
+
+**Protecciones que ya trae desde el día uno:** si alguna vez le manda algo que contenga una contraseña real por accidente, la nota se bloquea y no se guarda (mismo filtro que ya arreglamos hoy en la mañana para la memoria). Y nunca le va a borrar una nota existente por accidente — cada nota nueva es un archivo aparte.
+
+**Para verla desde su Mac cuando quiera** (sin mudar nada, solo mirar): abra Finder → Ir → Conectar al servidor → `sftp://arturo@<ip-de-la-hp>/mnt/seagate/obsidian` → ahí puede abrir un Obsidian normal (gratis) apuntando a esa carpeta montada, y ve el grafo completo de notas como si estuviera en la HP.
+
 ## 29 Jul 2026 (mañana) — Ya no le va a decir un precio viejo sin avisarle, y la skill de Notion quedó lista para cuando pegue su llave
 
 **Arreglé el hueco que quedó pendiente de la revisión del backlog:** si Hermes busca en internet por su cuenta (no cuando yo le doy el dato de antemano) y encuentra un precio de cripto que no cuadra con el precio real de ahorita, ya se lo va a decir en la misma respuesta en vez de quedarse callado. Probado de verdad contra el precio real de Bitcoin (no inventado): metí a propósito un precio viejo y sí lo cachó.

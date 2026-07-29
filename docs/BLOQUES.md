@@ -4,6 +4,26 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Obsidian local + tool de notas, CERRADO (29 Jul 2026, mañana)
+
+Continuación de la misma sesión larga. Arturo aclaró su visión real
+("segundo cerebro" que Hermes construye desde lo que él le manda por
+chat, sin mudanza manual de información) y decidió: vault SOLO en la
+HP, sin sync a la Mac (visualización vía SFTP/Finder cuando quiera).
+Detalle completo en `docs/ESTADO.md`.
+
+Construido: `/mnt/seagate/obsidian/` (Arturo corrió el único `sudo`
+necesario), `tools/obsidian_note_tool.py` (tool nueva, escaneada por
+secretos antes de escribir, nunca sobrescribe en silencio, 12 tests --
+1 bug real encontrado y arreglado por los tests antes de producción),
+e `index_obsidian()` real en el indexador externo (cursor incremental
+por mtime, ya no el stub que saltaba). Verificado de punta a punta: nota
+real creada -> indexada -> recuperable por búsqueda semántica (score
+0.819). El gap de Obsidian documentado en el Bloque 2 de esta misma
+mañana queda cerrado en la misma sesión.
+
+**Commits:** pendiente de commit al cierre de esta sesión (ver git log).
+
 ## Bloque O.1.2 (hueco web_search) + arranque Fase 5, CERRADO parcial (29 Jul 2026, mañana)
 
 Continuación de la misma sesión, tras cerrar las 4 tareas de arriba.

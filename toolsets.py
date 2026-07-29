@@ -52,6 +52,9 @@ _HERMES_CORE_TOOLS = [
     "text_to_speech",
     # Planning & memory
     "todo", "memory",
+    # Obsidian knowledge notes (HAS §B7) -- Arturo's "second brain", separate
+    # from operational memory/todo. Gated via check_fn on the vault existing.
+    "obsidian_note",
     # NOTE: the desktop Project tools (project_list/create/switch) are
     # deliberately NOT here. They only make sense where a GUI can follow the
     # move, so they live in the `project` toolset and are enabled solely by the
@@ -237,6 +240,12 @@ TOOLSETS = {
         "includes": []
     },
 
+    "obsidian_note": {
+        "description": "Save knowledge notes to Arturo's local Obsidian vault (HAS §B7, second brain)",
+        "tools": ["obsidian_note"],
+        "includes": []
+    },
+
     "project": {
         "description": "Desktop Projects — create/switch named workspaces (GUI sessions only)",
         "tools": ["project_list", "project_create", "project_switch"],
@@ -370,7 +379,7 @@ TOOLSETS = {
             "browser_press", "browser_get_images",
             "browser_vision", "browser_console", "browser_cdp", "browser_dialog",
             "todo", "memory",
-            "session_search", "memory_search", "clarify",
+            "session_search", "memory_search", "obsidian_note", "clarify",
             "execute_code", "delegate_task",
         ],
         "includes": [],
@@ -402,7 +411,7 @@ TOOLSETS = {
             "browser_press", "browser_get_images",
             "browser_vision", "browser_console", "browser_cdp", "browser_dialog",
             "todo", "memory",
-            "session_search", "memory_search",
+            "session_search", "memory_search", "obsidian_note",
             "execute_code", "delegate_task",
         ],
         "includes": []
@@ -429,7 +438,7 @@ TOOLSETS = {
             # Planning & memory
             "todo", "memory",
             # Session history search
-            "session_search", "memory_search",
+            "session_search", "memory_search", "obsidian_note",
             # Code execution + delegation
             "execute_code", "delegate_task",
             # Cronjob management

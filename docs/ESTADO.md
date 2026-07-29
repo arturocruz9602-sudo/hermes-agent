@@ -2,6 +2,47 @@
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
 
+## Obsidian, decisión de arquitectura tomada y construida (29 Jul 2026, mañana)
+
+Arturo decidió (tras aclarar que quería evitar mudanza manual de
+información y que confirmó que Obsidian la app es gratis siempre): el
+vault vive SOLO en la HP, sin sync a la MacBook. Él le manda ideas/notas
+a Hermes por chat, Hermes las guarda organizadas; para visualizar desde
+su Mac, monta la carpeta por SFTP/Finder (confirmado: sshd activo en
+esta HP, sin configuración adicional necesaria de su lado).
+
+**Construido y verificado en vivo, no solo diseñado:**
+1. `/mnt/seagate/obsidian/` -- vault real, creado por Arturo (`sudo
+   mkdir` + `chown`, único paso con sudo que hizo falta).
+2. `tools/obsidian_note_tool.py` (nuevo) -- tool `obsidian_note` que el
+   agente puede llamar para guardar una nota de conocimiento. Nunca
+   sobrescribe en silencio (cada llamada crea un archivo nuevo, con
+   sufijo si el título colisiona el mismo día); pasa por el mismo
+   escáner de secretos que memoria estructurada (`scope="strict"`)
+   ANTES de escribir -- una nota con una credencial real se bloquea, no
+   se guarda. Registrada en el toolset core + 3 perfiles más.
+   12 tests nuevos (`tests/tools/test_obsidian_note_tool.py`) -- uno de
+   ellos encontró un bug real (parámetro `titulo` vs `title` en la
+   función de frontmatter) antes de llegar a producción.
+3. `~/.hermes/scripts/memoria_indexador.py::index_obsidian()` --
+   implementación real (ya no el stub que saltaba con aviso). Cursor
+   incremental por mtime de archivo (JSON `{ruta: mtime}` en
+   `index_cursor`) -- solo reindexa lo nuevo/modificado, borra chunks de
+   notas eliminadas del vault.
+4. **Verificado de punta a punta con una nota real:** se creó una nota
+   de prueba con la tool, se corrió el indexador (la indexó,
+   `obsidian=1` en el log), y se confirmó recuperable por
+   `agent.memory_semantic.buscar()` (score 0.819, tercer lugar en la
+   pregunta "qué es el segundo cerebro de Arturo"). El "gap real" de
+   Obsidian que quedó documentado en el Bloque 2 de esta misma mañana
+   ya no aplica -- se cerró en esta misma sesión, mismo día.
+
+**Nota de seguridad aparte, no nueva de hoy:** el SSH de esta HP tiene
+login por contraseña habilitado (hallazgo ya existente del audit de
+arranque del gateway) -- no bloquea nada de lo construido, pero es
+pendiente real si la laptop llega a estar expuesta a internet, no solo
+en la red local.
+
 ## Hueco O.1 vs web_search + arranque de Fase 5, CERRADO parcial (29 Jul 2026, mañana)
 
 **Bloque O.1.2 -- hueco de web_search nativo, CERRADO.** El único punto
