@@ -1,54 +1,88 @@
-# Estado de Hermes — actualizado 29 Jul 2026, madrugada
+# Estado de Hermes — actualizado 29 Jul 2026, mañana
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
 
-## PRIORIDAD #1 DE LA PRÓXIMA SESIÓN — respuesta rota en la cuenta real de Arturo (29 Jul 2026, ~1:31am)
+## Respuesta rota en la cuenta real de Arturo (29 Jul 2026, ~1:31am) — DIAGNÓSTICO CONFIRMADO Y FIX APLICADO EN VIVO (29 Jul, mañana)
 
-Arturo saludó ("que tal hermes") en su Telegram real y recibió una
-respuesta rota ("no puedo acceder a los registros del gateway") sin
-relación con el saludo, seguida de una oferta de Tarea E ("¿le entro con
-DeepSeek?") por baja confianza. Diagnosticado con evidencia real
-(`state.db`, sesión `20260723_014401_467841eb`, mensajes id 16771-16782)
-ANTES de que Arturo diera `/clear` -- probable causa raíz, no fix
-todavía:
+Causas raíz confirmadas por lectura de código real (no hipótesis) y
+arregladas en la misma sesión. `hermes-gateway.service` ya reiniciado con
+ambos fixes activos (verificado: servicio `active`, sin tracebacks nuevos
+en `errors.log`/`agent.log`).
 
-1. Entre 21:23-21:26 del 28 Jul, el mensaje real de Arturo "Hermes,
-   revisa qué pasó con el gateway hace un momento" se registró
-   **7 veces duplicado** (ids 16772,16773,16775,16776,16778,16779,16780)
-   -- coincide exactamente con la ventana en que esta misma sesión
-   reiniciaba `hermes-gateway.service` varias veces para desplegar
-   `/memoria`. Patrón ya conocido en el código (comentario en
-   `gateway/session.py` sobre `/restart` y redelivery de Telegram tras
-   un ACK que no llega a tiempo).
-2. Con las repeticiones, Hermes SÍ intentó responder leyendo
-   `gateway.log` (mensaje id 16771, tool `read_file`) pero el contenido
-   que trajo era de **hace un mes** (30 jun), no de esa noche -- reportó
-   "el gateway funciona normalmente" citando esa fecha vieja como si
-   fuera el estado actual. Sospecha: log rotado, o lectura de un archivo
-   `.log.1`/backup en vez del activo -- SIN CONFIRMAR, requiere
-   diagnóstico de código real.
-3. Los duplicados siguientes generaron "Tuve un problema generando una
-   respuesta clara" (ids 16774, 16777).
-4. El mensaje fresco "que tal hermes" (id 16781, ya sin relación con el
-   gateway) recibió una respuesta que arrastra la confusión de los
-   turnos anteriores ("no puedo acceder a los registros"), fabricando un
-   problema que no corresponde al mensaje real.
+**Causa (a) — `read_file` trajo contenido de hace un mes, CONFIRMADA Y
+ARREGLADA.** `tools/file_tools.py:1238` (`read_file_tool`) usa por
+defecto `offset=1, limit=500` -- lee desde el INICIO del archivo, no el
+final. `gateway.log` no había rotado desde el 30 jun (2.24MB, bajo el
+límite de 5MB por tamaño) porque el tráfico es bajo -- cualquier
+`read_file` sin argumentos explícitos sobre ese archivo traía la primera
+página del archivo, literalmente `2026-06-30 01:47:16...`. Confirmado con
+`head`/`wc -l` reales antes del fix.
+Fix (`hermes_logging.py`, `_ManagedRotatingFileHandler` + `setup_logging`,
+mode="gateway" únicamente): nuevo parámetro `max_age_days` -- al abrir el
+handler, si la primera línea del archivo ya tiene más de N días (3 para
+gateway.log), fuerza un rollover inmediato antes de seguir logueando. No
+toca agent.log/errors.log/gui.log (sin `max_age_days`, comportamiento
+idéntico a antes). Verificado con script aislado (log viejo simulado
+rota, log reciente NO rota de más) + 6 tests nuevos en
+`tests/test_hermes_logging.py::TestMaxAgeRollover`. Aplicado en vivo: el
+reinicio de esta sesión ya rotó el `gateway.log` real (ahora
+`gateway.log.1` tiene las 16038 líneas viejas, `gateway.log` arranca
+limpio en `2026-07-29 09:07:13`).
 
-**Hipótesis de causa raíz, NO confirmada por lectura de código todavía**
-(pendiente de la próxima sesión): el reinicio del gateway a media
-conversación puede dejar el estado de esa sesión (`20260723_014401_467841eb`)
-en una condición donde el turno siguiente hereda contexto/intención del
-turno interrumpido en vez de tratar el mensaje nuevo de forma limpia.
-Revisar primero: (a) por qué `read_file` sobre `gateway.log` trajo
-contenido de hace un mes en vez de lo reciente, (b) el mecanismo de
-deduplicación de `platform_update_id` en reinicios (¿por qué se
-reprocesó el mismo mensaje 7 veces en vez de deduplicarse?), (c) si hay
-relación con el bug ya conocido y preexistente de `_pending_reprocess_ids`
-(Bloque AF, ver más abajo) que aparece en 2 tests fallando desde antes de
-esta sesión.
+**Causa (b) — sin dedup de `platform_update_id` para mensajes normales,
+CONFIRMADA Y ARREGLADA.** El único mecanismo existente
+(`_is_stale_restart_redelivery`, `gateway/run.py`) estaba acotado
+EXCLUSIVAMENTE a `/restart` (invocado solo desde
+`gateway/slash_commands.py::_handle_restart_command`). Un mensaje de
+texto normal no tenía ninguna protección propia contra redelivery de
+Telegram -- dependía 100% de que PTB no reenviara updates ya vistos, y el
+propio comentario del código documenta el caso conocido: si el
+`get_updates` de ACK final falla durante un shutdown (como pasó esa
+noche con varios reinicios seguidos), Telegram reenvía los mismos updates
+al arrancar. Para mensajes normales (a diferencia de `/restart`) nada
+filtraba eso -- cada redelivery se procesó como turno nuevo e
+independiente, explicando los 7 duplicados.
+Fix (`gateway/run.py`): generalización del mismo patrón -- 2 métodos
+nuevos, `_is_duplicate_update`/`_mark_update_processed`, con marcador
+persistente `~/.hermes/.last_update_id.json` (mismo estilo que
+`.restart_last_processed.json` pero para TODO mensaje, no solo
+`/restart`). Se invoca al principio de `_handle_message`, antes de auth/
+sesión/plugins -- una redelivery nunca llega a esas rutas. Solo aplica
+cuando `platform_update_id` no es None (hoy, solo Telegram) -- otras
+plataformas no se ven afectadas. Verificado con script aislado (mismo
+update_id → duplicado; update_id nuevo → no duplicado; sin
+platform_update_id → no-op) + 6 tests nuevos en
+`tests/gateway/test_restart_redelivery_dedup.py`.
 
-**Contexto importante:** Arturo pidió explícitamente empezar por esto en
-cuanto se abra la siguiente sesión, antes de cualquier otra cosa.
+**Causa (c) — `_pending_reprocess_ids` (Bloque AF), DESCARTADA por
+lectura de código.** Es un mecanismo totalmente distinto (cola
+`mensajes_pendientes`/auto-watcher para reintentos de autorización de
+DeepSeek, con el bug conocido preexistente de usar `id(event)` como
+llave). Los 7 duplicados de esa noche llegaron por el canal en vivo de
+Telegram (polling de PTB), no por esa cola -- no están relacionados. De
+paso, corriendo la suite de regresión salió que el bug real afecta **5
+tests**, no 2 como decía el registro anterior (mismo `AttributeError:
+'GatewayRunner' object has no attribute '_pending_reprocess_ids'` en
+`test_status_command.py` x3, `test_incomplete_gateway_turns.py`,
+`test_telegram_topic_mode.py`) -- confirmado preexistente (reproducido
+con `git stash` contra el código sin tocar), sigue sin arreglar, no era
+el objetivo de esta sesión.
+
+**Verificación de regresión antes de tocar el servicio real:** ~1600
+tests de `tests/gateway/` + `tests/test_hermes_logging.py` corridos en
+bloques (no de un solo golpe, por la regla del incidente del 24-25 jul).
+0 fallas nuevas -- las 19 fallas totales que aparecieron (5+14, ver
+arriba y Bloque AF) son idénticas antes y después del cambio, confirmado
+comparando contra el código sin tocar vía `git stash`.
+
+**Excepción del hook usada esta sesión:** `systemctl --user restart
+hermes-gateway.service`, 29 Jul 09:07 -- resultado: servicio activo,
+gateway.log rotado correctamente, sin errores nuevos. (Nota para la
+próxima sesión: el comando debe mandarse SOLO, sin encadenar con `;`/`&&`
+a otros comandos en la misma llamada de Bash -- el hook exige match
+exacto contra el string completo y un compuesto lo tumba con el
+hard-deny de la regla 6, aunque el comando real adentro sea el exacto
+autorizado.)
 
 ## ESTADO ACTUAL — leer esto primero, antes que nada más abajo
 

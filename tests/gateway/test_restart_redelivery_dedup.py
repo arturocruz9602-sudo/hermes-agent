@@ -352,3 +352,71 @@ async def test_marker_missing_booted_from_restart_but_old_process_allows(tmp_pat
 
     assert "Restarting gateway" in result
     runner.request_restart.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# General redelivery guard (_is_duplicate_update / _mark_update_processed).
+#
+# _is_stale_restart_redelivery above only protects /restart. Ordinary
+# messages had no equivalent guard: a Telegram re-delivery (PTB's graceful-
+# shutdown get_updates ACK failing, same root cause as /restart's) was
+# reprocessed as a brand-new turn. Confirmed as the cause of a broken reply
+# on 2026-07-29 (docs/ESTADO.md): one message redelivered 7x during a burst
+# of gateway restarts, and the resulting confusion bled into the next,
+# unrelated message.
+# ---------------------------------------------------------------------------
+
+def _make_text_event(update_id: int | None, text: str = "hola") -> MessageEvent:
+    return MessageEvent(
+        text=text,
+        message_type=MessageType.TEXT,
+        source=make_restart_source(),
+        message_id="m1",
+        platform_update_id=update_id,
+    )
+
+
+def test_is_duplicate_update_false_when_nothing_recorded_yet(tmp_path, monkeypatch):
+    monkeypatch.setattr(gateway_run, "_hermes_home", tmp_path)
+    runner, _adapter = make_restart_runner()
+
+    assert runner._is_duplicate_update(_make_text_event(update_id=500)) is False
+
+
+def test_mark_then_is_duplicate_detects_redelivery(tmp_path, monkeypatch):
+    monkeypatch.setattr(gateway_run, "_hermes_home", tmp_path)
+    runner, _adapter = make_restart_runner()
+
+    runner._mark_update_processed(_make_text_event(update_id=500))
+
+    marker = tmp_path / ".last_update_id.json"
+    assert json.loads(marker.read_text()) == {"telegram": 500}
+    # Same update_id again (redelivery) -> duplicate.
+    assert runner._is_duplicate_update(_make_text_event(update_id=500)) is True
+    # Older update_id -> also a duplicate.
+    assert runner._is_duplicate_update(_make_text_event(update_id=499)) is True
+    # Strictly newer update_id -> not a duplicate.
+    assert runner._is_duplicate_update(_make_text_event(update_id=501)) is False
+
+
+def test_is_duplicate_update_ignores_events_without_platform_update_id(tmp_path, monkeypatch):
+    """Non-Telegram platforms (no numeric update id) are never gated."""
+    monkeypatch.setattr(gateway_run, "_hermes_home", tmp_path)
+    runner, _adapter = make_restart_runner()
+
+    event = _make_text_event(update_id=None)
+    runner._mark_update_processed(event)  # no-op, nothing to record
+    assert not (tmp_path / ".last_update_id.json").exists()
+    assert runner._is_duplicate_update(event) is False
+
+
+def test_mark_update_processed_never_moves_backwards(tmp_path, monkeypatch):
+    """A late-arriving smaller update_id must not clobber a larger recorded one."""
+    monkeypatch.setattr(gateway_run, "_hermes_home", tmp_path)
+    runner, _adapter = make_restart_runner()
+
+    runner._mark_update_processed(_make_text_event(update_id=500))
+    runner._mark_update_processed(_make_text_event(update_id=10))  # stale/out-of-order
+
+    marker = tmp_path / ".last_update_id.json"
+    assert json.loads(marker.read_text()) == {"telegram": 500}

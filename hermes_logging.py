@@ -29,6 +29,7 @@ Session context:
 
 import atexit
 import copy
+import datetime
 import io
 import logging
 import os
@@ -347,6 +348,11 @@ def setup_logging(
             backup_count=3,
             formatter=RedactingFormatter(_LOG_FORMAT),
             log_filter=_ComponentFilter(COMPONENT_PREFIXES["gateway"]),
+            # gateway.log is low-traffic enough to sit under max_bytes for
+            # weeks; force a rollover on attach if it's gone stale so a
+            # default read_file (offset=1) never returns month-old content
+            # as if it were current (see docs/ESTADO.md, 2026-07-29).
+            max_age_days=3,
         )
 
     # --- gui.log (INFO+, dashboard/tui-gateway components) -----------------
@@ -437,15 +443,44 @@ class _ManagedRotatingFileHandler(RotatingFileHandler):
         rotating handlers.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, max_age_days: Optional[float] = None, **kwargs):
         from hermes_cli.config import is_managed
         self._managed = is_managed()
+        self._max_age_days = max_age_days
         super().__init__(*args, **kwargs)
         # Snapshot the inode of the currently open stream so emit() can
         # detect external rotation without an extra fstat per write.
         self._stat_dev: Optional[int] = None
         self._stat_ino: Optional[int] = None
         self._record_stream_stat()
+        # Size-based rollover alone never fires on a low-traffic file: a
+        # quiet log can sit under maxBytes for weeks, so the OLDEST content
+        # (at the head) silently drifts stale. A fresh gateway process
+        # re-attaches to the same on-disk file (append mode) rather than
+        # truncating it, so this check must look at what's actually on
+        # disk, not an in-memory "opened at" clock (which would just reset
+        # on every restart). Confirmed as the root cause of gateway.log
+        # being read as "current" while showing content from a month
+        # earlier (docs/ESTADO.md, 2026-07-29 incident).
+        if self._max_age_days is not None:
+            self._rollover_if_too_old()
+
+    def _rollover_if_too_old(self) -> None:
+        """Force a rollover if the file's oldest (first) line is older than
+        ``self._max_age_days``. Best-effort: any parse/IO failure is a no-op
+        so a malformed or empty log never blocks logging setup."""
+        try:
+            with open(self.baseFilename, "r", encoding="utf-8", errors="ignore") as f:
+                first_line = f.readline()
+            first_ts = datetime.datetime.strptime(first_line[:19], "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            return
+        age_days = (datetime.datetime.now() - first_ts).total_seconds() / 86400
+        if age_days >= self._max_age_days:
+            try:
+                self.doRollover()
+            except Exception:
+                pass
 
     def _chmod_if_managed(self):
         if self._managed:
@@ -727,6 +762,7 @@ def _add_rotating_handler(
     backup_count: int,
     formatter: logging.Formatter,
     log_filter: Optional[logging.Filter] = None,
+    max_age_days: Optional[float] = None,
 ) -> None:
     """Add a ``RotatingFileHandler`` to *logger*, skipping if one already
     exists for the same resolved file path (idempotent).
@@ -736,6 +772,11 @@ def _add_rotating_handler(
     log_filter
         Optional filter to attach to the handler (e.g. ``_ComponentFilter``
         for gateway.log).
+    max_age_days
+        If set, force a rollover on attach when the file's oldest line is
+        already older than this many days — guards against a low-traffic
+        log silently sitting under ``max_bytes`` for weeks (see
+        ``_ManagedRotatingFileHandler._rollover_if_too_old``).
     """
     resolved = path.resolve()
     for existing in _queued_file_handlers:
@@ -748,7 +789,7 @@ def _add_rotating_handler(
     path.parent.mkdir(parents=True, exist_ok=True)
     handler = _ManagedRotatingFileHandler(
         str(path), maxBytes=max_bytes, backupCount=backup_count,
-        encoding="utf-8",
+        encoding="utf-8", max_age_days=max_age_days,
     )
     handler.setLevel(level)
     handler.setFormatter(formatter)

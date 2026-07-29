@@ -1182,3 +1182,102 @@ class TestAsyncQueueLogging:
         # INFO must not reach the WARNING+ errors.log even through the queue.
         if errors_log.exists():
             assert "info-level line" not in errors_log.read_text()
+
+
+class TestMaxAgeRollover:
+    """A low-traffic log can sit under ``maxBytes`` for weeks, so size-based
+    rollover alone never fires and the head of the file (what a default,
+    no-offset ``read_file`` returns) silently drifts stale. Confirmed as the
+    cause of Hermes reading month-old ``gateway.log`` content as if it were
+    current (docs/ESTADO.md, 2026-07-29). ``max_age_days`` forces a rollover
+    on attach when the file's oldest line is already too old.
+    """
+
+    def test_rolls_over_stale_file_on_attach(self, tmp_path):
+        import datetime
+
+        log_path = tmp_path / "gateway.log"
+        old_ts = (datetime.datetime.now() - datetime.timedelta(days=10)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        log_path.write_text(f"{old_ts},000 INFO gateway.run: old line\n")
+
+        handler = hermes_logging._ManagedRotatingFileHandler(
+            str(log_path), maxBytes=5 * 1024 * 1024, backupCount=3,
+            encoding="utf-8", max_age_days=3,
+        )
+        try:
+            rotated = tmp_path / "gateway.log.1"
+            assert rotated.exists()
+            assert "old line" in rotated.read_text()
+            assert log_path.read_text() == ""
+        finally:
+            handler.close()
+
+    def test_does_not_roll_over_fresh_file_on_attach(self, tmp_path):
+        import datetime
+
+        log_path = tmp_path / "gateway.log"
+        recent_ts = (datetime.datetime.now() - datetime.timedelta(hours=1)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        log_path.write_text(f"{recent_ts},000 INFO gateway.run: recent line\n")
+
+        handler = hermes_logging._ManagedRotatingFileHandler(
+            str(log_path), maxBytes=5 * 1024 * 1024, backupCount=3,
+            encoding="utf-8", max_age_days=3,
+        )
+        try:
+            assert not (tmp_path / "gateway.log.1").exists()
+            assert "recent line" in log_path.read_text()
+        finally:
+            handler.close()
+
+    def test_no_max_age_never_rolls_over_on_attach(self, tmp_path):
+        """Default behavior (agent.log/errors.log) is unaffected: no age check at all."""
+        import datetime
+
+        log_path = tmp_path / "agent.log"
+        old_ts = (datetime.datetime.now() - datetime.timedelta(days=100)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        log_path.write_text(f"{old_ts},000 INFO agent: ancient line\n")
+
+        handler = hermes_logging._ManagedRotatingFileHandler(
+            str(log_path), maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8",
+        )
+        try:
+            assert not (tmp_path / "agent.log.1").exists()
+            assert "ancient line" in log_path.read_text()
+        finally:
+            handler.close()
+
+    def test_malformed_first_line_does_not_raise(self, tmp_path):
+        """Best-effort: a first line that isn't a timestamp must not crash setup."""
+        log_path = tmp_path / "gateway.log"
+        log_path.write_text("not a timestamp at all\n")
+
+        handler = hermes_logging._ManagedRotatingFileHandler(
+            str(log_path), maxBytes=5 * 1024 * 1024, backupCount=3,
+            encoding="utf-8", max_age_days=3,
+        )
+        try:
+            assert not (tmp_path / "gateway.log.1").exists()
+        finally:
+            handler.close()
+
+    def test_setup_logging_gateway_mode_passes_max_age_days(self, hermes_home):
+        """setup_logging(mode='gateway') wires max_age_days through for gateway.log only."""
+        import datetime
+
+        log_dir = hermes_home / "logs"
+        log_dir.mkdir(exist_ok=True)
+        gw_log = log_dir / "gateway.log"
+        old_ts = (datetime.datetime.now() - datetime.timedelta(days=10)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        gw_log.write_text(f"{old_ts},000 INFO gateway.run: old line\n")
+
+        hermes_logging.setup_logging(hermes_home=hermes_home, mode="gateway")
+
+        assert (log_dir / "gateway.log.1").exists()

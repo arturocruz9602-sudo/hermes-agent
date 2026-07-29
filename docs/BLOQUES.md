@@ -4,6 +4,39 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Diagnóstico y fix de la respuesta rota del 29 Jul madrugada, CERRADO (29 Jul 2026, mañana)
+
+Detalle completo en `docs/ESTADO.md` (sección "Respuesta rota en la
+cuenta real de Arturo"). Resumen: se confirmaron por código las 2 causas
+reales del incidente de esa madrugada (7 mensajes duplicados por
+redelivery de Telegram sin dedup general, y `read_file` trayendo
+`gateway.log` de hace un mes por defecto), se descartó una tercera
+hipótesis (`_pending_reprocess_ids`, subsistema distinto), y se
+arreglaron ambas causas confirmadas:
+
+1. `hermes_logging.py`: `_ManagedRotatingFileHandler` gana
+   `max_age_days` -- fuerza rollover al abrir si la primera línea del
+   archivo ya es más vieja que N días. Aplicado solo a `gateway.log`
+   (`max_age_days=3` en `setup_logging(mode="gateway")`); agent.log/
+   errors.log/gui.log sin cambios.
+2. `gateway/run.py`: `_is_duplicate_update`/`_mark_update_processed`,
+   generalización de `_is_stale_restart_redelivery` (que solo cubría
+   `/restart`) a cualquier mensaje -- marcador
+   `~/.hermes/.last_update_id.json`, chequeo al inicio de
+   `_handle_message` antes de auth/sesión/plugins.
+3. 12 tests nuevos (`tests/gateway/test_restart_redelivery_dedup.py`,
+   `tests/test_hermes_logging.py::TestMaxAgeRollover`) + ~1600 tests de
+   regresión corridos en bloques chicos (no de un solo golpe). 0 fallas
+   nuevas -- las 19 fallas preexistentes (bug real de
+   `_pending_reprocess_ids`, Bloque AF, ahora confirmado en 5 tests no 2)
+   se reproducen idénticas con `git stash` contra el código sin tocar.
+4. Aplicado en vivo: `systemctl --user restart hermes-gateway.service`
+   (excepción permanente del hook, 29 Jul 09:07) -- servicio activo,
+   `gateway.log` rotado (el viejo de 16038 líneas ahora es
+   `gateway.log.1`), sin tracebacks nuevos.
+
+**Commits:** pendiente de commit al cierre de esta sesión (ver git log).
+
 ## Hallazgo crítico + OT-4 Bloque 1.3, CERRADO (29 Jul 2026, madrugada)
 
 Continuación directa de la sesión de Fase 4 de esta misma noche. Detalle

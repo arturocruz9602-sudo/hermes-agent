@@ -11282,6 +11282,24 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         # are system-generated and must skip user authorization.
         is_internal = bool(getattr(event, "internal", False))
 
+        # Redelivery guard runs before anything else: Telegram can redeliver
+        # an update already handled by a previous gateway process (see
+        # _is_duplicate_update / _is_stale_restart_redelivery for the root
+        # cause). Ordinary messages had no protection against this before
+        # today -- each redelivered copy was reprocessed as a brand-new
+        # turn. Skip entirely so a redelivery never reaches auth, session
+        # setup, or the agent.
+        if not is_internal:
+            if self._is_duplicate_update(event):
+                logger.info(
+                    "Ignoring redelivered update (platform=%s, update_id=%s) -- "
+                    "already processed by a previous gateway instance.",
+                    source.platform.value if source and source.platform else "?",
+                    event.platform_update_id,
+                )
+                return None
+            self._mark_update_processed(event)
+
         # Ignored-channel guard runs FIRST — before startup-restore queueing,
         # plugin hooks, auth, and session setup — so a configured ignored
         # channel can never reach pairing/auth/session state (#51899).
@@ -15826,7 +15844,83 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 return False
         return True
 
+    def _is_duplicate_update(self, event: MessageEvent) -> bool:
+        """Return True if this update_id was already processed by any gateway
+        instance (this one or a predecessor), i.e. a Telegram re-delivery.
 
+        Generalizes ``_is_stale_restart_redelivery`` (which only guards
+        ``/restart``) to every message. Root cause: PTB's graceful-shutdown
+        ``get_updates`` ACK can fail (see the redelivery comment on
+        ``/restart`` above), and Telegram then redelivers the same update(s)
+        to the next gateway process. Without this guard, an ordinary text
+        message redelivered N times was reprocessed as N independent new
+        turns -- confirmed as the cause of a broken reply on 2026-07-29
+        (docs/ESTADO.md): a message got redelivered 7x during a burst of
+        gateway restarts, and the confusion bled into the next, unrelated
+        message.
+
+        Only Telegram populates ``platform_update_id`` today; other
+        platforms return False unconditionally (no marker, no comparison).
+        """
+        if event is None or event.source is None:
+            return False
+        if event.platform_update_id is None:
+            return False
+        if event.source.platform is None:
+            return False
+        try:
+            platform_value = event.source.platform.value
+        except Exception:
+            return False
+        if platform_value != "telegram":
+            return False
+
+        try:
+            marker_path = _hermes_home / ".last_update_id.json"
+            if not marker_path.exists():
+                return False
+            data = json.loads(marker_path.read_text())
+        except Exception:
+            return False
+
+        recorded_uid = data.get(platform_value)
+        if not isinstance(recorded_uid, int):
+            return False
+        return event.platform_update_id <= recorded_uid
+
+    def _mark_update_processed(self, event: MessageEvent) -> None:
+        """Record ``event.platform_update_id`` as processed for its platform.
+
+        Read by ``_is_duplicate_update`` on the next gateway instance (or
+        this one) to recognize a Telegram re-delivery of the same update.
+        No-op for platforms/events without a numeric update id.
+        """
+        if event is None or event.source is None:
+            return
+        if event.platform_update_id is None:
+            return
+        if event.source.platform is None:
+            return
+        try:
+            platform_value = event.source.platform.value
+        except Exception:
+            return
+        if platform_value != "telegram":
+            return
+
+        marker_path = _hermes_home / ".last_update_id.json"
+        try:
+            data = json.loads(marker_path.read_text()) if marker_path.exists() else {}
+        except Exception:
+            data = {}
+        recorded_uid = data.get(platform_value)
+        if isinstance(recorded_uid, int) and event.platform_update_id <= recorded_uid:
+            return
+        data[platform_value] = event.platform_update_id
+        try:
+            atomic_json_write(marker_path, data, indent=None)
+        except Exception as e:
+            logger.debug("Failed to write update-id dedup marker: %s", e)
 
 
 

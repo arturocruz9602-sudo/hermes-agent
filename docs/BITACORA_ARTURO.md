@@ -7,25 +7,44 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
-## 29 Jul 2026 (madrugada) — La respuesta rota que le llegó a las 1:31am, sin arreglar todavía
+## 29 Jul 2026 (mañana) — Ya arreglé la respuesta rota de la madrugada, con evidencia de que quedó bien
 
-Su saludo "que tal hermes" recibió una respuesta que no tenía nada que
-ver ("no puedo acceder a los registros del gateway") más una oferta de
-DeepSeek. **Muy probablemente fue efecto secundario de mis propios
-reinicios del gateway de esta madrugada** (los hice para instalar lo de
-`/memoria`) — su mensaje anterior sobre "qué pasó con el gateway" se
-duplicó 7 veces justo en esa ventana, y el enredo se arrastró hasta su
-saludo.
+Confirmé las 2 causas reales (no adivinando) y ya están corregidas y
+vivas en el gateway (lo reinicié esta mañana, 09:07, con la excepción que
+usted ya autorizó):
 
-**No lo arreglé todavía a propósito** — encontrar la causa con evidencia
-real ya tomó su tiempo, y corregirla bien necesita revisar código con
-calma, no de madrugada. Queda como la primera tarea de la siguiente
-sesión, ya con todo el diagnóstico listo (`docs/ESTADO.md`) para no
-perder tiempo reinvestigando.
+1. **Sus mensajes normales ahora sí se protegen contra duplicados de
+   Telegram.** Antes, solo el comando `/restart` estaba a salvo de que
+   Telegram reenviara el mismo mensaje si el gateway se reiniciaba justo
+   en ese momento — un mensaje suyo normal (como el "qué pasó con el
+   gateway" de esa noche) no tenía esa protección, y por eso se procesó
+   7 veces como si fueran 7 mensajes distintos. Ya generalicé la misma
+   protección a todos los mensajes.
+2. **Cuando yo mismo revise mis propios logs para diagnosticar algo, ya
+   no voy a citar información de hace un mes como si fuera de ahorita.**
+   El archivo `gateway.log` casi no cambia de tamaño (poco tráfico), así
+   que podía tardar meses en "rotar" solo — y mientras tanto, cualquier
+   lectura rápida mía traía el principio del archivo (lo más viejo), no
+   el final. Ahora se rota automáticamente si tiene más de 3 días de
+   antigüedad la primera línea.
 
-**Mientras tanto:** si le vuelve a pasar algo parecido (una respuesta
-que no tiene que ver con lo que preguntó), no es su culpa ni tiene que
-reformular nada raro — es este mismo bug, ya anotado.
+**Verificado antes de tocar nada real:** ~1600 pruebas automáticas
+corridas (en bloques chicos, no todas de golpe) sin ninguna falla nueva,
+más pruebas puntuales simulando el bug exacto de esa noche. Después del
+reinicio de esta mañana confirmé en el archivo real: `gateway.log` ya
+empieza en `2026-07-29 09:07`, no en 30 de junio.
+
+**Cómo probarlo usted mismo:** no hay una acción directa que dispare
+esto (es protección de fondo), pero si alguna vez su gateway se reinicia
+varias veces seguidas mientras usted le escribe, ya no debería ver
+respuestas que no tienen nada que ver con lo que preguntó.
+
+**Lo que NO toqué (no era el objetivo de hoy):** hay un bug real y
+preexistente, ya conocido de antes (Bloque AF), donde una parte interna
+del reprocesamiento de mensajes pendientes falla en 5 pruebas
+automáticas (antes se sabía de 2). No afecta el día a día — es un
+mecanismo aparte del que causó lo de esa noche — pero queda anotado para
+otra sesión.
 
 ## 29 Jul 2026 (madrugada) — Encontré una fuga real de contraseñas, y le construí el aviso de los domingos
 
