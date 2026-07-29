@@ -7,6 +7,26 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 29 Jul 2026 (madrugada) — La respuesta rota que le llegó a las 1:31am, sin arreglar todavía
+
+Su saludo "que tal hermes" recibió una respuesta que no tenía nada que
+ver ("no puedo acceder a los registros del gateway") más una oferta de
+DeepSeek. **Muy probablemente fue efecto secundario de mis propios
+reinicios del gateway de esta madrugada** (los hice para instalar lo de
+`/memoria`) — su mensaje anterior sobre "qué pasó con el gateway" se
+duplicó 7 veces justo en esa ventana, y el enredo se arrastró hasta su
+saludo.
+
+**No lo arreglé todavía a propósito** — encontrar la causa con evidencia
+real ya tomó su tiempo, y corregirla bien necesita revisar código con
+calma, no de madrugada. Queda como la primera tarea de la siguiente
+sesión, ya con todo el diagnóstico listo (`docs/ESTADO.md`) para no
+perder tiempo reinvestigando.
+
+**Mientras tanto:** si le vuelve a pasar algo parecido (una respuesta
+que no tiene que ver con lo que preguntó), no es su culpa ni tiene que
+reformular nada raro — es este mismo bug, ya anotado.
+
 ## 29 Jul 2026 (madrugada) — Encontré una fuga real de contraseñas, y le construí el aviso de los domingos
 
 **Lo que descubrí probando el resumen semanal:** al armar la lista de

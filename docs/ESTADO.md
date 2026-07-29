@@ -2,6 +2,54 @@
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
 
+## PRIORIDAD #1 DE LA PRÓXIMA SESIÓN — respuesta rota en la cuenta real de Arturo (29 Jul 2026, ~1:31am)
+
+Arturo saludó ("que tal hermes") en su Telegram real y recibió una
+respuesta rota ("no puedo acceder a los registros del gateway") sin
+relación con el saludo, seguida de una oferta de Tarea E ("¿le entro con
+DeepSeek?") por baja confianza. Diagnosticado con evidencia real
+(`state.db`, sesión `20260723_014401_467841eb`, mensajes id 16771-16782)
+ANTES de que Arturo diera `/clear` -- probable causa raíz, no fix
+todavía:
+
+1. Entre 21:23-21:26 del 28 Jul, el mensaje real de Arturo "Hermes,
+   revisa qué pasó con el gateway hace un momento" se registró
+   **7 veces duplicado** (ids 16772,16773,16775,16776,16778,16779,16780)
+   -- coincide exactamente con la ventana en que esta misma sesión
+   reiniciaba `hermes-gateway.service` varias veces para desplegar
+   `/memoria`. Patrón ya conocido en el código (comentario en
+   `gateway/session.py` sobre `/restart` y redelivery de Telegram tras
+   un ACK que no llega a tiempo).
+2. Con las repeticiones, Hermes SÍ intentó responder leyendo
+   `gateway.log` (mensaje id 16771, tool `read_file`) pero el contenido
+   que trajo era de **hace un mes** (30 jun), no de esa noche -- reportó
+   "el gateway funciona normalmente" citando esa fecha vieja como si
+   fuera el estado actual. Sospecha: log rotado, o lectura de un archivo
+   `.log.1`/backup en vez del activo -- SIN CONFIRMAR, requiere
+   diagnóstico de código real.
+3. Los duplicados siguientes generaron "Tuve un problema generando una
+   respuesta clara" (ids 16774, 16777).
+4. El mensaje fresco "que tal hermes" (id 16781, ya sin relación con el
+   gateway) recibió una respuesta que arrastra la confusión de los
+   turnos anteriores ("no puedo acceder a los registros"), fabricando un
+   problema que no corresponde al mensaje real.
+
+**Hipótesis de causa raíz, NO confirmada por lectura de código todavía**
+(pendiente de la próxima sesión): el reinicio del gateway a media
+conversación puede dejar el estado de esa sesión (`20260723_014401_467841eb`)
+en una condición donde el turno siguiente hereda contexto/intención del
+turno interrumpido en vez de tratar el mensaje nuevo de forma limpia.
+Revisar primero: (a) por qué `read_file` sobre `gateway.log` trajo
+contenido de hace un mes en vez de lo reciente, (b) el mecanismo de
+deduplicación de `platform_update_id` en reinicios (¿por qué se
+reprocesó el mismo mensaje 7 veces en vez de deduplicarse?), (c) si hay
+relación con el bug ya conocido y preexistente de `_pending_reprocess_ids`
+(Bloque AF, ver más abajo) que aparece en 2 tests fallando desde antes de
+esta sesión.
+
+**Contexto importante:** Arturo pidió explícitamente empezar por esto en
+cuanto se abra la siguiente sesión, antes de cualquier otra cosa.
+
 ## ESTADO ACTUAL — leer esto primero, antes que nada más abajo
 
 **HALLAZGO CRÍTICO DE SEGURIDAD, CERRADO (29 Jul 2026, madrugada):** el
