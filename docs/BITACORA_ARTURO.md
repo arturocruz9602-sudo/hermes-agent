@@ -7,6 +7,16 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 29 Jul 2026 (tarde) — Cada nota de Obsidian ahora también sale numerada en Notion
+
+Ya quedó armado lo que decidimos: como la visualización de nodos se queda pendiente hasta la Mac Mini, cada vez que Hermes guarde una nota en Obsidian, también le crea una fila numerada en Notion — así puede consultarla ahí, o Hermes le puede decir "esto conecta con la nota número 5 que ya tenías".
+
+**Probado con su nota real** (la del video de "segundo cerebro"), no con una de mentiras: ya aparece en Notion como nota número 1, con su título, tags, y la ruta del archivo real en Obsidian.
+
+**Un aviso de seguridad, sin drama pero real:** pegó su llave de Notion directo en el chat en vez de solo en `.env` — para la próxima, mejor evítelo (queda guardado en el historial de esta conversación). No es grave (esa llave solo puede tocar lo que usted mismo comparta con ella), pero es buen hábito no hacerlo. Ya quedó guardada de forma segura (con un comando que no la muestra en pantalla ni la deja en el historial de su terminal).
+
+**Cómo probarlo usted mismo:** mándele a Hermes una idea o nota nueva por chat, y en la respuesta debería confirmarle tanto que la guardó en Obsidian como el número que le tocó en Notion.
+
 ## 29 Jul 2026 (mañana) — Su segundo cerebro en Obsidian ya funciona de verdad
 
 Con el `sudo` que corrió usted mismo, ya quedó armado todo lo que platicamos: puede escribirle/decirle a Hermes una idea, nota, o algo que investigó, y él la va a guardar organizada en `/mnt/seagate/obsidian/` — sin que usted mueva nada a mano, sin sync, sin costo.

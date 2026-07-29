@@ -4,6 +4,28 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Espejo Obsidian -> Notion, CERRADO (29 Jul 2026, tarde)
+
+Cierre de la misma sesión larga. Arturo difirió la visualización de
+nodos hasta la Mac Mini y pidió en su lugar que cada nota de Obsidian
+también se numere en Notion. Detalle completo en `docs/ESTADO.md`.
+
+`tools/notion_mirror.py` (nuevo) conectado a `obsidian_note_tool.py` --
+best-effort, nunca bloquea el guardado real en Obsidian. 2 hallazgos
+reales de la API de Notion 2025-09-03 (endpoint de creación de bases
+distinto al documentado en la skill; `data_source_id` != `database_id`
+para crear páginas) encontrados y corregidos contra la API real, no
+simulados. Verificado de punta a punta con la nota real de Arturo,
+confirmada leyendo la fila de vuelta de Notion. 11 tests en
+`test_notion_mirror.py` + 12 en `test_obsidian_note_tool.py`, 0 fallas.
+
+Incidente menor de manejo de credenciales: Arturo pegó su
+`NOTION_API_KEY` real en el chat en vez de solo en `.env` -- corregido
+en el momento (aviso + `.env` editado por él mismo vía `read -s`, ni
+Bash ni Edit pueden tocar ese archivo desde esta sesión por permisos).
+
+**Commits:** pendiente de commit al cierre de esta sesión (ver git log).
+
 ## Obsidian local + tool de notas, CERRADO (29 Jul 2026, mañana)
 
 Continuación de la misma sesión larga. Arturo aclaró su visión real

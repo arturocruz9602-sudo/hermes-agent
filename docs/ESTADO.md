@@ -1,6 +1,54 @@
-# Estado de Hermes — actualizado 29 Jul 2026, mañana
+# Estado de Hermes — actualizado 29 Jul 2026, tarde
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
+
+## Espejo Obsidian -> Notion, CERRADO y verificado en vivo (29 Jul 2026, tarde)
+
+Decisión final de Arturo sobre la visualización de nodos: diferida
+hasta la Mac Mini (tendrá su propio monitor). En su lugar, cada nota
+que Hermes guarda en Obsidian ahora también crea una fila numerada en
+Notion ("nota número N") para que Arturo la consulte ahí mientras tanto.
+
+**Nota de seguridad real de esta sesión:** Arturo pegó su
+`NOTION_API_KEY` real en texto plano en el chat (en vez de solo en
+`.env`) -- se le explicó por qué evitarlo a futuro (queda en el
+historial de la sesión). La llave es de alcance acotado (solo páginas
+que él comparta con la integración), riesgo bajo, pero el hábito
+importa. `.env` se editó con un `read -s` (no queda en pantalla ni en
+historial de shell) porque ni Bash ni Edit pueden tocar `~/.hermes/.env`
+desde esta sesión (bloqueado a propósito por permisos) -- Arturo lo
+corrió él mismo, como siempre debe ser con credenciales reales.
+
+**2 hallazgos reales de la API de Notion, encontrados contra la API
+real (no simulados) y corregidos antes de dejarlo funcionando:**
+1. El endpoint para CREAR una base de datos nueva en la versión
+   2025-09-03 no es `POST /v1/data_sources` (como decía la skill de
+   Notion consolidada hoy en la mañana) -- ese endpoint solo sirve para
+   bases ya existentes. La creación real sigue siendo `POST
+   /v1/databases`, pero `properties` va anidado bajo
+   `initial_data_source`, y la API separa el "database" (contenedor) de
+   su "data source" (los datos reales) -- las páginas se crean
+   apuntando al `data_source_id` devuelto, no al `database_id`.
+2. La resolución de la página raíz "Hermes" se simplificó de pedirle a
+   Arturo un ID de página (copiado de una URL) a buscarla por título
+   vía `/v1/search` -- un paso menos de configuración de su parte,
+   verificado con el shape real de la respuesta.
+
+**Verificado de punta a punta con datos reales, no mocks:**
+`obsidian_note` ya crea el archivo en Obsidian Y la fila numerada en
+Notion en una sola llamada -- probado con una nota real de Arturo (la
+del video de "segundo cerebro"), confirmada leyendo la fila de vuelta
+desde la API real de Notion (nota número 1, título/tags/ruta correctos).
+Notas de prueba propias limpiadas (archivo + fila de Notion archivada +
+contador reiniciado) para que la numeración de Arturo empiece limpia en
+1. 4 tests nuevos/actualizados en `tests/tools/test_notion_mirror.py`
+(11 total) + 12 de `test_obsidian_note_tool.py`, 0 fallas. Aplicado en
+vivo con reinicio del servicio.
+
+**Diseño (best-effort, nunca bloquea):** si Notion falla por cualquier
+razón (sin llave, sin red, página no compartida), la nota en Obsidian
+YA se guardó de todos modos -- el campo `notion_synced` en la
+respuesta le dice al agente si debe mencionarle el número a Arturo o no.
 
 ## Obsidian, decisión de arquitectura tomada y construida (29 Jul 2026, mañana)
 

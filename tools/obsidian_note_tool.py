@@ -132,11 +132,36 @@ def obsidian_save_note(
     except Exception as e:
         return tool_error(f"No se pudo escribir la nota: {e}", success=False)
 
-    return json.dumps({
+    rel_path = str(note_path.relative_to(vault_root))
+    result = {
         "success": True,
-        "path": str(note_path.relative_to(vault_root)),
-        "message": f"Nota guardada en {note_path.relative_to(vault_root)}",
-    }, ensure_ascii=False)
+        "path": rel_path,
+        "message": f"Nota guardada en {rel_path}",
+    }
+
+    # Espejo a Notion (decisión de Arturo, 29 Jul 2026) -- best-effort:
+    # la nota YA se guardó arriba, esto nunca revierte ni bloquea eso.
+    # Sin NOTION_API_KEY/NOTION_HERMES_ROOT_PAGE_ID todavia configuradas,
+    # simplemente no sincroniza (ver tools/notion_mirror.py).
+    try:
+        from tools.notion_mirror import mirror_note_to_notion
+
+        notion_result = mirror_note_to_notion(
+            titulo=titulo, contenido=contenido, tags=tags,
+            ruta_obsidian=rel_path, fecha=date_prefix,
+        )
+        result["notion_synced"] = notion_result["success"]
+        if notion_result["success"]:
+            result["notion_numero"] = notion_result["numero"]
+            result["message"] += f" -- también en Notion como nota número {notion_result['numero']}"
+        else:
+            result["notion_sync_error"] = notion_result["error"]
+    except Exception as e:
+        logger.warning("obsidian_note: espejo a Notion fallo inesperado: %s", e, exc_info=True)
+        result["notion_synced"] = False
+        result["notion_sync_error"] = str(e)
+
+    return json.dumps(result, ensure_ascii=False)
 
 
 def check_obsidian_note_requirements() -> bool:
@@ -156,7 +181,12 @@ OBSIDIAN_NOTE_SCHEMA = {
         "If the user wants to add to an existing note, use file tools "
         "(read_file/patch) on the specific note path instead of this tool.\n\n"
         "The note goes through the same secret scanner as structured memory -- "
-        "a note containing a real credential will be blocked, not saved."
+        "a note containing a real credential will be blocked, not saved.\n\n"
+        "Each note is ALSO mirrored to a numbered row in Notion (best-effort -- "
+        "check the 'notion_synced'/'notion_numero' fields in the result). When "
+        "notion_synced is true, mention the note number to Arturo naturally "
+        "(e.g. 'la guardé como nota número 89 en Notion') so he can look it up "
+        "there or you can reference it later when something connects to it."
     ),
     "parameters": {
         "type": "object",
