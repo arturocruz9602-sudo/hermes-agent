@@ -7,6 +7,73 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 28 Jul 2026 (noche) — Le construí a Hermes 8 instrucciones nuevas que le faltaban y le arreglé el desorden que sospechaba
+
+**Lo que me pidió, en corto:** revisar si Hermes tiene huecos reales en
+todo lo que usted quiere hacer con él (entrenar, escuela, trading,
+contenido, controlar sus dispositivos, navegar internet, repararse
+solo) y arreglar el desorden que sospechaba. Le entré por orden, de lo
+más complicado a lo más simple, y terminé los 11 puntos.
+
+**Instrucciones nuevas que ya tiene Hermes hoy y no tenía en la mañana:**
+1. **Navegar páginas web de verdad** (clicks, formularios, leer
+   contenido real) — la herramienta ya existía por dentro, solo le
+   faltaba la instrucción de cómo usarla bien.
+2. **5 instrucciones de seguridad de su red y equipos** (inventario de
+   quién se conecta a su WiFi, checklist de su router, revisión de sus
+   llaves/contraseñas, detección de algo raro en su equipo, aviso si
+   entra un dispositivo desconocido) — las 5 ya estaban planeadas desde
+   hace días en el documento maestro, solo nunca se habían construido.
+   Mientras las probaba encontré y arreglé 2 errores reales antes de
+   dárselas por buenas.
+3. **Respaldo automático de las bases de datos reales de Hermes** —
+   probado contra sus 4 bases reales sin apagar el servicio.
+4. **Instrucción de Atajos de su iPhone/Mac (Shortcuts)** — la que
+   usted recordaba, y sí, estaba vacía por el error que le conté en la
+   mañana. Ya reconstruida, con un detalle importante que investigué:
+   Shortcuts necesita que su Mac esté con su sesión iniciada (con
+   pantalla bloqueada está bien) para que Hermes pueda usarlo por SSH —
+   si la Mac está sin nadie conectado, no va a funcionar, y ya se lo
+   dejé anotado para que no se sorprenda.
+5. **Chequeo de salud de su Mac y de la HP** — el "¿está bien mi
+   equipo?" que antes no existía (solo había revisiones de problemas
+   específicos ya vividos).
+6. **Registro de su entrenamiento/gym** — con seguimiento real hacia su
+   meta de peso.
+7. **Resumen del día** — junta sus pendientes reales del kanban cada
+   mañana (usted sigue palomeando a mano, eso no cambia a propósito).
+
+**El desorden que sospechaba, confirmado y arreglado:**
+- Tenía 4 instrucciones distintas para lo mismo (editar video con
+  DaVinci) — ya son 1 sola, sin perder nada real.
+- Tenía 2 instrucciones de trading que se traslapaban — ya es 1 sola.
+- Una de las 3 de "unificar mis dispositivos" sí era repetida — la
+  quité; las otras 2 sí son distintas de verdad, se quedan.
+- De paso investigué lo que preguntó sobre DaVinci y su IA para armar
+  guiones de podcast: **no se puede** — esa parte de DaVinci no se
+  puede controlar por script, solo desde la pantalla, y además funciona
+  al revés de lo que necesitaría (pide el guion primero, no lo inventa
+  después). Lo que sí funciona ya está listo: yo mismo (razonando)
+  armo la estructura del guion a partir de la transcripción real.
+
+**Hallazgo nuevo, sin arreglar, para otra sesión:** encontré que el
+archivo que describe "cómo funciona todo el sistema Hermes"
+(`personal-operating-system`) mezcla datos suyos reales (peso, metas)
+con información técnica ya vieja/incorrecta (dice que usa un proveedor
+de IA que ya cambiamos hace 3 semanas) junto con reglas que sí siguen
+vigentes (cómo le gusta que le hable, sus horarios de trabajo). Separar
+eso bien es su propia sesión, no algo para resolver de pasada.
+
+**Mensaje que puede mandar para probar el resumen del día:** "Hermes,
+dame el resumen del día" — debería listar sus tareas pendientes reales
+del kanban.
+
+**Pendiente real de su parte:** nada nuevo además de lo ya anotado hoy
+temprano (autorizar `libreoffice-impress` si quiere las miniaturas de
+PowerPoint).
+
+---
+
 ## 28 Jul 2026 (tarde-noche) — Arreglé un bug real que hacía que Hermes se confundiera entre 2 instrucciones con el mismo nombre, y le agregué a Word cómo hacer un índice
 
 **Lo más importante, un bug real de fondo:** encontré que cuando 2 de las

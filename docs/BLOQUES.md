@@ -4,6 +4,73 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Post-Fase 3 — 11 skills nuevas/consolidadas por pedido directo de Arturo, CERRADO (28 Jul 2026, noche)
+
+Tras cerrar Fase 3 completa, Arturo pidió expandir la limpieza de
+skills más allá de OT-3: revisó huecos reales contra cómo piensa usar
+Hermes (entrenamiento, trabajo, proyectos, control de dispositivos,
+navegación web, reparación de la HP/MacBook) y contra la sección E7 del
+HAS (ciberseguridad doméstica, ya diseñada pero nunca empaquetada).
+Pidió ir en orden de más a menos complejo, "que todo quede
+solucionado". Detalle técnico completo de cada uno, con las 5
+preguntas de F2v2 donde aplica, en `~/.hermes/CHANGELOG_SISTEMA.md`
+(11 entradas fechadas 28 Jul). Resumen:
+
+1. **`browser`** (nueva) — la herramienta (`tools/browser_tool.py`,
+   10 funciones reales, `agent-browser` CLI) ya existía completa en el
+   código; solo faltaba la skill. Verificado en vivo: navegar, leer
+   snapshot y hacer click reales contra `example.com`.
+2. **DaVinci/video (4→1)** — consolidadas en `media/davinci-resolve-automation`.
+   De paso, investigación real (pedido de Arturo): la IA nativa de
+   DaVinci (IntelliScript, etc.) NO es invocable por API y trabaja al
+   revés de lo que se pedía -- documentado con fuentes en la skill.
+3. **Ciberseguridad doméstica, E7 del HAS (5 skills nuevas)** —
+   `red-inventario`, `router-checkup`, `higiene-credenciales`,
+   `anomalias-equipo`, `wifi-intrusos`. 2 bugs reales encontrados y
+   corregidos durante las pruebas en vivo contra la HP real (detección
+   de sockets rota por `resolve()` vs `readlink()`; lista blanca de
+   servicios systemd generando ~45 falsos positivos, rediseñada a
+   línea base + diff).
+4. **"Unificar dispositivos" (revisión de 3)** — 1 duplicado real
+   (`jarvis-ecosistema`) archivado, 2 legítimas sin cambios. Hallazgo
+   nuevo, fuera de alcance: `personal-operating-system` tiene el mismo
+   problema de contenido mezclado/obsoleto que ya se vio en
+   `video-editing-pipeline` -- pendiente su propia sesión.
+5. **`hermes-database-maintenance`** (nueva) — respaldo real (API
+   online de SQLite, no `cp` de archivo) + integridad, verificado
+   contra las 4 SQLite reales de producción sin detener el gateway.
+6. **Trading (2→1)** — consolidadas en `software-development/trading-automation`
+   (tenía script real, `trading_entrenador.py`, confirmado en disco).
+7. **`apple-shortcuts`** (nueva, reconstruida desde cero -- la anterior
+   era la basura-404 borrada en Bloque 1) — hallazgo real serio,
+   investigado con fuentes: `shortcuts run` requiere sesión gráfica
+   activa en la Mac, falla headless.
+8. **`chequeo-salud-macbook`** (nueva) — bug real encontrado: `platforms:
+   [macos]` bloqueaba la skill al consultarla desde la HP (Linux, quien
+   la invoca); corregido a `[linux, macos]`.
+9. **`chequeo-salud-hp`** (nueva) — verificada en vivo contra la HP real.
+10. **`entrenamiento`** (nueva, salud/gym) — registro local real
+    (JSONL), probado en vivo (`NOTION_API_KEY` sigue sin configurar).
+11. **`resumen-del-dia`** (nueva, implementa B11 del HAS) — cruza el
+    kanban real de Arturo, verificado con datos reales.
+
+**Auditoría final:** `skills_audit.py` sobre las 142 skills activas
+resultantes -- 0 archivos-404, 0 duplicados por `name:`, 0 scripts con
+sintaxis rota, 0 sin uso no pinneadas, 0 frontmatter incompleto (el
+único "duplicado por carpeta" reportado, `notion`, ya está explicado y
+resuelto para Fase 5). `tests/smoke/` -- 29/29 en verde tras todo el
+trabajo.
+
+**Pendiente real para retomar:**
+- Autorizar `sudo apt install libreoffice-impress` (miniaturas de
+  powerpoint) y `marker-pdf` sin probar con un PDF real.
+- `apple-shortcuts` y `chequeo-salud-macbook` no probadas en vivo --
+  sin sesión SSH activa a la MacBook esta sesión.
+- `personal-operating-system`: separar hechos (memoria)/contenido
+  obsoleto (LiteLLM/Groq)/guía vigente -- su propia sesión.
+- `tools/skill_manager_tool.py::_find_skill()` resuelve por nombre de
+  carpeta, no por `name:` -- inconsistente con `skill_usage._find_skill_dir()`.
+
 ## HAS Fase 3 — CERRADA COMPLETA (Bloques 1-5 de OT-3), 28 Jul 2026
 
 Los 5 bloques de OT-3 cerrados en la misma sesión, autorizados por

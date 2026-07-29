@@ -1,13 +1,18 @@
-# Estado de Hermes — actualizado 28 Jul 2026, tarde
+# Estado de Hermes — actualizado 28 Jul 2026, noche
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
 
 ## ESTADO ACTUAL — leer esto primero, antes que nada más abajo
 
-**Fase 3 (Ciclo de vida de skills) -- CERRADA COMPLETA hoy (28 Jul
-2026), los 5 bloques de OT-3.** Sigue Fase 4 (Memoria que encuentra) --
-**NO arranca sola, misma regla que Fase 3: espera autorización
-explícita de Arturo en la sesión antes de tocar nada.**
+**Fase 3 (Ciclo de vida de skills) -- CERRADA COMPLETA (28 Jul
+2026), los 5 bloques de OT-3.** Después, Arturo pidió expandir la
+limpieza más allá de OT-3 (11 skills nuevas/consolidadas, incluida la
+ciberseguridad doméstica de E7 -- ver sección "Post-Fase 3" en
+`docs/BLOQUES.md` y `~/.hermes/CHANGELOG_SISTEMA.md` para el detalle
+completo). 142 skills activas al cierre, auditoría limpia (0
+problemas reales). Sigue Fase 4 (Memoria que encuentra) -- **NO
+arranca sola, misma regla que Fase 3: espera autorización explícita de
+Arturo en la sesión antes de tocar nada.**
 
 Fases 0, 0.5, 1 y 2 del HAS quedaron CERRADAS de verdad
 (27-28 Jul 2026), con evidencia real cada una, **incluido el Bloque 6**
@@ -64,6 +69,16 @@ para su propia sesión):**
 - `marker-pdf` (OCR pesado) instalado pero sin probar con un PDF real.
 - Programar `skills_audit.py` semanalmente queda para Fase 5 (el propio
   OT-3 lo dice explícitamente), no es pendiente de Fase 3.
+- `apple-shortcuts` y `chequeo-salud-macbook` (nuevas, post-Fase 3): no
+  probadas en vivo -- sin sesión SSH activa a la MacBook. `apple-shortcuts`
+  documenta un hallazgo real serio investigado con fuentes: `shortcuts
+  run` necesita sesión gráfica activa, falla headless.
+- `personal-operating-system` (235 líneas): mismo problema que ya se
+  vio en `video-editing-pipeline` (ya archivada) -- mezcla hechos que
+  pertenecen a memoria estructurada, notas técnicas obsoletas (LiteLLM/
+  Groq, superadas por `hermes-provider-fallback`), y guía real vigente
+  (permisos, comunicación, sprints). Requiere su propia sesión para
+  separar sin perder lo vigente.
 
 Pendientes reales sueltos, ninguno bloquea Fase 3:
 - Disco Seagate: Arturo pendiente de correr `sudo smartctl -a /dev/sda`
