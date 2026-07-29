@@ -194,6 +194,45 @@ def _truncate_rich_text(text: str, limit: int = 1900) -> str:
     return text[:limit] + "… (nota completa en Obsidian)"
 
 
+def _excerpt(text: str, limit: int = 200) -> str:
+    """Resumen corto para la columna de la tabla -- el contenido REAL
+    vive en el cuerpo de la página (_content_to_blocks), no aquí. Antes
+    del 29 Jul 2026 el contenido completo se aplastaba en esta propiedad
+    -- se veía como una hoja de cálculo, no como una nota de verdad
+    (pedido explícito de Arturo: "que sea bonito el boceto, no solo
+    todo indexado")."""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0] + "…"
+
+
+def _content_to_blocks(contenido: str, ruta_obsidian: str) -> list[dict]:
+    """Convierte la nota en bloques reales de Notion (párrafos), en vez de
+    aplastarla en una propiedad de texto -- así la página se ve como una
+    nota (con formato, espaciado, legible) al abrirla, no como una celda
+    de tabla. Incluye un callout al inicio señalando la ruta real en
+    Obsidian (fuente de verdad -- la nota completa vive ahí)."""
+    blocks: list[dict] = [
+        {
+            "object": "block",
+            "type": "callout",
+            "callout": {
+                "rich_text": [{"text": {"content": f"Nota completa en Obsidian: {ruta_obsidian}"}}],
+                "icon": {"type": "emoji", "emoji": "📓"},
+            },
+        }
+    ]
+    paragraphs = [p.strip() for p in contenido.split("\n\n") if p.strip()]
+    for p in paragraphs[:95]:  # tope real de 100 bloques por llamada -- 1 ya usado por el callout
+        blocks.append({
+            "object": "block",
+            "type": "paragraph",
+            "paragraph": {"rich_text": [{"text": {"content": _truncate_rich_text(p)}}]},
+        })
+    return blocks
+
+
 def mirror_note_to_notion(
     *, titulo: str, contenido: str, tags: list[str], ruta_obsidian: str, fecha: str,
 ) -> dict:
@@ -213,14 +252,16 @@ def mirror_note_to_notion(
         numero = _next_note_number()
         _notion_request("POST", "pages", {
             "parent": {"type": "data_source_id", "data_source_id": data_source_id},
+            "icon": {"type": "emoji", "emoji": "🧠"},
             "properties": {
                 "Título": {"title": [{"text": {"content": titulo}}]},
                 "Número": {"number": numero},
                 "Tags": {"multi_select": [{"name": t} for t in tags[:20]]},
                 "Fecha": {"date": {"start": fecha}},
                 "Ruta Obsidian": {"rich_text": [{"text": {"content": ruta_obsidian}}]},
-                "Resumen": {"rich_text": [{"text": {"content": _truncate_rich_text(contenido)}}]},
+                "Resumen": {"rich_text": [{"text": {"content": _excerpt(contenido)}}]},
             },
+            "children": _content_to_blocks(contenido, ruta_obsidian),
         })
         return {"success": True, "numero": numero, "error": None}
     except NotionMirrorUnavailable as e:

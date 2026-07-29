@@ -2,6 +2,21 @@
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
 
+## Espejo Obsidian -> Notion, mejora visual (29 Jul 2026, tarde)
+
+Arturo, tras ver el espejo funcionando: "que sea bonito el boceto, no
+solo todo indexado" -- el diseño original aplastaba la nota completa en
+una propiedad de texto de la tabla (`Resumen`), viéndose como una hoja
+de cálculo. Rediseñado: el contenido real ahora vive en el CUERPO de la
+página (bloques de párrafo reales, con un callout 📓 al inicio
+apuntando de vuelta a la ruta en Obsidian), la tabla solo muestra un
+extracto corto (~200 caracteres, sin cortar palabras a la mitad), y
+cada página lleva ícono 🧠. Verificado en vivo releyendo la página
+completa (ícono + propiedades + bloques) desde la API real -- se ve
+como una nota de verdad, no como una fila de spreadsheet. Nota #1
+recreada con el formato nuevo (la vieja archivada, no borrada). 7 tests
+nuevos (16 total en `test_notion_mirror.py`), 0 fallas. Aplicado en vivo.
+
 ## Espejo Obsidian -> Notion, CERRADO y verificado en vivo (29 Jul 2026, tarde)
 
 Decisión final de Arturo sobre la visualización de nodos: diferida

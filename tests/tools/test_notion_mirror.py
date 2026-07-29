@@ -176,3 +176,75 @@ def test_long_content_truncated_for_rich_text_limit():
 
 def test_short_content_not_truncated():
     assert notion_mirror._truncate_rich_text("hola") == "hola"
+
+
+# ---------------------------------------------------------------------------
+# Bonito, no solo indexado (pedido explícito de Arturo, 29 Jul 2026): el
+# contenido real vive en el cuerpo de la página (bloques), no aplastado en
+# una propiedad de tabla.
+# ---------------------------------------------------------------------------
+
+def test_excerpt_shortens_long_content():
+    long_text = "palabra " * 100
+    excerpt = notion_mirror._excerpt(long_text)
+    assert len(excerpt) <= 205
+    assert excerpt.endswith("…")
+
+
+def test_excerpt_does_not_cut_mid_word():
+    text = "una nota corta pero con palabras completas " * 6
+    excerpt = notion_mirror._excerpt(text, limit=50)
+    assert not excerpt.rstrip("…").endswith(" ")
+    # ninguna palabra debe quedar partida a la mitad
+    words_in_source = set(text.split())
+    for w in excerpt.rstrip("…").split():
+        assert w in words_in_source
+
+
+def test_excerpt_short_text_unchanged():
+    assert notion_mirror._excerpt("nota corta") == "nota corta"
+
+
+def test_content_to_blocks_starts_with_obsidian_callout():
+    blocks = notion_mirror._content_to_blocks("Parrafo uno.\n\nParrafo dos.", "segundo-cerebro/x.md")
+    assert blocks[0]["type"] == "callout"
+    assert "segundo-cerebro/x.md" in blocks[0]["callout"]["rich_text"][0]["text"]["content"]
+
+
+def test_content_to_blocks_splits_paragraphs():
+    blocks = notion_mirror._content_to_blocks("Parrafo uno.\n\nParrafo dos.\n\nParrafo tres.", "x.md")
+    paragraph_blocks = [b for b in blocks if b["type"] == "paragraph"]
+    assert len(paragraph_blocks) == 3
+    assert paragraph_blocks[0]["paragraph"]["rich_text"][0]["text"]["content"] == "Parrafo uno."
+
+
+def test_content_to_blocks_never_exceeds_100_block_api_limit():
+    contenido = "\n\n".join(f"parrafo {i}" for i in range(200))
+    blocks = notion_mirror._content_to_blocks(contenido, "x.md")
+    assert len(blocks) <= 100
+
+
+def test_mirror_note_sends_icon_and_children_blocks(monkeypatch, tmp_path):
+    monkeypatch.setenv("NOTION_API_KEY", "secret_fake")
+    (tmp_path / "db_id").write_text("db-cached", encoding="utf-8")
+
+    captured = {}
+
+    def fake_request(method, path, payload=None, timeout=15):
+        if path == "pages":
+            captured.update(payload)
+            return {"id": "page-xyz"}
+        raise AssertionError(f"unexpected path {path}")
+
+    with patch("tools.notion_mirror._notion_request", side_effect=fake_request):
+        notion_mirror.mirror_note_to_notion(
+            titulo="Idea real", contenido="Parrafo uno.\n\nParrafo dos.",
+            tags=["ideas"], ruta_obsidian="segundo-cerebro/idea.md", fecha="2026-07-29",
+        )
+
+    assert captured["icon"] == {"type": "emoji", "emoji": "🧠"}
+    assert len(captured["children"]) == 3  # callout + 2 parrafos
+    assert captured["children"][0]["type"] == "callout"
+    # La propiedad "Resumen" es un extracto corto, no el contenido completo.
+    resumen = captured["properties"]["Resumen"]["rich_text"][0]["text"]["content"]
+    assert resumen == "Parrafo uno. Parrafo dos."
