@@ -1180,3 +1180,97 @@ def select_tools_for_turn(user_message: str, tools: "list | None") -> "list | No
     except Exception:
         _log.warning("select_tools_for_turn fallo -- se mandan todas las herramientas", exc_info=True)
         return None
+
+
+# =============================================================================
+# Bloque AM (30 Jul 2026) -- toolsets de uso OCASIONAL, cargados solo cuando
+# el mensaje los pide.
+#
+# Peso real por toolset en Telegram (medido) contra su uso real en el
+# historial de Arturo (1,125 llamadas en state.db):
+#     kanban          5,028 tok   24 usos  (2% de las llamadas, 33% del peso)
+#     session_search  1,796 tok    8 usos
+#     skills          1,401 tok   42 usos
+#     obsidian_note     473 tok    2 usos
+#   -------------------------------------
+#     total           8,698 tok que viajan en CADA vuelta del agente
+#
+# Contra los esenciales, que se dejan SIEMPRE:
+#     terminal 527 usos, file 362, web 44, memory 26, tts (voz diaria).
+#
+# Regla de oro, igual que en select_tools_for_turn: el riesgo es
+# ASIMETRICO. Gastar tokens de mas es molesto; dejar a Hermes sin una
+# herramienta que necesitaba le rompe la tarea a Arturo. Por eso los
+# disparadores son deliberadamente GENEROSOS (sinonimos, singular/plural,
+# con y sin acentos) y ante cualquier duda se carga todo.
+# =============================================================================
+
+_TOOLSETS_OCASIONALES = {
+    "kanban": re.compile(
+        r"\b(kanban|tablero|board|tarea|tareas|ticket|pendiente|pendientes|"
+        r"backlog|columna|to-?do list|lista de tareas|asigna|asignar|"
+        r"en curso|bloquead[oa]s?)\b"
+    ),
+    "session_search": re.compile(
+        r"\b(que (dije|dijiste|dijimos|hablamos|platicamos)|conversacion(es)?|"
+        r"sesion(es)?|historial|chat(s)? (anterior|pasado|viejo)|mensaje anterior|"
+        r"la vez que|acuerdate cuando|hace (rato|dias|semanas)|busca en (el|mi) )\b"
+    ),
+    "skills": re.compile(
+        r"\b(skill|skills|habilidad|habilidades|capacidad(es)?|"
+        r"que sabes hacer|que puedes hacer|instala|instalar|plugin)\b"
+    ),
+    "obsidian_note": re.compile(
+        r"\b(obsidian|nota|notas|apunte|apuntes|vault|boveda de notas|"
+        r"guarda(me)? (esto|esta idea)|idea para)\b"
+    ),
+}
+
+
+def select_toolsets_for_turn(user_message: str, tools: "list | None") -> "list | None":
+    """Quita del turno los toolsets ocasionales que este mensaje no pide.
+
+    Devuelve la lista filtrada, o None si no hay nada que quitar (caso por
+    defecto y ante cualquier error). *tools* es ``agent.tools`` en formato
+    OpenAI.
+    """
+    try:
+        if not tools or not user_message:
+            return None
+        texto = _strip_accents(user_message).lower()
+
+        # Mensaje largo o con varias peticiones = tarea compleja. No se
+        # arriesga a recortar: se manda todo.
+        if len(re.findall(r"[a-z0-9]+", texto)) > 60:
+            return None
+
+        pedidos = {
+            nombre for nombre, patron in _TOOLSETS_OCASIONALES.items()
+            if patron.search(texto)
+        }
+        a_quitar = set(_TOOLSETS_OCASIONALES) - pedidos
+        if not a_quitar:
+            return None
+
+        import model_tools as _mt
+
+        filtradas = []
+        for t in tools:
+            nombre = ((t.get("function") or {}).get("name") or t.get("name") or "")
+            try:
+                ts = _mt.get_toolset_for_tool(nombre)
+            except Exception:
+                ts = None
+            if ts in a_quitar:
+                continue
+            filtradas.append(t)
+
+        if not filtradas or len(filtradas) == len(tools):
+            return None
+        return filtradas
+    except Exception:
+        _log.warning(
+            "select_toolsets_for_turn fallo -- se mandan todas las herramientas",
+            exc_info=True,
+        )
+        return None

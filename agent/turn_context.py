@@ -1335,6 +1335,28 @@ def build_turn_context(
                     )
                     agent._o6_original_tools = agent.tools
                     agent.tools = _recortadas
+                else:
+                    # Bloque AM (30 jul 2026): el mensaje SI pide algo, asi
+                    # que no aplica el recorte de turno trivial -- pero los
+                    # toolsets de uso ocasional (kanban 5,028 tok / 24 usos,
+                    # session_search 1,796 / 8, skills 1,401 / 42,
+                    # obsidian_note 473 / 2) tampoco tienen por que viajar
+                    # en CADA vuelta. Se cargan solo cuando el mensaje los
+                    # pide. Los esenciales (terminal 527 usos, file 362,
+                    # web, memory, tts) nunca se tocan.
+                    from agent.complexity_detector import select_toolsets_for_turn
+
+                    _filtradas = select_toolsets_for_turn(
+                        original_user_message or "", agent.tools,
+                    )
+                    if _filtradas is not None:
+                        logger.warning(
+                            "Bloque AM: toolsets ocasionales no pedidos -- "
+                            "herramientas de %d a %d para este turno",
+                            len(agent.tools), len(_filtradas),
+                        )
+                        agent._o6_original_tools = agent.tools
+                        agent.tools = _filtradas
     except Exception as exc:
         logger.warning("Bloque O.1 (gather_pre_response_context) failed: %s", exc)
 
