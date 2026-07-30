@@ -2,6 +2,31 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
+## ⚑ MANDATO VIGENTE (30 jul 2026) — SOBREVIVE A CUALQUIER `/clear`
+
+Arturo dio autorización amplia. Analogía suya: *"te estoy dejando mi moto
+y te digo arréglala; quiero que no gaste mucha gasolina pero te dejo el
+tanque lleno para todas las pruebas que se tengan que hacer"*.
+
+- **$100 MXN** de presupuesto real. Medir y documentar el costo de CADA
+  corrección ("esta llanta cuesta tanto, pero ya no se poncha en la misma
+  distancia").
+- **Telegram abierto** para pruebas contra Hermes.
+- **Autonomía para comprar la refacción** y decidirla yo, documentando el
+  trade-off.
+- **`docs/HAS.md` ya se puede corregir aquí** — deroga la regla anterior
+  de "el HAS solo por canal de diseño".
+- **Encuadre nuevo: "trabajamos bajo inversión".** El objetivo dejó de ser
+  minimizar gasto. Es que Hermes cubra **todas las necesidades de Arturo**,
+  no solo lo escrito en el HAS. El HAS es el piso, su vida es el techo.
+- **Frentes que él nombró y no deben olvidarse:** trading, voz, imagen,
+  "y más cosas".
+- **Él dijo, textual:** *"estaré haciendo clear seguido pero necesito que
+  nada de esto quede en el olvido"* → todo avance se escribe aquí en la
+  misma sesión, nunca al final.
+- **Ojo:** los "$300 mensuales" que mencionó son CAPACIDAD, no
+  autorización. Lo autorizado son estos $100.
+
 ## ARRANCAR AQUÍ (30 jul, 17:10) — Bloque AN cerrado: DeepSeek de llave principal, con freno
 
 Sesión larga con Arturo presente, sobre la pregunta "¿cuánto me va a
