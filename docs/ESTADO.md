@@ -4,6 +4,16 @@
 
 ## PRIORIDAD MÁXIMA (30 jul, tarde) — auditoría "desde el inicio del proyecto", arrancar AQUÍ antes que el plan de 24h
 
+**REGLA DURA para cualquier corrida de `/loop` mientras esta ventana
+siga abierta (hasta domingo 2-ago 12pm): NUNCA declarar "nada
+pendiente"/"todo tranquilo" solo por `git status` limpio o sin PR
+abierto.** Eso ya pasó una vez hoy (30 jul, mediodía) y fue un error
+real: había un plan de 24h entero esperando en este mismo archivo que
+nunca se leyó. Antes de declarar silencio o detener el loop, confirmar
+contra ESTA sección: ¿ya se llegó a Fase 5 con evidencia real de que
+Fases 1-4 están genuinamente cerradas? ¿ya pasaron las 12pm del domingo?
+Si la respuesta a ambas es no, sigue habiendo trabajo -- no parar.
+
 Arturo se hartó (sus palabras: "siempre son las mismas fallas de la
 investigación... estoy arto") después de ver en vivo, por Telegram, el
 mismo tipo de falla que ya se documentó varias veces desde Bloque H:
