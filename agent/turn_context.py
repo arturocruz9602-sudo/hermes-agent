@@ -1322,7 +1322,13 @@ def build_turn_context(
                     original_user_message or "", agent.tools,
                 )
                 if _recortadas is not None:
-                    logger.info(
+                    # WARNING y no INFO a proposito: el gateway no registra
+                    # INFO en produccion (verificado: 0 lineas INFO en el
+                    # journal), asi que un INFO aqui es un mecanismo sin
+                    # rastro -- justo la falla que este proyecto lleva todo
+                    # el dia corrigiendo (HAS §F9-L6/L14). Si no se puede
+                    # comprobar que se activo, no se puede afirmar que sirve.
+                    logger.warning(
                         "Bloque AI: turno trivial -- herramientas recortadas de "
                         "%d a %d para este turno",
                         len(agent.tools), len(_recortadas),

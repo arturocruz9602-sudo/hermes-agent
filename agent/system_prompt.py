@@ -509,6 +509,40 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
     # exact wall-clock time via tools when it actually needs it.
     # Credit: @iamfoz (PR #20451).
     timestamp_line = f"Conversation started: {now.strftime('%A, %B %d, %Y')}"
+    # Bloque AJ (30 jul 2026): la fecha SIN hora dejaba a Hermes sin forma
+    # de saber el momento del dia -- y adivinaba mal. Casos reales de hoy en
+    # la cuenta de Arturo: "Buenas noches. ¿En qué puedo ayudarte?" a las
+    # 11:47 AM, y "Buenas noches, Arturo" a las 14:38. El comentario de
+    # arriba asume que "el modelo puede consultar la hora con herramientas
+    # cuando la necesite", pero en esta instalacion NO existe ninguna
+    # herramienta de tiempo (verificado sobre el registro real), asi que no
+    # tenia ninguna via para saberlo.
+    #
+    # Se agrega en la parte VOLATIL (final del prompt) a proposito: el
+    # prefijo cacheable -- identidad, skills, guidance, que es lo caro --
+    # queda intacto, y el cache de prefijos se conserva hasta este punto.
+    # Dentro de un mismo turno las iteraciones caen en el mismo minuto
+    # (medido: 14:38:14 / 14:38:31 / 14:38:41), y entre turnos el prefijo
+    # ya cambiaba de todos modos por los mensajes nuevos.
+    #
+    # Importa para el uso real de Arturo: despertador, "son las 6, tiene 35
+    # minutos para alistarse", ventanas de estudio y horarios de trabajo.
+    _franja = (
+        "madrugada" if now.hour < 6 else
+        "mañana" if now.hour < 12 else
+        "tarde" if now.hour < 19 else
+        "noche"
+    )
+    _saludo = (
+        "buenos días" if 6 <= now.hour < 12 else
+        "buenas tardes" if 12 <= now.hour < 19 else
+        "buenas noches"
+    )
+    timestamp_line += (
+        f"\nHora local actual: {now.strftime('%H:%M')} ({_franja}). "
+        f"Saludo correcto a esta hora: \"{_saludo}\". "
+        "Usa esta hora como la real; no la adivines ni la deduzcas del historial."
+    )
     if agent.pass_session_id and agent.session_id:
         timestamp_line += f"\nSession ID: {agent.session_id}"
     if agent.model:
