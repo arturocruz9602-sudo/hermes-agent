@@ -1,6 +1,62 @@
-# Estado de Hermes — actualizado 29 Jul 2026, tarde-noche
+# Estado de Hermes — actualizado 29 Jul 2026, noche
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
+
+## Fix de /memoria: candado de concurrencia + filtro de diagnóstico + dedup, CERRADO (29 Jul 2026, noche)
+
+Arturo estaba probando `/memoria` en su cuenta real (48-49 candidatos
+pendientes acumulados) y pidió verificar cuáles aprobar. Revisión completa
+de los 49: prácticamente todos eran ruido, no hechos reales -- Arturo los
+rechazó todos por Telegram siguiendo la recomendación. Causa raíz
+encontrada y arreglada, no solo el síntoma:
+
+1. **Condición de carrera real en el extractor** (`~/.hermes/scripts/
+   fase2_extract_candidates.py`, fuera del repo): 12 corridas concurrentes
+   entre 23:45-23:53 del 28 jul leyeron el mismo cursor antes de que
+   ninguna lo avanzara -- reprocesaron el mismo rango de mensajes,
+   generando duplicados/parafraseos del mismo puñado de hechos. Arreglado
+   con `fcntl.flock` no bloqueante alrededor de la sección crítica
+   (leer cursor -> llamar al modelo -> escribir cursor); una corrida
+   concurrente ahora se retira limpio en vez de pisar el trabajo de la
+   otra. Verificado con un candado real tomado/bloqueado/liberado.
+2. **Texto de prueba colándose a la cola real**: mensajes que Arturo
+   mismo mandó por su cuenta real de Telegram para probar el pipeline de
+   `/memoria` (marcadores "Bloque AE/AF", "diagnostico123", "prueba de
+   regresión") pasaban el filtro de sesión (sí eran de Arturo) pero no son
+   hechos durables. El filtro de sesión no podía distinguirlos por origen
+   -- se agregó `_DIAGNOSTIC_MARKERS` (regex) en `validate_candidates()`.
+   Verificado contra los 4 casos reales que se colaron (los 4 rechazados)
+   y contra 3 casos legítimos que no deben rechazarse (los 3 pasan).
+3. **Dedup exacto como red de seguridad** en `tools/memoria_review.py::
+   _load_queue()` (SÍ está en el repo): si dos archivos traen texto
+   idéntico (normalizado espacios/mayúsculas), el repetido se marca
+   `estado_revision=descartado_duplicado` en disco (no silencioso, con
+   log) y no se le vuelve a mostrar a Arturo. Deliberadamente NO es dedup
+   difuso -- dos parafraseos del mismo hecho seguirán llegando por
+   separado; eso lo previene el candado en el origen, no un parche de
+   similitud semántica en la cola.
+
+**Verificado con datos reales, no solo mocks:** corrida real en vivo del
+extractor ya arreglado (`venv/bin/python3 fase2_extract_candidates.py`)
+-- 15 mensajes nuevos reales, 1 candidato limpio generado (la idea del
+video de "segundo cerebro"), sin duplicados ni ruido de diagnóstico,
+confirmado leyendo la cola con `memoria_review.build_queue()`.
+
+**Hallazgo real, reportado a Arturo, sin tocar (regla: borrar datos
+siempre se pregunta):** el primer candidato que Arturo aprobó antes de
+este fix ("Hermes ocupa deepseek para acompletar esa acción", fila
+`id=10` en `memoria_estructurada`) es un mensaje real verbatim del 19 jul
+pero es una instrucción puntual de una sesión de diagnóstico del
+MacBook, no una preferencia duradera -- si queda en memoria estructurada,
+un Hermes futuro podría leerlo como permiso general para usar DeepSeek
+sin preguntar, contradiciendo la regla de presupuesto. Pendiente de que
+Arturo confirme si se borra o se edita.
+
+**Commits:** `fe4fcb5a0` (dedup en `tools/memoria_review.py`, dentro del
+repo, ya pusheado a `fork/arturo/prod`). El fix del extractor vive fuera
+del repo (`~/.hermes/scripts/`), respaldado en `~/.hermes/backups/
+scripts/fase2_extract_candidates.py.20260729_2100.pre_dedup_fix` antes
+de tocarlo.
 
 ## PRIORIDAD #1 DE LA PRÓXIMA SESIÓN -- Arturo pidió 4 pendientes hoy, quedaron 2 sin empezar
 

@@ -7,6 +7,45 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 29 Jul 2026 (noche) — Por qué `/memoria` te enseñó 49 candidatos y casi todos eran basura
+
+Cuando corriste `/memoria` te aparecieron 49 candidatos para aprobar uno
+por uno. Los revisé todos y casi todos eran ruido, no cosas que valiera
+la pena recordar de ti -- por eso te recomendé rechazarlos casi todos, y
+lo hiciste. Encontré la causa real de por qué había tanta basura y ya la
+arreglé, no solo te dije "rechaza y ya":
+
+**Lo que estaba pasando:** el proceso que arma esos candidatos corrió 12
+veces pegadas la noche del 28, sin ningún seguro que evitara que se
+pisaran entre sí -- por eso veías el mismo hecho repetido varias veces,
+parafraseado un poco distinto cada vez. Además, mensajes que TÚ MISMO
+mandaste para probar el sistema (con palabras como "Bloque AE", "prueba
+de regresión") se colaban como si fueran hechos reales sobre ti, porque
+sí venían de tu cuenta real -- el filtro viejo no podía distinguir "es
+Arturo" de "es Arturo probando algo".
+
+**Ya arreglado y probado con una corrida real** (no solo en el código):
+ahora dos corridas al mismo tiempo ya no se pisan, el texto de prueba se
+descarta antes de llegarte, y si el mismo hecho se repite exacto en dos
+archivos, ya no te lo vuelve a preguntar dos veces.
+
+**Un pendiente tuyo, sin tocar a propósito:** el primer candidato que
+aprobaste antes de este arreglo ("Hermes ocupa deepseek para acompletar
+esa acción") es un mensaje real tuyo del 19 de julio, pero era para un
+caso puntual (diagnosticar tu MacBook), no una preferencia general.
+Si se queda guardado así, en el futuro yo podría leerlo como "Arturo
+siempre quiere que use DeepSeek" y saltarme tu regla de pedir permiso
+cada vez. No lo borré porque borrar datos siempre te lo pregunto primero
+-- dime si lo borro o lo dejo así.
+
+**Cómo probarlo usted mismo:** la próxima vez que corra `/memoria` con
+candidatos nuevos, no deberían repetirse ni aparecer cosas de prueba.
+
+**Notas de Arturo:**
+
+
+---
+
 ## 29 Jul 2026 (tarde-noche) — Cierre de sesión: SSH cerrado con llave, y lo que queda pendiente
 
 **Cerré la puerta que le mencioné en la tarde** (SSH aceptando contraseña) -- ahora solo entra por Tailscale, con llave, exactamente como usted ya se conecta siempre. Confirmado en vivo: su sesión de ahorita (desde la app de Claude en su iPhone) siguió funcionando sin cortarse durante y después del cambio.

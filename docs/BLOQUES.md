@@ -4,6 +4,29 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Fix de /memoria (candado de concurrencia + filtro diagnóstico + dedup), CERRADO (29 Jul 2026, noche)
+
+Nueva sesión, fuera de las 4 tareas de hoy. Arturo estaba probando
+`/memoria` en su cuenta real, 49 candidatos pendientes acumulados.
+Detalle completo en `docs/ESTADO.md`. Resumen: revisé los 49, casi todos
+ruido (duplicados por corrida concurrente del extractor + texto de
+prueba/diagnóstico de sesiones reales de Arturo probando el propio
+pipeline) -- Arturo rechazó los 49 siguiendo la recomendación. Arreglé
+la causa raíz: candado `fcntl.flock` en `fase2_extract_candidates.py`
+(fuera del repo) contra la condición de carrera, filtro de contenido
+`_DIAGNOSTIC_MARKERS` contra texto de prueba que el filtro de sesión no
+podía distinguir (sí era de Arturo, solo que era texto de prueba), y
+dedup exacto en `tools/memoria_review.py::_load_queue()` (dentro del
+repo) como red de seguridad. Verificado con datos sintéticos y con una
+corrida real en vivo del extractor ya arreglado (15 mensajes nuevos,
+1 candidato limpio). Hallazgo sin tocar, reportado a Arturo: el primer
+candidato que ya había aprobado antes del fix es una instrucción
+puntual de DeepSeek de una sesión vieja, no una preferencia duradera --
+pendiente su confirmación para borrar/editar esa fila.
+
+**Commits:** `fe4fcb5a0` (repo), pusheado a `fork/arturo/prod`. Fix del
+extractor fuera del repo, respaldado antes de tocarlo.
+
 ## SSH restringido a Tailscale + sin contraseña, CERRADO (29 Jul 2026, tarde-noche)
 
 Tercera de las 4 tareas de hoy. Hallazgo del audit de seguridad de
