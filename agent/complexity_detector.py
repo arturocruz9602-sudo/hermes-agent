@@ -22,9 +22,12 @@ resumes trading -- do not add it preemptively.
 
 from __future__ import annotations
 
+import logging
 import re
 import unicodedata
 from typing import Dict, List, Pattern
+
+_log = logging.getLogger(__name__)
 
 CATEGORIES: Dict[str, List[str]] = {
     "1_razonamiento": [
@@ -109,6 +112,10 @@ def detect_categories(text: str) -> List[str]:
                     break
         return hits
     except Exception:
+        _log.warning(
+            "detect_categories fallo -- Tarea E no vera NINGUNA categoria en este mensaje",
+            exc_info=True,
+        )
         # Fail safe: never raise, never imply "escalate". No signal at all
         # is the correct behavior when the detector itself is broken.
         return []
@@ -159,6 +166,10 @@ def fetch_context_summary(query: str, *, max_results: int = 3) -> Optional[str]:
         summary = " | ".join(parts)
         return summary[:400]
     except Exception:
+        _log.warning(
+            "fetch_context_summary fallo -- la oferta ira sin resumen de contexto",
+            exc_info=True,
+        )
         return None
 
 
@@ -186,11 +197,8 @@ def fetch_context_summary(query: str, *, max_results: int = 3) -> Optional[str]:
 # ya normalizado, sea una de un set corto y conocido de respuestas sí/no.
 # Cualquier mensaje ambiguo devuelve None (fail-safe: no se asume nada).
 
-import logging
 import time
 from typing import Optional, Set
-
-_log = logging.getLogger(__name__)
 
 CATEGORY_LABELS: Dict[str, str] = {
     "1_razonamiento": "una decisión o análisis complejo",
@@ -257,6 +265,7 @@ def should_offer(
                 return category
         return None
     except Exception:
+        _log.warning("should_offer fallo -- no se ofrecera nada en este turno", exc_info=True)
         return None
 
 
@@ -343,6 +352,10 @@ def parse_yes_no(text: str) -> Optional[bool]:
             return False
         return None
     except Exception:
+        _log.warning(
+            "parse_yes_no fallo -- la respuesta de Arturo queda como ambigua",
+            exc_info=True,
+        )
         return None
 
 
@@ -405,6 +418,10 @@ def check_pending_reply(
             "context_data": pending_context_data,
         }
     except Exception:
+        _log.warning(
+            "check_pending_reply fallo -- se pierde la respuesta a la oferta pendiente",
+            exc_info=True,
+        )
         return None
 
 
@@ -593,6 +610,10 @@ def fetch_coingecko_prices(user_message: str) -> Optional[dict]:
         prices = {coin_id: data.get("usd") for coin_id, data in body.items() if isinstance(data, dict)}
         return prices or None
     except Exception:
+        _log.warning(
+            "fetch_coingecko_prices fallo -- se respondera sin precios reales",
+            exc_info=True,
+        )
         return None
 
 
@@ -670,6 +691,10 @@ def gather_pre_response_context(user_message: str) -> Optional[str]:
             + "\n".join(parts)
         )
     except Exception:
+        _log.warning(
+            "gather_pre_response_context fallo -- se respondera SIN los datos frescos ya obtenidos",
+            exc_info=True,
+        )
         return None
 
 
@@ -791,6 +816,10 @@ def offers_today_count(session_key: str) -> int:
         finally:
             con.close()
     except Exception:
+        _log.warning(
+            "offers_today_count fallo -- el tope diario anti-spam queda SIN efecto",
+            exc_info=True,
+        )
         return 0
 
 
@@ -920,6 +949,10 @@ def regenerate_in_spanish(text: str) -> Optional[str]:
         text_out = (body.get("choices") or [{}])[0].get("message", {}).get("content", "")
         return text_out.strip() or None
     except Exception:
+        _log.warning(
+            "regenerate_in_spanish fallo -- la respuesta puede quedar en ingles",
+            exc_info=True,
+        )
         return None
 
 
