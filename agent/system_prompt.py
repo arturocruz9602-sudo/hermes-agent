@@ -185,6 +185,17 @@ def _memoria_como_indice(bloque: str) -> str:
             return bloque
         titulos = re.findall(r"^##\s+(.+?)\s*$", bloque, re.MULTILINE)
         if len(titulos) < 3:
+            # USER.md no usa encabezados "##": memory_tool.py separa las
+            # entradas con "§" (80 entradas en el archivo real de Arturo,
+            # 21,920 chars = ~5,480 tokens). Sin este segundo formato el
+            # perfil seguia viajando entero en cada vuelta.
+            entradas = [e.strip() for e in bloque.split("§") if e.strip()]
+            if len(entradas) >= 3:
+                titulos = [
+                    " ".join(e.split())[:110] + ("…" if len(" ".join(e.split())) > 110 else "")
+                    for e in entradas
+                ]
+        if len(titulos) < 3:
             # Sin secciones reconocibles no hay indice que construir; mejor
             # no tocar nada que mandar un resumen inutil.
             return bloque
