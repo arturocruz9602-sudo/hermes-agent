@@ -4,6 +4,24 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Cierre de la sesión nocturna + Plan de 24 horas armado (30 Jul 2026, mañana)
+
+Arturo despertó (8:58am), revisó lo de la cuenta `hermes_test` (creada
+y borrada la misma mañana -- pedido explícito de no repetir ese patrón,
+usar la cuenta QA ya autenticada en su lugar) y pidió una jornada larga
+nueva: 24 horas, ~60 puntos entre bloques/fases/pendientes, con
+investigación real antes de cada pieza, uso de la cuenta QA para
+pruebas, y verificación explícita contra su cuenta principal (motivo:
+pruebas externas previas nunca se implementaron ahí y eso ya causó
+fracasos que no quiere repetir). Plan completo, priorizado y auditado
+contra evidencia real (no contra el documento maestro solo), escrito en
+`docs/ESTADO.md` bajo "PLAN DE 24 HORAS" -- arrancar ahí en la próxima
+sesión. Resuelto de paso el Bloque 10 pendiente de anoche (SÍ ofrecer
+DeepSeek automático si cae la escalera gratuita completa), con
+investigación real: los alias `deepseek-chat`/`deepseek-reasoner` se
+retiraron el 24 jul 2026, pero `litellm/config.yaml` ya usa los nombres
+correctos (`deepseek-v4-flash`/`deepseek-v4-pro`), sin breakage real.
+
 ## Corrida autónoma de `/loop` (30 Jul 2026, madrugada) -- corrige la hipótesis del Bloque 1 del plan nocturno, cierra Bloque 6
 
 Arturo dormido; corrida sin supervisión siguiendo el PLAN NOCTURNO ya

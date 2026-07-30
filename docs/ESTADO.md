@@ -1,6 +1,231 @@
-# Estado de Hermes — actualizado 29 Jul 2026, madrugada del 30
+# Estado de Hermes — actualizado 30 Jul 2026, mañana
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
+
+## PLAN DE 24 HORAS (30-31 Jul 2026) — pedido explícito de Arturo, arrancar aquí
+
+Arturo pidió esta mañana (30 jul, ~9am, después de la sesión nocturna
+de `/loop`) una jornada larga: **24 horas, ~60 puntos** entre bloques,
+fases del HAS y pendientes -- no solo los bloques chicos de anoche,
+también fases completas. Instrucciones explícitas suyas, en orden de
+importancia:
+
+1. **Investigar en internet ANTES de tocar algo** -- permisos
+   necesarios, llaves de API necesarias, cambios recientes en las APIs
+   que se vayan a usar, bugs conocidos. Ya aplicado a lo primero de
+   este plan (ver Bloque 10 abajo) -- seguir el mismo patrón para cada
+   fase antes de empezarla, no asumir que la info de HAS.md sigue
+   vigente.
+2. **Usar la cuenta QA para pruebas reales** (`tools/telegram_userbot.py`,
+   ya autenticada y funcionando desde el 27 jul -- ver "OT-QA -- LOGIN
+   REAL COMPLETADO" más abajo en este archivo). Es la vía correcta para
+   probar contra el pipeline real de producción sin arriesgar la cuenta
+   ni la memoria real de Arturo -- reemplaza el intento de esta
+   madrugada de armar un usuario Linux aparte para pruebas (abandonado,
+   Arturo pidió explícitamente no repetir ese patrón).
+3. **Verificar que funciona también en la cuenta principal de Arturo,
+   no solo en la QA.** Motivo explícito de Arturo: pruebas externas
+   anteriores fallaron porque terminaron sin implementarse nunca en la
+   cuenta real. Cualquier cosa que se valide en QA debe terminar
+   confirmada (o desplegada) contra la cuenta principal antes de darse
+   por cerrada -- una prueba que solo vive en QA no cuenta como cerrada.
+4. **Nunca crear cuentas/entornos de prueba nuevos ni pedir
+   contraseñas/passphrases nuevas sin preguntar primero.** Lección de
+   esta misma madrugada (cuenta `hermes_test` creada y luego borrada,
+   passphrase de bóveda pedida sin necesidad real) -- Arturo lo marcó
+   como algo que no quiere que se repita.
+5. **PROTOCOLO §9.3 -- una decisión por respuesta, con recomendación
+   incluida.** Aplica sobre todo lo demás de este plan. Si algo necesita
+   su input, es UNA pregunta con recomendación, nunca un menú de
+   opciones ni varias preguntas juntas.
+6. **Apegarse a los 4 archivos del proyecto** (`docs/HAS.md`,
+   `docs/PROTOCOLO.md`, `/home/arturo/.hermes/CLAUDE.md`,
+   `/home/arturo/.hermes/hermes-agent/CLAUDE.md`) como autoridad --
+   ante cualquier duda de qué hacer o cómo, son la referencia, no
+   supuestos.
+7. **Chunking de siempre:** nunca todo de un golpe. Bloques chicos,
+   checkpoint (commit + docs) entre cada uno, exactamente como la
+   sesión de esta madrugada -- que fue productiva y Arturo no la
+   corrigió en su forma, solo en el tema de las contraseñas/decisiones.
+
+### Bloque 10 (pendiente de anoche) -- RESUELTO esta mañana, listo para construir
+
+Arturo confirmó explícitamente: **SÍ quiere que Hermes ofrezca DeepSeek
+automáticamente** (sin preguntar "¿autorizo?" cada vez) cuando la
+escalera gratuita completa (Gemini + Groq + OpenRouter) esté caída al
+mismo tiempo -- el hallazgo AA.3 histórico documentado en este mismo
+archivo (buscar "AA.3" más abajo).
+
+**Investigado esta mañana, antes de tocar nada (como pidió Arturo):**
+búsqueda real sobre el estado actual de la API de DeepSeek (30 jul
+2026) -- hallazgo importante: **los alias `deepseek-chat` y
+`deepseek-reasoner` se retiraron el 24 de julio de 2026** (hace 6 días),
+reemplazados por `deepseek-v4-flash` y `deepseek-v4-pro` como los
+únicos modelos oficiales vigentes. **Verificado en disco: no hay
+breakage real** -- `~/.hermes/litellm/config.yaml` ya usa
+`deepseek/deepseek-v4-flash` y `deepseek/deepseek-v4-pro` (nombres
+correctos, líneas 31/35), no los alias viejos. Único residuo: menciones
+sueltas a "deepseek-chat/flash" como ejemplo informal en
+`CLAUDE.md`/`docs/HAS.md` (texto, no config real) -- terminología
+desactualizada, sin urgencia, corregir de paso si se toca ese texto por
+otra razón.
+
+**Dónde construir el fix real:** el hallazgo AA.3 dice que hoy "Tarea E
+se queda en silencio" cuando toda la escalera gratuita cae -- buscar el
+mecanismo de autoevaluación/oferta de Tarea E (`agent/complexity_detector.py`,
+ver Bloque O en `docs/BLOQUES.md` para contexto de cómo funciona la
+oferta hoy) y agregar la rama: si Gemini+Groq+OpenRouter fallan Y la
+autoevaluación de Tarea E también depende de Gemini (cae a un default
+que hoy suprime la oferta) -> usar DeepSeek directo para la
+autoevaluación Y ofrecer el despacho, sin pedir el "sí, autorizo
+DeepSeek" de la regla L17 (esa regla sigue vigente para TODO lo demás,
+esta es la única excepción, igual que la excepción ya documentada para
+el reporte semanal de `/memoria`). **Actualizar `CLAUDE.md` (root) con
+esta nueva excepción permanente, mismo formato que las 2 que ya
+existen ahí, en cuanto se confirme el fix funcionando.**
+
+**Prueba real antes de cerrar:** con la cuenta QA, simular los 3
+proveedores caídos (mismo patrón que Bloque 8/R.8 de anoche) y
+confirmar que SÍ ofrece DeepSeek sin preguntar, y que el gasto real
+queda en el ledger etiquetado correctamente (no como prueba). Verificar
+también en la cuenta principal de Arturo con un caso controlado antes
+de cerrar el bloque (regla 3 de arriba).
+
+### Estado real de las Fases del HAS (auditado contra evidencia esta
+mañana, no contra el documento maestro solo -- regla K.0)
+
+- **Fase 0 (caja fuerte)** -- ✅ CERRADA, sin cambios desde el 22 jul.
+- **Fase 0.5 (emergencia de credenciales)** -- ✅ CERRADA (23 jul).
+- **Fase 1 (fugas urgentes)** -- ✅ CERRADA ("Fase 1 / OT-1 completa",
+  confirmado en este archivo).
+- **Fase 2 (blindaje y actualización a 0.19.x)** -- ✅ CERRADA DE
+  VERDAD (27-28 jul, los 6 pasos + corte a producción confirmados).
+- **Fase 3 (ciclo de vida de skills)** -- ✅ CERRADA COMPLETA (28 jul,
+  los 5 bloques de OT-3).
+- **Fase 4 (memoria que encuentra)** -- **~95%, un gap real conocido.**
+  Índice semántico (FTS5+vector, retrieval híbrido con ranking
+  recencia·relevancia·importancia), inyección automática al contexto,
+  diario de reflexión (semanal Y nocturno desde anoche), reindexado
+  nocturno automático, aprobación de candidatos por Telegram, y ahora
+  detección de patrón repetido (B9, anoche) -- todo construido y
+  verificado con evidencia real. **Gap real, documentado, no
+  fabricado:** Obsidian vive en la MacBook remota sin canal de sync
+  hacia esta HP -- la prueba E2E literal del HAS ("SSH a la MacBook,
+  565 notas") nunca se pudo correr por esto. Necesita decisión de
+  Arturo: ¿rsync periódico, montaje remoto, algo más? Investigar
+  opciones actuales antes de proponer.
+- **Fase 5 (tablero central y cola garantizada)** -- **EN CURSO.**
+  Cola de tareas v2 (máquina de estados, reintentos, watchdog) ✅
+  CERRADA (29 jul, la más compleja de las 4 tareas de ese día). Tablero
+  de Notion: 1/6 vistas construidas y verificadas esta madrugada
+  ("Avance HAS", sync cada 15 min). Faltan 5: Hoy, Kanban espejo,
+  Finanzas, Escuela -- bloqueadas en que Arturo comparta sus bases de
+  Notion existentes con la integración (Finanzas/Escuela) y decida
+  diseño (Kanban/Cola: ¿base nueva o reusar "Proyectos"?). **Checklist
+  diario (B11, mencionado en el entregable de Fase 5) -- sin verificar
+  si existe, confirmar antes de construir de nuevo (regla K.0).**
+- **Fases 6-11 (tutor académico, archivo/finanzas, video, proactividad,
+  trading, voz/USB)** -- **NO iniciadas.** Cada una es, por el propio
+  esfuerzo estimado en `docs/HAS.md` sección C, de 2 a 6 sesiones de
+  ~2h -- honesto decirlo: completar las 6 fases enteras no cabe en 24h.
+  Lo que SÍ cabe y es real: dejar cada una con su primera pieza
+  concreta construida y verificada (ver punch list abajo), no solo
+  planeada.
+
+### Punch list priorizada (~60 puntos entre bloques/fases/pendientes)
+
+Orden sugerido -- no rígido, pero si se reordena, decir por qué (regla
+de anoche). Cada punto es chico a propósito, mismo principio de
+chunking. `[Arturo]` = necesita su input/permiso/API key antes de
+empezar; `[QA]` = usar la cuenta QA para la parte de prueba real;
+`[investigar primero]` = confirmar info actual antes de construir.
+
+**Cierres pendientes de anoche (5 puntos):**
+1. Bloque 10 -- construir + probar el fix de DeepSeek (detalle arriba). `[QA]`
+2. Bloque 2 paso 5 -- prueba de restauración real. Repensar el enfoque
+   sin usuario Linux aparte (regla 4) -- posible alternativa: contenedor
+   efímero si se justifica, o aceptar que esta prueba específica se
+   hace en otra sesión con Arturo activamente presente todo el proceso.
+   `[Arturo]` `[investigar primero: alternativas a un usuario Linux nuevo]`
+3. Fase 5 -- confirmar si el checklist diario (B11) ya existe antes de
+   construirlo.
+4. Fase 4 -- investigar opciones reales de sync Obsidian↔MacBook↔HP
+   (rsync por Tailscale, Syncthing, montaje SSHFS) antes de proponer. `[investigar primero]`
+5. Bloque 8 (anoche) -- R.8 (ráfaga 20 entradas) y S.8 (inyección
+   adversarial contra `memoria_hecho_tool`) con la cuenta QA. `[QA]`
+
+**Fase 5, resto del tablero (5 puntos):**
+6. Vista "Hoy" (checklist del día) -- confirmar fuente de datos real (kanban+horario+metas) antes de construir.
+7. Vista "Kanban espejo" -- decisión previa de Arturo (base nueva vs "Proyectos"). `[Arturo]`
+8. Vista "Cola de tareas" -- mismo bloqueo que 7, o puede ir en base nueva sin esperar. `[Arturo]`
+9. Vista "Finanzas" -- necesita que Arturo comparta su base Notion existente. `[Arturo]`
+10. Vista "Escuela" -- mismo bloqueo que Finanzas, comparte con Fase 6 (horario). `[Arturo]`
+
+**Fase 6 -- Tutor académico, primera pieza real (≈8 puntos):**
+11. Investigar API de Google Classroom vigente (scopes, cambios 2026) antes de tocar nada. `[investigar primero]`
+12. Ingesta de horario por foto -> tabla `horario` en state.db (Gemini Vision).
+13. Vista "Escuela" en Notion alimentada por la tabla real (junta con punto 10).
+14. Flujo pizarrón: foto+descripción -> carpeta `biblioteca/escuela/<materia>/`.
+15. Identificación de tema + investigación (Brave+Gemini) + explicación pedagógica.
+16. Registro de tema visto + detección de tareas -> kanban.
+17. Prueba real con una foto de horario y una de pizarrón reales (o con la cuenta QA simulando). `[QA]`
+18. Integración Classroom -- solo el monitoreo/lectura primero, NUNCA entrega automática (regla dura del HAS).
+
+**Fase 7 -- Archivo permanente y finanzas, primera pieza real (≈6 puntos):**
+19. Investigar si `retention_class=permanent` ya existe en el esquema `media_files` (Fase 1 lo creaba) antes de rehacer. `[investigar primero]`
+20. Árbol `biblioteca/` -- confirmar estructura real vs la propuesta en HAS §E2.
+21. Clasificador de entrada (foto -> ticket/familiar/escuela/contenido/otro).
+22. Flujo tickets: extraer monto+categoría -> tabla `gastos`.
+23. Fotos familiares -> `biblioteca/familia/AAAA/` con confirmación de guardado.
+24. Prueba real con una foto de ticket real o simulada vía QA. `[QA]`
+
+**Fase 8 -- Producción de video, primera pieza real (≈6 puntos):**
+25. Investigar API de scripting actual de DaVinci Resolve Studio (cambios 2026) antes de tocar nada. `[investigar primero]`
+26. Confirmar acceso SSH real a la M1 (¿sigue vigente desde Fase 11 SSH/Tailscale de anoche?).
+27. Corte de silencios v2 con verificación anti-destrucción de habla (E6) -- confirmar si v1 ya existe.
+28. Script `alista_setup` -- versión mínima sin hardware nuevo (enchufe inteligente es opcional, no bloqueante).
+29. Prueba real con un video de prueba corto.
+30. NO tocar renderizado/efectos -- regla dura del HAS (solo deja el proyecto abierto para revisión de Arturo).
+
+**Fase 9 -- Proactividad, primera pieza real (≈5 puntos):**
+31. Motor de reglas explícitas ("recuérdame X los domingos 8pm") sobre el scheduler existente.
+32. Prueba real: una regla dispara correctamente. `[QA]`
+33. Detección espontánea de compromisos en conversación -- SOLO el periodo de entrenamiento "¿la anoto?" primero, no automático todavía (regla dura: 2 semanas de entrenamiento antes de automatizar).
+34. Selección de canal por contexto (Telegram vs voz) -- confirmar si Piper ya está conectado al gateway (Fase 1 lo prometía).
+35. Seguimiento semanal de metas -- versión mínima, un solo check-in de prueba.
+
+**Fase 10 -- Trading en papel, primera pieza real (≈6 puntos):**
+36. Investigar API pública actual de Binance (testnet spot) y CoinGecko -- cambios de auth/rate limits 2026. `[investigar primero]`
+37. Confirmar si Arturo ya tiene llaves de testnet de Binance. `[Arturo]`
+38. Feed de datos básico (precio + noticias) sin ejecutar nada todavía.
+39. Motor de estrategia determinista v1, versionado.
+40. Registro por operación en state.db (esquema nuevo).
+41. **NUNCA activar dinero real** -- regla dura explícita del HAS, la fase real no se activa hasta cumplir criterios de B4.
+
+**Fase 11 -- Voz y USB-llave, primera pieza real (≈5 puntos):**
+42. USB-llave -- esto NO depende de la Mac Mini, se puede adelantar. Investigar VeraCrypt vigente 2026 antes de construir. `[investigar primero]`
+43. Bóveda VeraCrypt del USB -- diseño mínimo.
+44. Lanzador para Linux (el que Arturo más usa hoy) primero, Windows/Mac después.
+45. Confirmar si la Mac Mini ya se compró (voz completa depende de esto). `[Arturo]`
+46. Skills de ciberseguridad doméstica (E7) -- auditar qué ya existe antes de construir.
+
+**Pendientes sueltos, cualquier momento libre (≈10 puntos):**
+47. Residuo de anoche: 15 filas duplicadas de reflexión en `memoria_semantica.db` (Bloque 3) -- preguntar a Arturo si limpiar o dejar. `[Arturo]`
+48. Hallazgo de anoche: `tarea_i_allowlist_cleared` falla en `has_progress.py` -- investigar si es regresión real.
+49. `uv.lock` desincronizado de `pyproject.toml` (pyfakefs agregado, lock no regenerado por un diff de 633 líneas no relacionado) -- investigar con calma, revisar el diff completo antes de aceptarlo.
+50. Falso positivo del guard `hermes-guard.sh` (`.db` + "delete"/"drop" en prosa normal dispara la regla DROP/DELETE) -- proponer un patrón más preciso, NO tocar el hook sin aprobación.
+51. Vault de credenciales duplicado: `tools/vault_tool.py` (scrypt+AES-GCM, existente) vs `scripts/bovedar_secretos.py` (age, de anoche) -- decisión pendiente de Arturo sobre unificar. `[Arturo]`
+52. Confirmar 3 noches seguidas de `hermes-memoria-index.timer` sin intervención (verificable ya, pasaron varias noches).
+53. Revisar si `cleanup_audio_cache()` (Fase 1) sigue funcionando con datos reales de hoy.
+54. cron `vigilar_hermes.sh` silencioso (Fase 0.5) -- confirmar que sigue eliminado/reparado.
+55. Verificar rotación de credenciales de la fuga vieja (Bloque 7 de anoche, sin cerrar del todo).
+56. Revisar si Whisper->gateway (Fase 1) sigue conectado con una nota de voz real. `[QA]`
+57. `allowed_fails` distinguiendo rate-limit de error duro (Fase 1) -- confirmar que sigue vigente.
+58. Systemd: revisar que los 2 timers nuevos de esta mañana (Notion, reflexión nocturna) sigan sanos tras las primeras corridas reales.
+59. Documentación: `docs/RECUPERACION.md` -- actualizar con la lección de esta mañana (usuario Linux aparte no es el camino, replantear paso 5).
+60. Barrido general: `grep -rn "TEMP-DIAG"` + `git status` limpio antes de cerrar cada bloque, como siempre.
+
+---
 
 ## Avance autónomo de la madrugada (30 Jul 2026, corrida de `/loop`)
 

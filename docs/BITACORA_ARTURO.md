@@ -258,6 +258,28 @@ base "Proyectos" que ya existe?
 
 ---
 
+## 30 Jul 2026 (mañana) — Corregí cómo te pido permisos, y dejé un plan de 24 horas listo
+
+Esta mañana me corregiste dos cosas justas: te estaba pidiendo
+contraseñas nuevas sin necesidad y sin explicarte bien por qué, y te
+estaba aventando decisiones (con menús de opciones) en vez de darte una
+sola recomendación clara. Ya quedó anotado para no repetirlo -- de aquí
+en adelante: una decisión por mensaje, con mi recomendación, para que
+"ok" te baste.
+
+**Dejé listo el plan de 24 horas que pediste** (`docs/ESTADO.md`,
+sección "PLAN DE 24 HORAS") -- ~60 puntos entre lo que quedó pendiente
+de anoche, las fases completas del HAS, y usando tu cuenta QA para
+probar sin arriesgar tu cuenta real. Ya investigué lo primero (el
+DeepSeek automático que confirmaste que sí quieres) antes de tocar
+nada: DeepSeek cambió de nombres de modelo hace 6 días, pero tu
+configuración ya usa los nombres correctos -- no hay nada roto ahí.
+
+**Notas de Arturo:**
+
+
+---
+
 ## 29 Jul 2026 (noche) — Los 3 documentos que me pasaste: qué se queda, y el pendiente real que encontramos
 
 Revisamos juntos 3 análisis externos de Hermes. La mayoría de las ideas ya
