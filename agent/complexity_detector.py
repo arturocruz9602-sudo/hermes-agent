@@ -186,8 +186,11 @@ def fetch_context_summary(query: str, *, max_results: int = 3) -> Optional[str]:
 # ya normalizado, sea una de un set corto y conocido de respuestas sí/no.
 # Cualquier mensaje ambiguo devuelve None (fail-safe: no se asume nada).
 
+import logging
 import time
 from typing import Optional, Set
+
+_log = logging.getLogger(__name__)
 
 CATEGORY_LABELS: Dict[str, str] = {
     "1_razonamiento": "una decisión o análisis complejo",
@@ -415,35 +418,61 @@ def check_pending_reply(
 
 def _resolve_litellm_credentials() -> "tuple[str, str]":
     """Mismo mecanismo real usado en el resto del proyecto (fase2_extract_
-    candidates.py, gateway/run.py) -- custom_providers['LiteLLM'] +
-    expansion manual de ${VAR}, porque hermes_cli.model_switch no expande
-    esos placeholders."""
+    candidates.py, gateway/run.py) -- expansion manual de ${VAR}, porque
+    hermes_cli.model_switch no expande esos placeholders.
+
+    Lee las credenciales de LiteLLM de las DOS formas validas en que
+    config.yaml las puede guardar, en este orden:
+      1. entrada 'LiteLLM' de custom_providers (forma historica), y
+      2. la seccion `model:` con base_url/api_key en linea.
+    El fallback (2) nace de un incidente real del 30 jul 2026: se
+    restauro `config.yaml.known-good` (4 jul), que guarda las mismas
+    credenciales en `model:` y NO tiene entrada en custom_providers.
+    Con solo la forma (1), esta funcion lanzaba, _call_cheap_model_json
+    se lo tragaba en silencio y TODA la autoevaluacion de Tarea E caia
+    al default fail-safe sin una sola linea de log -- verificado en vivo
+    con 8/8 casos devolviendo el default identico."""
     import os as _os
     from hermes_cli.config import load_config
     from hermes_cli.env_loader import load_hermes_dotenv
 
     load_hermes_dotenv()
     cfg = load_config()
-    custom_provs = (cfg.get("custom_providers") if isinstance(cfg, dict) else None) or []
-    entry = next(
-        (p for p in custom_provs if isinstance(p, dict) and p.get("name") == "LiteLLM"),
-        None,
-    )
-    if entry is None:
-        raise RuntimeError("custom_providers entry 'LiteLLM' no encontrada en config.yaml")
 
     def expand(value: str) -> str:
         return re.sub(
             r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}",
             lambda m: _os.environ.get(m.group(1), ""),
-            value,
+            str(value),
         )
 
-    base_url = expand(str(entry.get("base_url", "")))
-    api_key = expand(str(entry.get("api_key", "")))
-    if not base_url or not api_key:
-        raise RuntimeError("base_url o api_key vacios tras resolver ${VAR}")
-    return base_url, api_key
+    custom_provs = (cfg.get("custom_providers") if isinstance(cfg, dict) else None) or []
+    entry = next(
+        (p for p in custom_provs if isinstance(p, dict) and p.get("name") == "LiteLLM"),
+        None,
+    )
+    candidatos = []
+    if entry is not None:
+        candidatos.append(("custom_providers['LiteLLM']", entry))
+    model_cfg = (cfg.get("model") if isinstance(cfg, dict) else None) or {}
+    if isinstance(model_cfg, dict):
+        candidatos.append(("model:", model_cfg))
+
+    for origen, fuente in candidatos:
+        base_url = expand(fuente.get("base_url", ""))
+        api_key = expand(fuente.get("api_key", ""))
+        if base_url and api_key:
+            return base_url, api_key
+        _log.warning(
+            "credenciales de LiteLLM incompletas en %s (base_url=%s, api_key=%s)",
+            origen, bool(base_url), bool(api_key),
+        )
+
+    raise RuntimeError(
+        "credenciales de LiteLLM no encontradas en config.yaml: ni en "
+        "custom_providers['LiteLLM'] ni en la seccion model: "
+        "(revisar config.yaml y ${LITELLM_MASTER_KEY} en .env)"
+    )
 
 
 def _call_cheap_model_json(prompt: str, *, max_tokens: int = 300) -> Optional[dict]:
@@ -473,8 +502,19 @@ def _call_cheap_model_json(prompt: str, *, max_tokens: int = 300) -> Optional[di
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw)
         parsed = _json.loads(raw)
-        return parsed if isinstance(parsed, dict) else None
+        if not isinstance(parsed, dict):
+            _log.warning(
+                "modelo barato devolvio JSON que no es objeto (%s) -- se usa el default",
+                type(parsed).__name__,
+            )
+            return None
+        return parsed
     except Exception:
+        # HAS §F9-L6/L14: el silencio nunca es un estado valido de fallo.
+        # Antes esto devolvia None sin log alguno, y quien llama cae a su
+        # default fail-safe -- indistinguible de "el modelo dijo que todo
+        # bien". Asi murio Tarea E entera el 30 jul 2026 sin dejar rastro.
+        _log.warning("fallo la llamada al modelo barato -- se usa el default", exc_info=True)
         return None
 
 
@@ -657,7 +697,17 @@ presentadas, PORQUE la decisión depende de su preferencia personal o
 afecta algo que solo él debe decidir (ej. reiniciar su propia sesión o
 no, elegir entre A o B cuando ambas son válidas y correctas, autorizar
 un gasto o una acción). Ahí no te faltó nada real -- preguntarle a él es
-la respuesta correcta, no una respuesta incompleta. Reserva
+la respuesta correcta, no una respuesta incompleta.
+
+Esto incluye el caso en que el mensaje es tan vago que NO se puede
+resolver sin más información del usuario (ej. "ayuda", "tengo un
+problema", "no sirve"): si le pediste que concrete, resolvi_con_confianza=true
+-- lo que falta ahí es información que SOLO él tiene, no capacidad tuya,
+y un modelo más caro tampoco lo adivinaría. Distinto es cuando lo que
+falta lo podías averiguar TÚ (ej. "logs?" -> dónde están los logs se
+revisa en el sistema): eso sí es resolvi_con_confianza=false.
+
+Reserva
 resolvi_con_confianza=false para cuando TÚ deberías haber podido decidir
 o afirmar algo con la información que ya tenías, y no lo hiciste
 (lenguaje de duda, causas sin diagnosticar, technical open questions que

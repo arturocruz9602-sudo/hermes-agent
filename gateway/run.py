@@ -9550,31 +9550,16 @@ class GatewayRunner(
         # contra os.environ para la entrada "LiteLLM" de custom_providers
         # -- confirmado con una llamada real a chat-fallback2 antes de
         # aplicar este diff.
+        # 30 jul 2026: se resolvia aqui a mano leyendo SOLO
+        # custom_providers['LiteLLM'], que es una de las dos formas validas
+        # en que config.yaml guarda estas credenciales -- al restaurarse
+        # config.yaml.known-good (que las guarda en `model:`) esta ruta
+        # empezaba a fallar. Ahora reusa la funcion canonica, que conoce
+        # ambas formas.
         try:
-            from hermes_cli.config import load_config
+            from agent.complexity_detector import _resolve_litellm_credentials
 
-            cfg = load_config()
-            custom_provs = (cfg.get("custom_providers") if isinstance(cfg, dict) else None) or []
-            litellm_entry = next(
-                (p for p in custom_provs if isinstance(p, dict) and p.get("name") == "LiteLLM"),
-                None,
-            )
-            if litellm_entry is None:
-                raise RuntimeError("custom_providers entry 'LiteLLM' no encontrada en config.yaml")
-
-            def _expand_env_var(value: str) -> str:
-                return re.sub(
-                    r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}",
-                    lambda m: os.environ.get(m.group(1), ""),
-                    value,
-                )
-
-            resolved_base_url = _expand_env_var(str(litellm_entry.get("base_url", "")))
-            resolved_api_key = _expand_env_var(str(litellm_entry.get("api_key", "")))
-            if not resolved_base_url or not resolved_api_key:
-                raise RuntimeError(
-                    "base_url o api_key vacios tras resolver ${VAR} -- revisar .env"
-                )
+            resolved_base_url, resolved_api_key = _resolve_litellm_credentials()
         except Exception:
             logger.exception(
                 "Fallo resolviendo credenciales de DeepSeek para pendiente id=%s", row_id,
@@ -11599,31 +11584,13 @@ class GatewayRunner(
                     "no evento interno -- verificado por el guard del 20 Jul)"
                 ),
             )
+            # 30 jul 2026: misma correccion que en la ruta de Tarea D de
+            # arriba -- la funcion canonica lee las credenciales tanto de
+            # custom_providers['LiteLLM'] como de la seccion `model:`.
             try:
-                from hermes_cli.config import load_config
+                from agent.complexity_detector import _resolve_litellm_credentials
 
-                cfg = load_config()
-                custom_provs = (cfg.get("custom_providers") if isinstance(cfg, dict) else None) or []
-                litellm_entry = next(
-                    (p for p in custom_provs if isinstance(p, dict) and p.get("name") == "LiteLLM"),
-                    None,
-                )
-                if litellm_entry is None:
-                    raise RuntimeError("custom_providers entry 'LiteLLM' no encontrada en config.yaml")
-
-                def _te_expand_env_var(value: str) -> str:
-                    return re.sub(
-                        r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}",
-                        lambda m: os.environ.get(m.group(1), ""),
-                        value,
-                    )
-
-                _te_resolved_base_url = _te_expand_env_var(str(litellm_entry.get("base_url", "")))
-                _te_resolved_api_key = _te_expand_env_var(str(litellm_entry.get("api_key", "")))
-                if not _te_resolved_base_url or not _te_resolved_api_key:
-                    raise RuntimeError(
-                        "base_url o api_key vacios tras resolver ${VAR} -- revisar .env"
-                    )
+                _te_resolved_base_url, _te_resolved_api_key = _resolve_litellm_credentials()
 
                 # Bloque L.3 (22 Jul 2026): despacho MINIMO real, ya NO
                 # reusa la sesion completa via adapter.handle_message()

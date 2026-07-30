@@ -84,6 +84,38 @@ def test_greeting_with_no_real_question_does_not_offer():
     assert should_offer_v2(assessment) is False
 
 
+def test_vague_request_needing_user_input_does_not_offer():
+    """Regression (2026-07-30): "ayuda" -> "dime qué necesitas" was scored
+    resolvi_con_confianza=false, offering paid DeepSeek on a message with
+    nothing to resolve. What's missing there is information only Arturo has;
+    a pricier model wouldn't guess it either. JSON below is what the real
+    model returned after extending EXCEPCIÓN 1 to cover this case."""
+    assessment = _assess_with(
+        {"resolvi_con_confianza": True, "multivariable": False, "que_me_falto": None},
+        user_message="ayuda",
+        response="Claro, puedo ayudarte con muchas cosas. Dime más o menos qué necesitas y vemos.",
+    )
+    assert should_offer_v2(assessment) is False
+
+
+def test_one_word_question_with_vague_answer_still_offers():
+    """Counterpart to the two exceptions above -- they must not swallow real
+    questions. "logs?" answered with "están por ahí, habría que revisar" is a
+    genuine gap Hermes could have closed itself (look it up on the system),
+    so the offer must still fire. Real model output, verified live."""
+    assessment = _assess_with(
+        {
+            "resolvi_con_confianza": False,
+            "multivariable": False,
+            "que_me_falto": "información específica sobre la ubicación de los logs",
+        },
+        user_message="logs?",
+        response="Sí, hay logs. Están por ahí en el sistema, creo que en journalctl "
+        "o quizá en la carpeta de Hermes, habría que revisar.",
+    )
+    assert should_offer_v2(assessment) is True
+
+
 def test_call_failure_is_fail_safe_default():
     """_call_cheap_model_json returning None (any internal error) must default
     to resolvi_con_confianza=True -- never offer by default on failure."""
