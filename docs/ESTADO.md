@@ -2,6 +2,41 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
+## INVENTARIO DE APIs (30 jul, 17:40) — qué paga Arturo y qué está encendido
+
+Pregunta de Arturo: *"qué pueden hacer por mí las APIs que ya tenemos"*.
+**Corrección de método:** mi primer barrido dijo "6 llaves sin usar" —
+era falso, solo miré `hermes-agent/`, `scripts/` y `litellm/`, sin
+`skills/` ni `plugins/`. Tercer error del día por un grep estrecho.
+
+**Encendido para Telegram** (`platform_toolsets.telegram`):
+`clarify, code_execution, context_engine, cronjob, file, memory,
+session_search, skills, terminal, todo, tts, web`
+`toolsets` global: solo `kanban`.
+
+| Llave en `.env` | Estado real |
+|---|---|
+| `BRAVE_SEARCH_API_KEY` | ✅ **VIVA** — `web.backend: brave-free`, plugin `plugins/web/brave_free/` |
+| `GEMINI_*` | ✅ viva (chat, vision, voice) |
+| `DEEPSEEK_API_KEY` | ✅ viva, ahora es la principal |
+| `GROQ` / `OPENROUTER` | ✅ vivas, de respaldo |
+| `ELEVENLABS_API_KEY` | ⚠️ **NO SE USA** — `tts.provider: gemini`. Solo aparece en SKILL.md. **Si Arturo paga esto, es dinero tirado — verificar y cancelar.** |
+| `NOTION_API_KEY` | ⚠️ plugin/skill existe, **no está en toolsets**. HAS Fase 5 lo necesita. |
+| `HASS_URL` | ⚠️ plugin real (`plugins/platforms/homeassistant/adapter.py`), apagado. |
+| `BROWSERBASE_*` | ⚠️ plugin existe; el toolset `browser` se quitó en Bloque AL por no aparecer NI UNA VEZ en el HAS. |
+
+**Sobre "agentes de reparación automática que no gastan dinero"** (lo que
+le contaron a Arturo): **ya existe.** `~/.hermes/scripts/watchdog.sh`,
+corre **cada 3 min** vía `hermes-watchdog.timer`, no requiere aprobación
+y no consume cuota (lee los logs reales del proxy en vez de hacer
+llamadas de prueba). Detecta 6 condiciones, incluida cuota agotada de
+Gemini+Groq. **Advertencia:** es el mismo que rompió la config 15 veces
+por el falso positivo del `401` — arreglado hoy (Bloque AH). Un
+auto-reparador con detección laxa hace más daño que no tenerlo.
+
+**Pendiente de investigar:** buscar en internet si hay más patrones de
+auto-reparación aplicables (Arturo lo pidió explícitamente).
+
 ## ⚑ MANDATO VIGENTE (30 jul 2026) — SOBREVIVE A CUALQUIER `/clear`
 
 Arturo dio autorización amplia. Analogía suya: *"te estoy dejando mi moto
