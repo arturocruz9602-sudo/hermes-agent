@@ -176,6 +176,19 @@ contra los proveedores reales está fuera de alcance de una auditoría de
 lectura) -- necesita que Arturo confirme directamente, o que se pruebe
 cada llave vieja y se verifique 401/403 real.
 
+**Investigado esta noche, hallazgo con fecha límite real:** a partir del
+**19 de junio de 2026, Google bloquea las llamadas a la API de Gemini
+hechas con llaves sin restricción a nivel de API configurada** -- una
+llave marcada "cualquier API" en Google Cloud Console deja de funcionar
+con los endpoints de Gemini. Esa fecha ya pasó (estamos a 29 de julio).
+**Verificar primero, antes de cualquier otra cosa de este bloque:** entrar
+a Google Cloud Console y confirmar que la llave de Gemini que usa Hermes
+hoy tiene la restricción "Generative Language API" activada -- si no la
+tiene, puede llevar semanas fallando en silencio o a punto de fallar, y
+sería la explicación más simple y barata de revisar antes de sospechar
+otra cosa. [Fuente: búsqueda de julio 2026 sobre cambios de política de
+Gemini API.]
+
 ### Bloque 8 — Automatizar como pruebas reales los 4 casos nuevos de `GUION_PRUEBAS.md`
 
 R.8 (ráfaga), R.9 (reloj/suspensión), R.10 (disco lleno) y S.8
@@ -184,6 +197,16 @@ descripción esta noche, no como test ejecutable. Implementarlos de
 verdad sobre el arnés E2E (`tests/e2e/hermes_harness.py`), mismo patrón
 que ya usan R.1/R.7 (marcados 🔁, ya automatizados) -- no inventar un
 mecanismo nuevo de pruebas.
+
+**Investigado esta noche -- librerías correctas para R.9/R.10 (no
+inventar mocks a mano):** `freezegun` para simular cambio de reloj del
+sistema/suspensión (congela o mueve `datetime.now()` sin tocar el reloj
+real de la HP) y `pyfakefs` para simular disco lleno (sistema de
+archivos falso en memoria donde se puede forzar `ENOSPC` sin arriesgar
+el disco real). Ninguna de las dos está instalada todavía (`pip show`
+confirma que faltan) -- agregar como dependencia de pruebas
+(`requirements-dev`/extra de test, no a producción) antes de escribir
+R.9/R.10.
 
 ### Bloque 9 — Discrepancia real encontrada esta noche: `sessions.message_count` no coincide con los mensajes reales
 
