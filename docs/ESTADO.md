@@ -308,6 +308,29 @@ de horario en un timer con `Persistent=true`.
 Respaldo de los 3 archivos modificados en
 `~/.hermes/backups/scripts/` antes de tocarlos (regla del HAS).
 
+**Hallazgo real adicional (30 jul, verificando que el timer nocturno de
+reflexión funcionara solo): bug de duplicados + residuo sin limpiar.**
+Detalle completo con evidencia en `~/.hermes/CHANGELOG_SISTEMA.md`
+(entrada de esta madrugada). Resumen: una corrida manual de prueba y la
+corrida real del timer, 13 min aparte el mismo día, insertaron
+observaciones de reflexión duplicadas -- `add_chunk()` no tiene
+constraint de unicidad sobre `source_ref`. Arreglado en
+`memoria_diario_reflexion.py` (chequeo `_ya_reflexiono_hoy()` antes de
+generar, `source_ref` ahora incluye la ventana en días para no
+confundir la reflexión nocturna con la semanal el mismo día calendario)
+y **verificado en vivo** que una segunda corrida se salta sola sin
+duplicar.
+
+**Residuo real, SIN limpiar, pendiente de que Arturo decida:**
+`memoria_semantica.db` quedó con 15 filas de reflexión para el 30 jul
+en vez de 5 (el fix llegó después de que ya existieran duplicados en el
+formato viejo de `source_ref`, que el chequeo nuevo no reconoció a
+tiempo). Impacto evaluado como bajo -- son observaciones, no hechos
+verificables, y no se intentó borrar por SQL directo (el guard de
+seguridad lo bloquea a propósito; tampoco existe hoy una herramienta
+tipo `memory_tool.py` para chunks del índice semántico). Se deja
+explícito en vez de intentar un rodeo.
+
 **Hallazgo chico real, sin arreglar (falso positivo del guard):**
 `~/.claude/hooks/hermes-guard.sh` (regla 3, DROP/DELETE SQL directo)
 bloqueó el primer intento de commit de este paso porque el mensaje

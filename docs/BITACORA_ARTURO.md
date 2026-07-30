@@ -197,6 +197,18 @@ revisó un número y ya). Lo detecté, entendí por qué pasó, y lo corregí
 para que no se repita. Te lo cuento porque prefiero que sepas de los
 tropiezos chicos, no solo de lo que salió bien.
 
+**Segundo tropiezo, más chico, mismo espíritu de contártelo:** al
+probar que la reflexión nocturna funcionara sola, terminé corriéndola
+dos veces el mismo día sin querer (una prueba mía + la corrida real del
+timer, 13 minutos aparte) -- y resultó que nada evitaba que se
+duplicara. Ya arreglé la causa (ahora se salta sola si ya reflexionó
+hoy, lo probé y funciona). **Lo que NO hice:** borrar las observaciones
+duplicadas que ya quedaron de hoy -- son solo 15 filas de "observaciones
+sobre tu semana" en vez de 5, no información falsa ni nada delicado,
+pero borrar datos de tu memoria es algo que siempre te pregunto primero
+en vez de decidirlo solo. Si quieres que las limpie, dímelo; si no, se
+diluyen solas con el tiempo y no afectan nada importante.
+
 **Notas de Arturo:**
 
 
