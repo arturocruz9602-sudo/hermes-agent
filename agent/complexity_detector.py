@@ -907,10 +907,27 @@ def response_looks_like_english(text: str) -> bool:
     if not text:
         return False
     words = re.findall(r"[a-zA-ZáéíóúñÁÉÍÓÚÑ]+", text.lower())
-    if len(words) < 20:
-        return False
     es_hits = sum(1 for w in words if w in _SPANISH_STOPWORDS)
     en_hits = sum(1 for w in words if w in _ENGLISH_STOPWORDS)
+
+    # Textos CORTOS (30 jul 2026): el piso de 20 palabras + 5 stopwords
+    # dejaba pasar sin filtro TODA respuesta breve en ingles -- que son
+    # justo las que Arturo ve a diario ("Hello! How can I help you
+    # today?" = 7 palabras). Reportado por el en vivo: saludo en español,
+    # respuesta en ingles, y el enforcement de Bloque O.4 ni se entero
+    # (no habia una sola linea en el journal porque nunca se llamo).
+    # Verificado: 6 de 6 respuestas cortas en ingles pasaban, incluida
+    # una de 19 palabras.
+    # La regla corta pide MARGEN AMPLIO (el doble) en vez de cero
+    # stopwords españolas, porque varias son identicas en ambos idiomas
+    # ("me", "no", "a", "son"): exigir es_hits==0 dejaba pasar
+    # "...let me know what you need" por un solo "me". Con el margen, un
+    # texto en español con terminos tecnicos en ingles ("ya quedo el
+    # deploy") nunca dispara, y >=2 inglesas evita morder un error citado
+    # de una sola palabra.
+    if len(words) < 20:
+        return len(words) >= 4 and en_hits >= 2 and en_hits > 2 * es_hits
+
     return en_hits >= 5 and en_hits > es_hits
 
 
