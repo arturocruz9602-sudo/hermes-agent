@@ -76,10 +76,24 @@ Resumen para este registro:
   prueba, por la regla dura de `CLAUDE.md` de siempre preguntar antes
   de tocar credenciales reales.
 
+- **Bloque 2, paso 3/5 -- CERRADO.** `scripts/respaldar_skills_y_sistema.py`
+  (rsync de skills + copia de unidades systemd de Hermes), 5 pruebas,
+  corrida real: 1431/1431 archivos de skills + 14 unidades/overrides
+  systemd, verificado. Hallazgo real importante: ya existe un vault
+  distinto y en producción (`~/.hermes/boveda/entries.json.enc` vía
+  `tools/vault_tool.py`, Bloque T) para credenciales que Arturo pide a
+  Hermes recordar en conversación -- NO se tocó ni se mezcló con el
+  `bovedar_secretos.py` del paso 2 (ese es para `.env`/credenciales del
+  sistema, un propósito distinto). Queda pendiente para una sesión con
+  Arturo: ¿migrar `vault_tool.py` a `age` ahora que ya está instalado?
+  Bloque 2 va 3/5 -- faltan paso 4 (ensamblar `restaurar_hermes.sh`) y
+  paso 5 (prueba de restauración real).
+
 **Commits:** ver `git log` de esta fecha en `arturo/prod` (docs +
 `has_progress.py` vive fuera del repo, respaldo en
 `~/.hermes/backups/scripts/`; `scripts/respaldar_memoria.py`,
-`scripts/bovedar_secretos.py` y sus pruebas sí viven dentro del repo).
+`scripts/bovedar_secretos.py`, `scripts/respaldar_skills_y_sistema.py`
+y sus pruebas sí viven dentro del repo).
 
 ## Triaje de propuestas externas de arquitectura (HAS v1.6), CERRADO (29 Jul 2026, noche)
 

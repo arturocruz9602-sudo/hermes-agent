@@ -177,6 +177,51 @@ autonomía nocturna). El mecanismo ya está probado y listo; aplicarlo al
 después -- ¿se borra?, ¿se deja?, ¿dónde vive el `.age` resultante?) es
 una decisión suya, no algo para resolver solo a la 1am.
 
+**Bloque 2, paso 3/5 -- CERRADO (skills + timers/servicios systemd).**
+`scripts/respaldar_skills_y_sistema.py`: `rsync -a --delete` de
+`HERMES_HOME/skills` + copia de las unidades systemd de usuario
+relacionadas con Hermes (`hermes-*.service`/`.timer`, `litellm.service`,
+`media-saver.service`, y el directorio de overrides
+`hermes-gateway.service.d/`). "Índices" NO tiene archivo aparte que
+respaldar -- confirmado revisando `agent/memory_semantic.py` antes de
+asumirlo: la búsqueda semántica vive dentro de `memoria_semantica.db`
+(tabla `chunks_vec`), ya cubierta por el paso 1.
+
+**Hallazgo real importante, documentado en el propio script para que no
+se repita la confusión:** ya existe `~/.hermes/boveda/entries.json.enc`,
+gestionado por `tools/vault_tool.py` (Bloque T, 23 jul) -- un mecanismo
+DISTINTO y ya en producción, para credenciales que Arturo pide a Hermes
+recordar en conversación (cifrado scrypt+AES-256-GCM en Python puro,
+porque `age` no estaba instalado cuando se construyó ese bloque). El
+`bovedar_secretos.py` del paso 2 de esta noche es para OTRA cosa
+(cifrar `.env`/credenciales del sistema de cara a la recuperación
+total) y deliberadamente no toca `~/.hermes/boveda/` para no mezclar
+ambos mecanismos. Nota para la sesión que decida esto con Arturo
+presente: ahora que `age` SÍ está instalado, existe la pregunta de si
+vale la pena migrar `vault_tool.py` a `age` también -- no se tocó
+`tools/vault_tool.py` esta noche (maneja credenciales reales en
+producción, fuera de alcance sin Arturo despierto).
+
+5 pruebas en `tests/scripts/test_respaldar_skills_y_sistema.py`
+(incluye que una unidad systemd ajena, no relacionada con Hermes, NO se
+copia -- ver `test_respaldar_systemd_units_copia_solo_lo_esperado`).
+Verificado con datos reales de producción:
+```
+$ python3 scripts/respaldar_skills_y_sistema.py
+[OK] skills: 1431/1431 archivos, OK (.../20260730_005914/skills)
+[OK] systemd: 14 unidad(es)/override(s) copiados ...
+=== RESPALDO COMPLETO: /mnt/seagate/hermes_backups/20260730_005914 ===
+```
+Quedan 2 carpetas de timestamp distinto en
+`/mnt/seagate/hermes_backups/` (una del paso 1, otra de este paso 3) --
+ambas son respaldos reales y válidos, deliberadamente sin consolidar
+todavía; eso es justo lo que hace el paso 4 (`restaurar_hermes.sh`
+ensamblado, una sola corrida coordinada con un solo timestamp).
+
+**Bloque 2 va 3/5.** Quedan: paso 4 (ensamblar `restaurar_hermes.sh`
+completo + `docs/RECUPERACION.md`) y paso 5 (prueba de restauración
+real en máquina limpia, NUNCA sobre producción).
+
 **Sin tocar esta noche (deliberado, requieren a Arturo despierto o
 sudo):** Bloques 3, 4, 5, 8, 9, 10 sin empezar, mismo orden que antes.
 

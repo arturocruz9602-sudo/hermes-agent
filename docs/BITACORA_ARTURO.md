@@ -109,6 +109,33 @@ tuya.
 
 ---
 
+## 30 Jul 2026 (madrugada) — Tercera pieza del respaldo: tus 141 skills y los servicios que mantienen a Hermes vivo
+
+Seguí con el respaldo completo de Hermes. Ya quedaron copiadas y
+verificadas tus skills (las 141 carpetas de conocimiento que Hermes usa
+para trabajar) y las 14 piezas de configuración de systemd que hacen
+que el gateway, litellm, el watchdog, etc. arranquen solos -- todo real,
+probado contra tus archivos de producción, no solo en teoría.
+
+**Encontré algo que vale la pena que sepas, sin tocarlo:** ya existe
+OTRO mecanismo de bóveda en tu sistema (el que usas cuando le dices a
+Hermes en el chat "recuerda esta contraseña") -- es distinto al que
+construí anoche para el respaldo de `.env`. Los dejé separados a
+propósito para no mezclarlos. Hay una pregunta pendiente para cuando
+tengas tiempo: ese mecanismo viejo usa un cifrado casero en Python
+porque `age` no estaba instalado cuando se construyó -- ahora que sí
+está, ¿vale la pena migrarlo a `age` también, para tener un solo
+sistema en vez de dos? No es urgente, es una idea para cuando quieras.
+
+**Vamos 3 de 5 pasos del respaldo completo.** Faltan: armar el script
+final que une todo (`restaurar_hermes.sh`) y la prueba real de
+recuperación en una máquina limpia -- esa es la que de verdad cuenta.
+
+**Notas de Arturo:**
+
+
+---
+
 ## 29 Jul 2026 (noche) — Los 3 documentos que me pasaste: qué se queda, y el pendiente real que encontramos
 
 Revisamos juntos 3 análisis externos de Hermes. La mayoría de las ideas ya
