@@ -7,6 +7,36 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 29 Jul 2026 (noche) — Los 3 documentos que me pasaste: qué se queda, y el pendiente real que encontramos
+
+Revisamos juntos 3 análisis externos de Hermes. La mayoría de las ideas ya
+estaban construidas (141 skills, la escalera de proveedores, el diario de
+reflexión, el simulador de tu día) o eran demasiado grandes para tu
+escala real -- eso quedó registrado con detalle en `BLOQUES.md`.
+
+**Pero sí encontramos un hueco real, no inventado:** si la HP se muere
+hoy, no hay forma de reconstruir Hermes. Revisé la carpeta que se pensó
+para esto (`/mnt/seagate/hermes_backups/`) y está vacía desde que se
+creó, el 4 de julio -- nunca se usó. Lo único que sobrevive hoy es el
+código en GitHub; tu memoria, tus skills y tu configuración solo viven en
+esa laptop.
+
+**Quedó agendado como la siguiente prioridad real**, por delante del
+tablero de Notion: un script (`restaurar_hermes.sh`) que reconstruye todo
+desde el disco Seagate + GitHub en una máquina limpia, con una prueba de
+que de verdad funciona (no solo que "debería" funcionar) antes de darlo
+por hecho, y repetida cada 3 meses.
+
+**Cómo probarlo cuando esté listo:** el día que lo terminemos, la prueba
+real será literal -- una laptop distinta (o una máquina virtual), y ver
+si Hermes vuelve a responderte por Telegram sin que tengas que hacer
+nada más que escribir la contraseña de la bóveda de llaves.
+
+**Notas de Arturo:**
+
+
+---
+
 ## 29 Jul 2026 (noche) — Por qué `/memoria` te enseñó 49 candidatos y casi todos eran basura
 
 Cuando corriste `/memoria` te aparecieron 49 candidatos para aprobar uno

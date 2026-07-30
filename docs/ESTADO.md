@@ -1,6 +1,39 @@
 # Estado de Hermes — actualizado 29 Jul 2026, noche
 
-**Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
+**Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
+
+## PRIORIDAD #1 DE LA PRÓXIMA SESIÓN -- restaurar_hermes.sh (HAS §E13), por encima del tablero de Notion
+
+Arturo consultó 3 documentos externos de análisis de arquitectura esta
+noche; del triaje completo (`BLOQUES.md`, "Triaje de propuestas externas")
+sobrevivió un hallazgo real y urgente: **`/mnt/seagate/hermes_backups/`
+—el directorio pensado para el backup completo del proyecto desde el 4 de
+julio— está vacío y siempre lo ha estado.** Hoy, si la HP muere, solo se
+recupera el código (vive en GitHub); memoria, config, skills e índices no.
+
+Arturo pidió explícitamente que esto sea la siguiente prioridad, **por
+delante** del tablero de Notion (Fase 5) que venía pendiente de la sesión
+anterior. Nada bloquea empezar -- Fase 3 (dependencia formal de nada de
+esto) ya cerró completa el 28 de julio.
+
+**Qué construir (detalle completo en HAS §E13):**
+1. `restaurar_hermes.sh`, versionado en el fork -- desde Ubuntu limpio +
+   disco Seagate + fork de GitHub, reconstruye venv, config, memoria
+   (`state.db`, `memoria_semantica.db`), skills, índices, timers systemd,
+   servicios. Llaves desde una bóveda cifrada (passphrase de Arturo,
+   único secreto no automatizable).
+2. Prueba de restauración real obligatoria (en VM/contenedor o usuario
+   limpio de la propia HP -- nunca sobre producción) antes de darlo por
+   cerrado. Repetirla cada 3 meses después.
+3. `docs/RECUPERACION.md` -- runbook humano por si algún día Arturo debe
+   hacerlo sin Claude Code.
+
+**HAS v1.6 también agregó** (mismo triaje, ya cerrado, no pendiente):
+diario de reflexión nocturno + reglas de comportamiento aprendidas con
+aprobación explícita (B9), ventana de mantenimiento nocturna 2-5am (E14),
+y 4 casos nuevos de prueba en `GUION_PRUEBAS.md` (R.8 ráfaga, R.9
+reloj/suspensión, R.10 disco lleno, S.8 inyección contra
+`memoria_hecho_tool`). Commits `1614fd912`, pusheado a `fork/arturo/prod`.
 
 ## Fix de /memoria: candado de concurrencia + filtro de diagnóstico + dedup, CERRADO (29 Jul 2026, noche)
 
@@ -58,7 +91,39 @@ del repo (`~/.hermes/scripts/`), respaldado en `~/.hermes/backups/
 scripts/fase2_extract_candidates.py.20260729_2100.pre_dedup_fix` antes
 de tocarlo.
 
-## PRIORIDAD #1 DE LA PRÓXIMA SESIÓN -- Arturo pidió 4 pendientes hoy, quedaron 2 sin empezar
+**Extensión, misma noche:** Arturo señaló que el fix debía darle a HERMES
+(el agente vivo, sin Claude Code) la capacidad de corregir su propia
+memoria, no solo dejarlo resuelto desde una sesión de código -- construí
+`tools/memoria_hecho_tool.py`, una herramienta nueva que Hermes puede
+llamar en conversación cuando Arturo pide borrar un hecho puntual.
+Alcance angosto a propósito: solo borra (nunca agrega/edita -- crear
+hechos sigue exclusivamente por la revisión de `/memoria`), identidad
+resuelta desde la sesión real de Telegram (nunca un parámetro que el
+modelo podría inventar), aislamiento estructural de la cuenta QA y de
+cualquier otro user_id, y log de auditoría en disco antes de cada
+borrado. 9 tests nuevos (aislamiento QA/usuario/sesión desconocida,
+texto ambiguo, auditoría, registro en el registry), 0 fallas. Registrado
+solo (`registry.register`), auto-descubierto por `tools/registry.py`,
+sin tocar `tool_executor.py`.
+
+**Usado en vivo, dos veces, la misma noche** (con el gateway ya
+reiniciado con el código nuevo -- excepción permanente de CLAUDE.md,
+`systemctl --user restart hermes-gateway.service`, 21:35:57): (1) la fila
+que Arturo ya había aprobado antes del fix ("Hermes ocupa deepseek para
+acompletar esa acción", id=10) -- instrucción puntual de una sesión vieja
+de diagnóstico, no una preferencia duradera; (2) un segundo hallazgo real
+mientras probaba la herramienta: fila id=9 ("PRUEBA QA: segundo hecho
+sintetico...") etiquetada como memoria real de Arturo en vez de qa --
+misma clase de fuga que el fix de esta noche ya cubría. Ambas confirmadas
+por Arturo antes de borrar, ambas quedaron en
+`~/.hermes/logs/memoria_hechos_borrados.log` con su texto completo antes
+de desaparecer. `memoria_estructurada` de Arturo queda en cero filas
+reales (esperado: rechazó las 49 candidatas de esta sesión); solo queda
+la fila `id=8`, legítima de la cuenta QA.
+
+**Commits:** `c4031f7b1` (dentro del repo, pusheado a `fork/arturo/prod`).
+
+## PRIORIDAD #2 DE LA PRÓXIMA SESIÓN (bajó de #1 -- ver arriba, restaurar_hermes.sh la superó esta noche)
 
 Arturo pidió explícitamente completar 4 cosas hoy, empezando por la más
 compleja. **Hechas y cerradas (ver secciones propias más abajo):**
