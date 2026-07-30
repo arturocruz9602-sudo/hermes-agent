@@ -43,16 +43,30 @@ Resumen para este registro:
   sintética. Descarta la hipótesis más barata del bloque. La rotación de
   credenciales de la fuga vieja (el resto de Bloque 7) sigue pendiente,
   requiere a Arturo o probar las llaves viejas en vivo.
-- **Bloque 2 desbloqueado, sin empezar todavía:** los 2 comandos `sudo`
-  que Arturo tenía pendientes (`chown` de `/mnt/seagate/hermes_backups`,
-  `apt install age`) ya estaban corridos al momento de esta corrida --
-  confirmado en disco (`ls -ld`, `dpkg -l age`), no se tocó nada de
-  sudo esta noche. `restaurar_hermes.sh` puede empezar en la siguiente
-  sesión sin bloqueos.
+- **Bloque 2, paso 1/5 -- CERRADO, mismo tick de `/loop`.** Los 2
+  comandos `sudo` pendientes ya estaban corridos. Construido
+  `scripts/respaldar_memoria.py` (respaldo de `state.db` +
+  `memoria_semantica.db` vía Backup API de sqlite3, nunca `cp`) con 5
+  pruebas nuevas (`tests/scripts/test_respaldar_memoria.py`), incluida
+  una que simula escritura concurrente real durante el respaldo.
+  Corrida real contra las DBs de producción en vivo, con el gateway
+  activo: ambas DBs respaldadas y verificadas (`integrity_check` +
+  conteo de filas por tabla, 24 + 12 tablas todas OK) en
+  `/mnt/seagate/hermes_backups/20260729_235806/` -- primer archivo real
+  que existe ahí desde el 4 de julio. Hallazgo real durante la
+  construcción: `memoria_semantica.db` usa la tabla virtual `vec0`
+  (extensión `sqlite-vec`) que una conexión simple no puede leer -- se
+  corrigió cargando la extensión con el mismo patrón que ya usa
+  `agent/memory_semantic.py::_connect`. Pasos 2-5 de HAS §E13 (bóveda
+  `age`, skills/índices/timers, ensamblar `restaurar_hermes.sh`
+  completo, prueba de restauración real) siguen sin empezar -- ver
+  `ESTADO.md` para el detalle. Sin timer automático configurado todavía
+  (deliberado, corrida manual de esta noche).
 
 **Commits:** ver `git log` de esta fecha en `arturo/prod` (docs +
 `has_progress.py` vive fuera del repo, respaldo en
-`~/.hermes/backups/scripts/`).
+`~/.hermes/backups/scripts/`; `scripts/respaldar_memoria.py` y su
+prueba sí viven dentro del repo).
 
 ## Triaje de propuestas externas de arquitectura (HAS v1.6), CERRADO (29 Jul 2026, noche)
 

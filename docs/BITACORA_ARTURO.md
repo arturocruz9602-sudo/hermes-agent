@@ -59,6 +59,41 @@ recuperación completa sin esperar nada más de ti.
 
 ---
 
+## 30 Jul 2026 (madrugada, mientras dormías) — Primer respaldo real de tu memoria, la carpeta que llevaba vacía desde el 4 de julio
+
+Seguí con lo del hueco de recuperación que encontramos anoche (si la HP
+muere, hoy no hay forma de reconstruir a Hermes). Construí la primera
+pieza: un script que hace una copia de seguridad real de tu memoria
+(`state.db` y `memoria_semantica.db`, donde vive todo lo que Hermes
+recuerda de ti) usando el mecanismo correcto de SQLite para copiar una
+base de datos que sigue en uso -- no un simple copiar-pegar, que puede
+dejar la copia corrupta o incompleta si el gateway está escribiendo al
+mismo tiempo.
+
+**Lo probé de verdad, no solo en teoría:** lo corrí con el gateway
+activo y respondiéndote mensajes al mismo tiempo. Las dos bases de
+datos quedaron respaldadas y verificadas -- 36 tablas revisadas, todas
+con exactamente las filas que debían tener. Es el primer archivo real
+que existe en esa carpeta de respaldos desde que se creó, hace 25 días.
+
+**Qué significa esto para ti hoy:** todavía NO puedes recuperar Hermes
+completo con esto solo -- falta la bóveda cifrada para tus llaves/API
+keys, copiar tus skills, y armar el script final que lo une todo. Eso
+sigue en la lista, en orden, las próximas noches. Lo de hoy es la parte
+más delicada (tu memoria) ya resuelta y probada.
+
+**Cómo probarlo tú mismo, si quieres:**
+```
+ls -la /mnt/seagate/hermes_backups/20260729_235806/
+```
+Deberías ver dos archivos (`state.db`, `memoria_semantica.db`) con
+fecha de esta madrugada.
+
+**Notas de Arturo:**
+
+
+---
+
 ## 29 Jul 2026 (noche) — Los 3 documentos que me pasaste: qué se queda, y el pendiente real que encontramos
 
 Revisamos juntos 3 análisis externos de Hermes. La mayoría de las ideas ya

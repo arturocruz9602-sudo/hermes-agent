@@ -106,10 +106,51 @@ fuga vieja) sigue pendiente -- eso sí necesita a Arturo o probar las
 llaves viejas contra el proveedor, ninguna de las dos se puede hacer
 sola esta noche.
 
+**Bloque 2, paso 1/5 -- CERRADO (respaldo de memoria vía Backup API).**
+Los 2 comandos `sudo` pendientes ya estaban corridos (confirmado en
+disco). Construido `scripts/respaldar_memoria.py`: respalda `state.db`
++ `memoria_semantica.db` con la Backup API de sqlite3 (nunca `cp`),
+verifica `integrity_check` + conteo de filas por tabla contra el
+origen. Carga la extensión `sqlite-vec` (mismo patrón que
+`agent/memory_semantic.py::_connect`) para poder verificar también la
+tabla virtual `chunks_vec` de `memoria_semantica.db` -- primer intento
+de la noche no la cargaba y tronó con `no such module: vec0`, corregido
+antes de dar por buena la corrida.
+
+5 pruebas nuevas en `tests/scripts/test_respaldar_memoria.py`,
+incluyendo el caso que de verdad importa (`test_backup_survives_
+concurrent_writes`): un hilo sigue insertando filas en la DB origen
+mientras corre el respaldo, y se verifica que el respaldo abre limpio,
+pasa `integrity_check`, y nunca pierde ninguna fila que ya existía
+antes de empezar. Las 5 pasan.
+
+**Verificado con datos reales de producción, no solo con la prueba
+sintética** (regla L1: pega la evidencia) -- corrida real mientras el
+gateway seguía activo y escribiendo:
+```
+$ python3 scripts/respaldar_memoria.py
+[OK] .../state.db -> /mnt/seagate/hermes_backups/20260729_235806/state.db
+        integrity_check: ok
+        tabla messages: 2824/2824 filas, OK   (24 tablas, todas OK)
+[OK] .../memoria_semantica.db -> .../20260729_235806/memoria_semantica.db
+        integrity_check: ok
+        tabla chunks_vec: 433/433 filas, OK   (12 tablas, todas OK)
+
+=== RESPALDO COMPLETO: /mnt/seagate/hermes_backups/20260729_235806 ===
+```
+Es el primer archivo real que existe en `/mnt/seagate/hermes_backups/`
+desde que se creó la carpeta el 4 de julio -- ya no está vacía.
+
+**Sin cerrar todavía, a propósito (pasos 2-5 de HAS §E13):** bóveda
+`age` de `.env`/credenciales, respaldo de skills/índices/timers, ensamblar
+todo en `restaurar_hermes.sh` completo + `docs/RECUPERACION.md`, y la
+prueba de restauración real en máquina limpia. NO se configuró ningún
+timer automático todavía -- esta corrida fue manual, la automatización
+nocturna (E14, ventana 2:00-5:00) es un paso posterior explícito, no
+implícito en tener el script.
+
 **Sin tocar esta noche (deliberado, requieren a Arturo despierto o
-sudo):** Bloque 2 (`restaurar_hermes.sh`) sigue bloqueado en los 2
-comandos `sudo` de abajo -- no verificado si ya se corrieron. Bloques 3,
-4, 5, 8, 9, 10 sin empezar, mismo orden que antes.
+sudo):** Bloques 3, 4, 5, 8, 9, 10 sin empezar, mismo orden que antes.
 
 ---
 
