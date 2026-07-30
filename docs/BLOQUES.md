@@ -4,6 +4,61 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Triaje de propuestas externas de arquitectura (HAS v1.6), CERRADO (29 Jul 2026, noche)
+
+Arturo consultó 3 documentos de análisis externos sobre HAS (arquitectura
+general, resiliencia/pruebas, y filosofía de trabajo para Claude Code) y
+pidió evaluarlos contra el código y el estado real del proyecto, no contra
+el documento HAS solo. Proceso: verificar cada afirmación de "esto falta"
+contra disco/código antes de aceptarla o descartarla (mismo principio que
+el resto de esta sesión).
+
+**Adoptado en HAS v1.6** (detalle completo en `docs/HAS.md`, changelog de
+versión y secciones nuevas):
+1. **E13 "Recuperación total"** — verificado que `/mnt/seagate/
+   hermes_backups/` está vacío desde su creación (4 jul); hueco real, no
+   hipotético. `restaurar_hermes.sh` + prueba de restauración obligatoria
+   cada 3 meses + `docs/RECUPERACION.md`. Queda agendado como **siguiente
+   prioridad real** (por encima del tablero de Notion que venía pendiente).
+2. **B9 extendida** — diario de reflexión pasa de semanal a nocturno;
+   nuevo mecanismo de "reglas de comportamiento aprendidas" con el mismo
+   candado de aprobación que los hechos normales (nunca auto-adopta),
+   diseñado explícitamente después de la contaminación de memoria
+   encontrada esta misma noche.
+3. **E14 "Ventana de mantenimiento nocturna 2:00-5:00"** — numerada
+   aparte de E9 (que ya usa "ventana de mantenimiento" para el ciclo de
+   suscripción de Claude Pro; son conceptos distintos, se dejó explícito
+   para no confundirlos).
+4. **`GUION_PRUEBAS.md`** — regla de oro de crecimiento orgánico (todo
+   bug real se vuelve prueba permanente la misma semana) + casos R.8
+   (ráfaga de 20 entradas simultáneas) y R.9 (reloj del sistema y
+   suspensión).
+
+**Rechazado explícitamente por sobredimensión** respecto a la escala real
+del proyecto (una laptop, un usuario, $100 MXN/mes): volumen de
+2,400-4,000 pruebas formales y "100 pruebas por skill" (el principio de
+cobertura ya lo cumple la matriz combinatoria de `GUION_PRUEBAS.md` + la
+regla 3a de crecimiento orgánico); diseñar cada decisión pensando en un
+horizonte de 5 años o "500 skills" hipotéticas (se distinguió entre
+holgura ARQUITECTÓNICA -- esquemas, contratos entre módulos -- que sí vale
+la pena pensar hacia adelante, vs. holgura de FUNCIONES/capacidad
+construida para un uso que no existe todavía, que no); y re-arquitecturas
+de mecanismos que ya funcionan bien (sistema de eventos -- Hermes ya corre
+por timers, no por polling constante; framework de skills -- ya son 141
+activas, más que las "40-60" sugeridas; motor de decisiones de proveedor
+-- ya existe en la escalera Groq→Gemini→OpenRouter de Cola v2).
+
+**Dos hallazgos propios de esta sesión, no incluidos en el triaje original,
+sumados con autorización de Arturo** ("mientras no afecte el proyecto y
+sea mejora hacia adelante, adelante"): (a) **R.10** — disco lleno (no
+hipotética: ya pasó de verdad el 24-25 jul, `/tmp` lleno tumbó Bash 3
+horas); (b) **S.8** — resistencia de `memoria_hecho_tool.py` (la
+herramienta de borrado construida esta noche) a un intento de
+inyección/suplantación, dado que ya quedó viva en el gateway real. Se
+ubicó como caso de SEGURIDAD (bloque S., no R.) por ser la clasificación
+correcta -- borrado no autorizado vía manipulación de contenido, no una
+falla de infraestructura.
+
 ## Fix de /memoria (candado de concurrencia + filtro diagnóstico + dedup), CERRADO (29 Jul 2026, noche)
 
 Nueva sesión, fuera de las 4 tareas de hoy. Arturo estaba probando
