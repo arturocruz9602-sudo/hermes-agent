@@ -1,6 +1,55 @@
-# Estado de Hermes — actualizado 29 Jul 2026, tarde
+# Estado de Hermes — actualizado 29 Jul 2026, tarde-noche
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
+
+## PRIORIDAD #1 DE LA PRÓXIMA SESIÓN -- Arturo pidió 4 pendientes hoy, quedaron 2 sin empezar
+
+Arturo pidió explícitamente completar 4 cosas hoy, empezando por la más
+compleja. **Hechas y cerradas (ver secciones propias más abajo):**
+Cola v2 (HAS §E5, la más compleja) y SSH restringido a Tailscale +
+sin contraseña (fuera del repo, cambio de sistema, no de código).
+
+**Sin empezar todavía, para la siguiente sesión:**
+1. **Resto de Fase 5: tablero de Notion (OT-5 Bloque 2)** -- 6 vistas
+   (Hoy, Kanban espejo, Finanzas, Avance HAS, Cola de tareas, Escuela),
+   sync unidireccional Hermes->Notion cada 15 min. Hoy solo se construyó
+   la parte de notas/segundo cerebro (Bloque 1) -- lo operativo de Fase
+   5 no se tocó. Puede reusar `tools/notion_mirror.py` de hoy como
+   referencia de la mecánica real de la API (databases/data_sources,
+   ya resuelta y verificada).
+2. **Confirmar 3 noches de reindexado automático** (HAS §OT-4 Bloque
+   3.3) -- el timer `hermes-memoria-index.timer` ya está armado desde
+   esta mañana; no es accionable hasta que pase tiempo real de
+   calendario. Revisar `journalctl --user -u hermes-memoria-index.service`
+   o los logs de `~/.hermes/scripts/memoria_indexador.py` para 3 noches
+   consecutivas sin intervención (la primera corrida real sería la
+   noche del 29-30 Jul).
+
+**Contexto de cierre:** Arturo va a dar `/clear` y abrir otra sesión
+justo después de guardar esto -- no hace falta que la siguiente sesión
+le pregunte "¿en qué nos quedamos?", ya está aquí.
+
+## SSH restringido a Tailscale + sin contraseña, CERRADO (29 Jul 2026, tarde-noche)
+
+Hallazgo del audit de seguridad de arranque del gateway (`hermes.security_audit`,
+mecanismo ya existente, no construido hoy) -- SSH aceptaba login por
+contraseña. Arturo pidió verificar alternativas antes de aplicar nada
+("busca en internet") -- investigado: la opción elegida (restringir SSH
+a la interfaz de Tailscale + deshabilitar contraseña) es más fuerte que
+solo deshabilitar contraseña, y coincide exactamente con el diseño ya
+previsto en el HAS para la memoria USB portable (Fase 11: los
+lanzadores levantan el túnel de Tailscale primero, SSH después --
+Arturo mismo lo notó al leer el documento).
+
+**Cambio de sistema, fuera del repo de git** (no hay commit -- es
+`/etc/ssh/sshd_config` de la HP, cambio que Arturo corrió él mismo con
+`sudo`, yo no puedo tocar ese archivo). Verificado con `sshd -t` antes
+de aplicar (no se aplicó nada si la sintaxis fallaba) y `systemctl
+reload` (nunca corta sesiones ya conectadas -- confirmado en vivo: la
+sesión de Arturo, conectada por Tailscale desde su iPhone vía la app de
+Claude, siguió funcionando sin interrupción durante y después del
+cambio). Arturo confirmó que siempre se conecta por Tailscale, nunca
+por red local directa -- sin impacto real en su flujo diario.
 
 ## Cola v2 (HAS §E5, OT-5 Bloque 3), CERRADA -- la más compleja de las 4 pendientes (29 Jul 2026, tarde)
 

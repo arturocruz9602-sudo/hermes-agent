@@ -4,6 +4,19 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## SSH restringido a Tailscale + sin contraseña, CERRADO (29 Jul 2026, tarde-noche)
+
+Tercera de las 4 tareas de hoy. Hallazgo del audit de seguridad de
+arranque (ya existente). Investigado en internet antes de aplicar
+(pedido explícito de Arturo) -- restringir SSH a la interfaz de
+Tailscale es más fuerte que solo deshabilitar contraseña, y coincide
+con el diseño ya previsto en HAS Fase 11 (USB portable: túnel de
+Tailscale antes que SSH). Cambio de sistema (`/etc/ssh/sshd_config`),
+corrido por Arturo mismo vía sudo -- sin commit en este repo. Verificado
+en vivo: la sesión de Arturo (conectada por Tailscale desde su iPhone
+vía la app de Claude) siguió funcionando sin interrupción durante y
+después del `systemctl reload`. Detalle completo en `docs/ESTADO.md`.
+
 ## Cola v2 (HAS §E5, OT-5 Bloque 3), CERRADA (29 Jul 2026, tarde)
 
 Primera de las 4 tareas que Arturo pidió completar hoy, empezando por

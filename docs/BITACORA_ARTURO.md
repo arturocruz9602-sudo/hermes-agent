@@ -7,6 +7,16 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 29 Jul 2026 (tarde-noche) — Cierre de sesión: SSH cerrado con llave, y lo que queda pendiente
+
+**Cerré la puerta que le mencioné en la tarde** (SSH aceptando contraseña) -- ahora solo entra por Tailscale, con llave, exactamente como usted ya se conecta siempre. Confirmado en vivo: su sesión de ahorita (desde la app de Claude en su iPhone) siguió funcionando sin cortarse durante y después del cambio.
+
+**De las 4 cosas que pidió terminar hoy, quedaron 2 para la próxima sesión** (se lo digo con honestidad, no las doy por hechas sin estarlo):
+1. El tablero completo de Notion (lo operativo: kanban, finanzas, avance) -- hoy solo se construyó la parte de notas/segundo cerebro.
+2. Confirmar que el reindexado automático de la memoria corre 3 noches seguidas -- esto no se puede acelerar, necesita que pase el tiempo real de calendario.
+
+Ambas quedaron anotadas en detalle para que la siguiente sesión las retome sin que usted tenga que explicar nada de nuevo.
+
 ## 29 Jul 2026 (tarde) — La pieza más difícil de hoy: una cola de tareas que nunca pierde nada
 
 Esta es la más técnica de las 4 cosas que pidió terminar hoy, y la que menos se nota en el día a día por ahora -- es la base para que en el futuro (recordatorios, análisis en segundo plano) nada que Hermes encole se pierda nunca, aunque el proveedor de IA que use falle o la laptop se reinicie a medio proceso.
