@@ -2,7 +2,192 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
-## PRIORIDAD #1 DE LA PRÓXIMA SESIÓN -- restaurar_hermes.sh (HAS §E13), por encima del tablero de Notion
+## PLAN NOCTURNO (29-30 Jul 2026) — arrancar aquí en cuanto abra la siguiente sesión
+
+Arturo pidió una noche larga de avance, en bloques (nunca todo de golpe --
+regla ya existente de `CLAUDE.md` contra sobrecargar la HP), con
+investigación ya hecha para no perder tiempo re-descubriendo nada. Orden
+fijo, no reordenar sin decir por qué. Cada bloque cierra con sus propios
+tests antes de pasar al siguiente -- nunca encadenar corridas grandes de
+pruebas sin verificar espacio en `/tmp` primero (regla ya existente,
+incidente del 24-25 jul).
+
+### ANTES DE EMPEZAR — 2 comandos que necesitan `sudo` de Arturo
+
+Pégalos tú mismo en una terminal (no yo, regla dura de tocar `sudo`).
+Ninguno es destructivo, ambos desbloquean el Bloque 2 de esta noche:
+
+```bash
+# 1. La carpeta de respaldos existe desde el 4 de julio pero es de root --
+# Hermes (usuario 'arturo') no puede escribir ahí. Sin esto,
+# restaurar_hermes.sh no puede guardar nada.
+sudo chown arturo:arturo /mnt/seagate/hermes_backups
+
+# 2. 'age' (recomendado sobre gpg para la bóveda de llaves -- ver Bloque 2:
+# más simple, más rápido, sin servidor de llaves ni modelo de confianza).
+# gpg ya está instalado pero age es la opción correcta para esto.
+sudo apt install -y age
+```
+
+---
+
+### Bloque 1 (máxima prioridad, antes que nada) — diagnóstico y fix real del bug de reinicio de gateway a media conversación
+
+**Por qué primero:** pasó DOS VECES en <24h con el mismo patrón (madrugada
+del 29 y esta misma noche) -- ver hallazgo completo abajo, sección
+"Recurrencia confirmada". El fix de esta madrugada (commit `194fd1447`)
+cerró 2 causas confirmadas (duplicados por redelivery, `gateway.log`
+desactualizado) pero dejó sin confirmar una hipótesis más profunda:
+que el reinicio a media conversación deja el turno siguiente heredando
+contexto/intención del turno interrumpido.
+
+**Investigado esta noche (no hace falta re-buscar):** el patrón correcto
+para esto, según práctica actual de frameworks de agentes en producción
+(LangChain/Temporal, memoria de checkpoint), es **no dejar el turno
+interrumpido en un estado ambiguo** -- al arrancar el gateway, se debe
+detectar explícitamente si había un turno "en proceso" (mensaje de
+usuario sin respuesta) en el momento del apagado, y marcarlo/cerrarlo
+como interrumpido ANTES de que llegue el siguiente mensaje real, en vez
+de dejar que el siguiente turno lo herede implícitamente. Esto es
+exactamente el patrón de "checkpoint en el límite del turno" que ya usa
+la industria para sobrevivir reinicios sin corromper el estado de la
+conversación.
+
+**Dónde mirar primero:** `gateway/session.py` (donde ya se documentó el
+patrón de `/restart` + redelivery), `agent/conversation_loop.py` (límite
+de turno, `current_turn_user_idx`), y el fix reciente de
+`_is_duplicate_update`/`_mark_update_processed` en `gateway/run.py`
+(commit `194fd1447`) -- revisar si ese mismo mecanismo puede extenderse
+para marcar explícitamente "turno abandonado por reinicio" en vez de
+solo deduplicar mensajes repetidos.
+
+**Prueba a escribir (ya tiene ID reservado):** `GUION_PRUEBAS.md` R.11 --
+"reinicio de gateway a media conversación larga (sesión de >60 llamadas)
+→ el siguiente mensaje benigno recibe una respuesta coherente con ESE
+mensaje, nunca contenido sobre el reinicio mismo". Automatizar con el
+arnés E2E (`tests/e2e/hermes_harness.py`), reproduciendo la secuencia
+real: turno en proceso → `systemctl --user restart hermes-gateway` →
+mensaje trivial nuevo → verificar que la respuesta no contiene el patrón
+de alucinación (referencias a "gateway"/"reinicio"/"compresión" sin que
+el usuario las haya mencionado).
+
+**Verificación real disponible ahora mismo, sin esperar el fix:**
+`~/.hermes/logs/agent.log` línea 36032 tiene el texto exacto alucinado de
+esta noche, y el commit `194fd1447` tiene el diagnóstico y fix de la
+madrugada -- ambos son el punto de partida, no hay que re-investigar
+desde cero.
+
+### Bloque 2 — `restaurar_hermes.sh` (HAS §E13, prioridad ya acordada con Arturo)
+
+**Investigado esta noche:**
+- **Memoria (`state.db`, `memoria_semantica.db`):** NUNCA copiar el
+  archivo con `cp` -- SQLite en modo WAL (verificar si está activo) deja
+  escrituras recientes en `state.db-wal`, y una copia directa puede
+  perder datos o quedar inconsistente. Usar la **Backup API real**:
+  `sqlite3 state.db ".backup ruta.db"` (o `sqlite3.Connection.backup()`
+  en Python) -- produce una copia consistente aunque el gateway siga
+  escribiendo al mismo tiempo. [Fuente: oldmoe.blog backup strategies,
+  sqlite.org/wal.html]
+- **Bóveda de llaves:** usar `age` (ya con el `sudo apt install` de
+  arriba), no gpg -- age es ~100x más simple, sin modelo de confianza ni
+  servidor de llaves, más rápido para archivos grandes, y es lo que
+  recomienda la práctica actual para este caso exacto (cifrar antes de
+  guardar, sin depender de terceros). Guardar la llave age (o
+  passphrase) SOLO en la memoria de Arturo -- igual que ya decidió HAS.
+  [Fuente: sumguy.com age-vs-gpg, gerowen.substack.com]
+- **Skills/config/índices:** copia directa está bien (no son bases de
+  datos vivas) -- `rsync -a` desde el fork + Seagate.
+- **Timers/servicios systemd:** copiar los `.service`/`.timer` de
+  `~/.config/systemd/user/` + `systemctl --user daemon-reload` +
+  `enable --now` de cada uno.
+
+**Chunking sugerido (no escribirlo de un tirón):**
+1. Script mínimo: solo el respaldo de memoria vía Backup API + prueba de
+   que el `.db` restaurado abre y tiene las filas esperadas.
+2. Bóveda `age` de `.env`/credenciales + prueba de cifrar/descifrar.
+3. Skills + índices + timers/servicios.
+4. Ensamblar todo en `restaurar_hermes.sh` completo + `docs/RECUPERACION.md`.
+5. **Primera prueba de restauración real** -- en un usuario Linux limpio
+   de la propia HP (nunca sobre `arturo`/producción) o una VM si hay
+   espacio (864GB libres en el Seagate, holgado). Esta es la prueba que
+   de verdad cuenta -- sin ella, "quedó escrito" no es "quedó
+   funcionando".
+
+### Bloque 3 — E14, ventana de mantenimiento nocturna (2:00-5:00) + reflexión nocturna
+
+**Investigado esta noche:** varios timers ya apuntan a las 3:00am
+(`hermes-memoria-index.timer`, `hermes-deepseek-balance-check.timer`) --
+si se agrega el respaldo nocturno y la reflexión nocturna al mismo
+horario exacto, competirían por CPU/disco al mismo tiempo. Práctica
+recomendada: `RandomizedDelaySec=` (ej. 600-900s) en cada timer nuevo
+para escalonarlos dentro de la ventana 2:00-5:00, no todos a la
+medianoche exacta. Ojo con `Persistent=true`: si la HP estuvo apagada y
+se enciende fuera de la ventana, el timer puede disparar de inmediato en
+vez de esperar a la próxima noche -- decisión a documentar explícita, no
+dejarlo como sorpresa. [Fuente: ArchWiki systemd/Timers, systemd issue
+#21166]
+
+- Mover `hermes-memoria-reflexion.timer` de semanal (domingo 8am) a
+  nocturno dentro de la ventana, conservando el resumen dominical aparte
+  (ya decidido en HAS v1.6, B9).
+- El respaldo de `restaurar_hermes.sh` (si hay tiempo) puede correr como
+  timer nocturno también, mismo principio de horario.
+
+### Bloque 4 — B9 "reglas de comportamiento aprendidas" (HAS v1.6)
+
+Reutilizar la infraestructura que ya existe (`fase2_extract_candidates.py`
++ `memoria_review.py`) en vez de construir un mecanismo paralelo --
+mismo flujo de aprobación candidato-por-candidato, agregando detección
+de patrón repetido (≥3 veces) como un tipo nuevo de "candidato". Alcance
+chico a propósito.
+
+### Bloque 5 — Tablero de Notion (Fase 5, OT-5 Bloque 2) — bajó a #5 esta noche
+
+6 vistas, sync cada 15 min. Sin cambios respecto a lo ya documentado
+arriba en este archivo -- sigue pendiente, solo se corrió de lugar en la
+prioridad.
+
+### Sin acción activa esta noche (solo verificar cuando pase el tiempo)
+
+Confirmar 3 noches seguidas de `hermes-memoria-index.timer` -- no
+accionable hasta que pasen, revisar con `journalctl --user -u
+hermes-memoria-index.service` cuando corresponda.
+
+---
+
+## Recurrencia confirmada del bug de reinicio de gateway (29 Jul 2026, noche) — alimenta el Bloque 1 de arriba
+
+**Verificado con evidencia real, no supuesto:** el 29 jul a la 1:31am
+pasó un incidente ("qué tal Hermes" → respuesta rota sobre el gateway,
+`docs/BITACORA_ARTURO.md` lo documentó). A las 9:09am se arregló con
+evidencia real (commit `194fd1447`, ~1600 tests de regresión + 12
+nuevos): duplicados por redelivery de Telegram en reinicios, y
+`gateway.log` sirviendo contenido de hace un mes por no rotar por edad.
+
+Esta noche, a las 22:46, volvió a pasar algo del mismo patrón (misma
+sesión `20260723_014401_467841eb`, activa sin interrupción desde el 23
+de julio): Arturo mandó "Hermes buenas noches" -- un saludo, sin relación
+con nada -- y recibió una alucinación sobre "el servicio se reinició...
+advertencias de compresión" (verificado en `~/.hermes/logs/agent.log`
+línea 36032, texto exacto capturado ahí). El guard anti-fabricación
+(Tarea 1) SÍ lo bloqueó antes de que llegara a Arturo -- la mentira nunca
+salió, pero el hecho de que el modelo la genere sigue sin arreglarse de
+raíz.
+
+**Diferencia con el mecanismo ya arreglado esta madrugada:** esta vez NO
+hubo mensajes duplicados (un solo mensaje real en `state.db`) ni lectura
+de `gateway.log` de por medio (cero llamadas a herramienta este turno,
+confirmado por el propio guard) -- es una alucinación pura, no el mismo
+mecanismo exacto que se cerró a las 9:09am. Coincide en el disparador
+(un reinicio real del gateway ~70 min antes, a las 21:35:57, para
+desplegar `memoria_hecho_tool`) y en el tema alucinado (justo sobre
+reinicios/gateway). Esto sostiene la hipótesis que quedó sin confirmar
+esta madrugada: el reinicio a media conversación dejando contexto
+residual que contamina el siguiente turno, por un mecanismo TODAVÍA no
+identificado con precisión -- ver Bloque 1 arriba para el plan de
+diagnóstico con la investigación ya hecha.
+
+## Contexto de HAS §E13 (detalle -- la prioridad activa real está en "PLAN NOCTURNO" al inicio del archivo, Bloque 2)
 
 Arturo consultó 3 documentos externos de análisis de arquitectura esta
 noche; del triaje completo (`BLOQUES.md`, "Triaje de propuestas externas")
@@ -123,7 +308,7 @@ la fila `id=8`, legítima de la cuenta QA.
 
 **Commits:** `c4031f7b1` (dentro del repo, pusheado a `fork/arturo/prod`).
 
-## PRIORIDAD #2 DE LA PRÓXIMA SESIÓN (bajó de #1 -- ver arriba, restaurar_hermes.sh la superó esta noche)
+## Contexto de las 4 tareas del 29 jul (detalle -- el orden de prioridad real está en "PLAN NOCTURNO" al inicio del archivo)
 
 Arturo pidió explícitamente completar 4 cosas hoy, empezando por la más
 compleja. **Hechas y cerradas (ver secciones propias más abajo):**
