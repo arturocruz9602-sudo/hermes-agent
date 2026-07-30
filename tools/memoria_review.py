@@ -84,10 +84,25 @@ _lock = threading.RLock()
 DEFAULT_TIMEOUT_SECONDS = 3600
 
 
+def _normalize_texto(texto: str) -> str:
+    return " ".join((texto or "").strip().lower().split())
+
+
 def _load_queue() -> List[Dict[str, Any]]:
     """Junta los candidatos con estado_revision pendiente de todos los
-    archivos fase2_pendientes_*.json en disco, en orden de generación."""
+    archivos fase2_pendientes_*.json en disco, en orden de generación.
+
+    Confirmado el 29 jul: corridas concurrentes del extractor (antes del
+    candado agregado en fase2_extract_candidates.py) dejaron candidatos con
+    texto EXACTAMENTE igual repartidos en varios archivos -- se descarta el
+    repetido (se queda el más antiguo) en vez de hacer que Arturo lo revise
+    dos veces. No es dedup difuso: solo texto idéntico tras normalizar
+    espacios/mayúsculas: dos parafraseos del mismo hecho siguen llegando por
+    separado a propósito, porque no hay forma segura de saber que son "el
+    mismo hecho" sin usar un modelo -- eso lo evita el candado en el origen.
+    """
     queue: List[Dict[str, Any]] = []
+    seen_texto: set[str] = set()
     for path in sorted(PENDIENTES_DIR.glob("fase2_pendientes_*.json")):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
@@ -99,11 +114,22 @@ def _load_queue() -> List[Dict[str, Any]]:
             if "estado_revision" not in cand:
                 cand["estado_revision"] = "pendiente"
                 changed = True
-            if cand.get("estado_revision") == "pendiente":
-                item = dict(cand)
-                item["_source_file"] = str(path)
-                item["_source_index"] = idx
-                queue.append(item)
+            if cand.get("estado_revision") != "pendiente":
+                continue
+            norm = _normalize_texto(cand.get("texto", ""))
+            if norm in seen_texto:
+                cand["estado_revision"] = "descartado_duplicado"
+                changed = True
+                logger.info(
+                    "candidato duplicado exacto descartado (%s#%d): %.80s",
+                    path.name, idx, cand.get("texto", ""),
+                )
+                continue
+            seen_texto.add(norm)
+            item = dict(cand)
+            item["_source_file"] = str(path)
+            item["_source_index"] = idx
+            queue.append(item)
         if changed:
             try:
                 path.write_text(
