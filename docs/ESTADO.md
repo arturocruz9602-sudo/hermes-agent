@@ -2,6 +2,82 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
+## HALLAZGO GRAVE — Tarea E estuvo MUERTA en silencio (30 jul, 12:00pm, `/loop`) — RESUELTO y desplegado
+
+Corrida de `/loop` buscando "otros huecos del rubro" (el pendiente que
+dejó la entrada de abajo). **El hueco no estaba en el rubro: estaba
+debajo de él, y era mucho peor.** Toda la autoevaluación de Tarea E
+llevaba tiempo devolviendo su default fail-safe sin evaluar nada.
+
+**Cómo se detectó:** sonda de 8 casos límite con llamada REAL al modelo.
+Los 8 devolvieron el default **byte-idéntico**
+`{"resolvi_con_confianza": true, "multivariable": false, "que_me_falto": null}`
+— incluido uno abiertamente multivariable (pregunta financiera con
+varios factores). Ocho respuestas idénticas no son un rubro fallando;
+son un rubro que nunca se ejecutó.
+
+**Causa raíz (verificada, no inferida):**
+`_resolve_litellm_credentials()` solo sabía leer
+`custom_providers['LiteLLM']` de `config.yaml`. Hoy **11:45:23** se
+restauró `config.yaml.known-good` (4 jul) sobre `~/.hermes/config.yaml`
+— confirmado byte a byte, `md5 c8910c8c30add54ee928af1bffa31aba` en
+ambos — y ese archivo guarda las **mismas** credenciales bajo la sección
+`model:`, sin entrada en `custom_providers`. La función lanzaba,
+`_call_cheap_model_json` se lo tragaba con un `except: return None`
+**sin un solo log**, y todos los llamadores caían a su default: en la
+práctica, indistinguible de "el modelo dijo que todo está bien".
+LiteLLM nunca estuvo caído — respondió `{"ok": true}` (servido por
+`llama-3.3-70b-versatile`) en la prueba directa contra `model.base_url`.
+
+**Esto es exactamente la familia de fallas que hartó a Arturo**, en su
+forma más pura: un mecanismo apagado que se reporta sano. Es la falla
+L6/L14 del HAS ("el silencio nunca es un estado válido de fallo") en
+producción, no en teoría.
+
+**Arreglado (commit `8ec8bfe4f`):**
+- `_resolve_litellm_credentials()` lee las DOS formas válidas de
+  `config.yaml` (`custom_providers['LiteLLM']` y `model:`); una entrada
+  incompleta ya no le gana a una sección `model:` usable; si no hay
+  ninguna, lanza nombrando ambos sitios donde buscó.
+- `_call_cheap_model_json()` ahora **loggea** el fallo. El default
+  fail-safe se conserva (nunca ofrecer por defecto); lo que cambia es
+  que deja rastro.
+- `gateway/run.py` ×2 (despacho de Tarea D y de Tarea E) tenían el mismo
+  lookup duplicado a mano, con el mismo defecto — ahora reusan la
+  función canónica. `grep` = 0 residuos del patrón viejo en el árbol.
+- Rubro: EXCEPCIÓN 1 ampliada a mensajes tan vagos que solo Arturo puede
+  concretarlos (`"ayuda"` ya no dispara oferta de gasto).
+
+**Evidencia de que quedó bien (llamadas reales, no mockeadas): 8/8.**
+```
+"¿por qué?" + respuesta vaga     -> resolvi=false          -> ofrece=True
+"¿por qué?" + respuesta completa -> resolvi=true           -> ofrece=False
+"ayuda"     + "dime qué necesitas" -> resolvi=true         -> ofrece=False
+"logs?"     + "están por ahí"    -> resolvi=false          -> ofrece=True
+```
+Las dos últimas confirman que **no se sobreajustó**: lo que solo Arturo
+puede concretar no ofrece gasto; lo que Hermes podía averiguar solo, sí.
+
+Pruebas: **18/18** (`test_complexity_detector_self_assess.py` 13 +
+`test_complexity_detector_litellm_credentials.py` 5 nuevas) y 18
+pasan/1 skip en `tests/gateway -k "tarea/deepseek/pendiente/litellm/
+custom_provider"`. Desplegado con la excepción permanente del CLAUDE.md
+(reinicio de `hermes-gateway`) a las **12:05:19**; gateway `active`,
+PID 528048, sin errores en el journal.
+
+**PENDIENTE que esto deja abierto (para Arturo, no lo decido yo):**
+¿**qué** restauró `config.yaml.known-good` a las 11:45:23 y reinició el
+gateway en el mismo segundo? No lo hice yo en esta corrida. Se cruza con
+el hallazgo de gobernanza de la entrada de abajo (Hermes en vivo leyendo
+`complexity_detector.py` con intención de editarlo, ~11:47am, misma
+franja). Si un proceso puede revertir `config.yaml` a un estado de hace
+26 días sin dejar aviso, cualquier arreglo de configuración es temporal.
+**Segundo pendiente derivado:** buscar si hay MÁS `except: ... return
+default` sin log en el árbol — esta falla vivió justo ahí, y el fix de
+hoy solo tapó las dos instancias que encontré.
+
+---
+
 ## PRIORIDAD MÁXIMA (30 jul, tarde) — auditoría "desde el inicio del proyecto", arrancar AQUÍ antes que el plan de 24h
 
 **REGLA DURA para cualquier corrida de `/loop` mientras esta ventana

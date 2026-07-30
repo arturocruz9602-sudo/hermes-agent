@@ -4,6 +4,42 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Bloque AG — Tarea E muerta en silencio: credenciales de LiteLLM (30 Jul 2026, `/loop`) — **CERRADO con evidencia real**
+
+Nace del pendiente "Bloque O completo -- buscar OTROS huecos parecidos en
+el rubro" de `ESTADO.md`. El hueco no estaba en el rubro.
+
+**Síntoma que lo delató:** sonda de 8 casos límite con llamada REAL
+devolvió el default **byte-idéntico** en los 8, incluido un caso
+abiertamente multivariable. Ocho respuestas iguales = el rubro nunca
+corrió.
+
+**Causa raíz:** `_resolve_litellm_credentials()` solo leía
+`custom_providers['LiteLLM']`. A las 11:45:23 se restauró
+`config.yaml.known-good` (4 jul, `md5 c8910c8c…`, byte-idéntico al
+vigente), que guarda las mismas credenciales bajo `model:`. La función
+lanzaba; `_call_cheap_model_json` lo tragaba con `except: return None`
+sin log; todo llamador caía a su default fail-safe. LiteLLM sano todo el
+tiempo (`{"ok": true}` vía `model.base_url`).
+
+**Jurisprudencia:** es L6/L14 del HAS en producción — el silencio como
+estado de fallo. La lección nueva y accionable: **un default fail-safe
+sin log es indistinguible de un éxito**, y ahí es donde esta familia de
+fallas se esconde. Un `except` que devuelve default DEBE loggear.
+
+**Cierre (commit `8ec8bfe4f`):** función canónica que lee ambas formas de
+`config.yaml`; log obligatorio en el fallo; deduplicados los 2 lookups a
+mano de `gateway/run.py` (Tarea D y E) que tenían el mismo defecto
+(`grep` = 0 residuos); EXCEPCIÓN 1 del rubro ampliada a mensajes que solo
+Arturo puede concretar. Verificación real 8/8 (incluye control negativo:
+`"logs?"` sigue ofreciendo, no se sobreajustó). Pruebas 18/18 + 18/1skip
+en gateway. Desplegado 12:05:19, gateway `active` PID 528048.
+
+**Deja abierto:** (1) qué proceso restauró `config.yaml` y reinició el
+gateway a las 11:45:23 — decisión de Arturo, se cruza con el hallazgo de
+gobernanza de Hermes leyendo su propio código fuente ~11:47am;
+(2) barrer el árbol buscando más `except: return default` sin log.
+
 ## Sesión de tarde con Arturo presente (30 Jul 2026) -- fix en vivo + auditoría "desde el inicio" pedida
 
 Arturo vio en vivo, por Telegram, la misma familia de falla ya

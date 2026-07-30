@@ -7,6 +7,55 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 30 Jul 2026 (mediodía, trabajando solo) — Resulta que esa autoevaluación llevaba rato APAGADA, sin avisar. Ya funciona de verdad
+
+Usted me pidió repasar de fondo, no solo parchar. Al buscar más huecos
+en la autoevaluación de ayer encontré algo bastante peor, y prefiero
+decírselo claro: **el mecanismo completo no estaba evaluando nada.**
+
+Piénselo así: Hermes tiene un supervisor interno que después de cada
+respuesta se pregunta "¿contesté bien o me quedé corto?". Ese supervisor
+necesita una llave para entrar a consultar. La llave dejó de servir —
+alguien cambió la cerradura hoy a las 11:45 de la mañana — y el
+supervisor, en vez de gritar "¡no puedo entrar!", se quedó callado y
+contestó "todo bien" en automático a cada pregunta, siempre. Desde
+afuera se veía idéntico a un supervisor trabajando bien. No había ni una
+línea en los registros diciendo que algo fallaba.
+
+**Cómo lo cachré:** le di 8 mensajes muy distintos (un saludo, un emoji,
+una pregunta técnica, una pregunta financiera enredada) y me devolvió
+la MISMA respuesta idéntica a los 8. Eso no es un supervisor
+equivocándose; es uno que ni siquiera se despertó.
+
+**Antes:** cualquier respuesta floja de Hermes pasaba sin que nadie la
+revisara — y usted nunca se hubiera enterado, porque el sistema se
+reportaba sano.
+**Ahora:** vuelve a revisar de verdad. Además le puse dos candados: la
+llave ahora se busca en los dos lugares donde puede estar guardada, y si
+un día vuelve a fallar, **queda escrito en el registro** en vez de
+fingir que todo está bien. Ese silencio era el problema de fondo.
+
+De paso arreglé otro caso de los que le molestan: si le escribe solo
+"ayuda", ya no le ofrece gastar en DeepSeek (lo que falta ahí es que
+usted diga qué necesita, no un modelo más caro). Pero cuidé que no se
+pasara de listo: si le pregunta "logs?" y le contesta una vaguedad, ahí
+sí le sigue ofreciendo ayuda extra, porque eso Hermes sí podía
+averiguarlo solo.
+
+**Mensajes para probarlo usted mismo**, uno tras otro:
+- `ayuda` → debe pedirle que concrete, **sin** ofrecerle DeepSeek.
+- `hola` → saludo normal, **sin** oferta (lo de ayer, sigue firme).
+
+**Algo que le toca decidir a usted, no a mí:** no sé *qué* le cambió la
+cerradura a las 11:45. Un proceso restauró un archivo de configuración a
+como estaba hace 26 días y reinició a Hermes en el mismo segundo. Yo no
+fui. Mientras no sepamos qué fue, cualquier ajuste de configuración que
+hagamos lo puede borrar otra vez sin avisar. Lo dejé anotado como
+pendiente y se cruza con lo que ya le había reportado: Hermes andaba
+leyendo su propio código fuente esa misma media hora.
+
+---
+
 ## 30 Jul 2026 (tarde, en vivo contigo) — Por qué te ofreció DeepSeek solo por decirle "Hermes", y ya quedó arreglado
 
 Le escribiste solo "Hermes" y contestó bien ("Buenas noches. ¿En qué
