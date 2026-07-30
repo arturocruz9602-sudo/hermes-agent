@@ -222,6 +222,17 @@ ensamblado, una sola corrida coordinada con un solo timestamp).
 completo + `docs/RECUPERACION.md`) y paso 5 (prueba de restauración
 real en máquina limpia, NUNCA sobre producción).
 
+**Hallazgo chico real, sin arreglar (falso positivo del guard):**
+`~/.claude/hooks/hermes-guard.sh` (regla 3, DROP/DELETE SQL directo)
+bloqueó el primer intento de commit de este paso porque el mensaje
+mencionaba `.db` (nombres de archivo) Y la palabra "delete" (describiendo
+la bandera `rsync -a --delete`) en el mismo texto -- el patrón es
+`\.db\b` + `\b(drop|delete)\b` sin distinguir prosa de SQL real. Se
+resolvió reescribiendo el mensaje del commit, no tocando el hook (regla
+de seguridad, fuera de alcance sin Arturo). Queda como nota para quien
+toque ese hook algún día: el patrón es más ancho de lo que su propio
+propósito necesita.
+
 **Sin tocar esta noche (deliberado, requieren a Arturo despierto o
 sudo):** Bloques 3, 4, 5, 8, 9, 10 sin empezar, mismo orden que antes.
 
