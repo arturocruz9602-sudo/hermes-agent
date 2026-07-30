@@ -112,12 +112,28 @@ de la restauración del watchdog (11:45:23). Su `/new` no causó nada; el
 la config del 4 jul recién instalada. Empezó de cero encima de un
 sistema ya alterado.
 
-**HALLAZGO ADICIONAL:** los respaldos nocturnos **no incluyen
-`config.yaml`** (`find /mnt/seagate -name "config.yaml*"` = 0
-resultados). Por eso no hubo de dónde recuperar la config del 30 jul y
-hubo que reconstruirla desde un respaldo del 17 jul que además está
-corrupto. Junto con `~/.hermes/scripts/`, es el mismo hueco: **el
-respaldo nocturno cubre `skills/` y unidades systemd, y nada más.**
+**HALLAZGO ADICIONAL — ya CERRADO** (commit `0892d40f4`): los respaldos
+nocturnos **no incluían `config.yaml`** (`find /mnt/seagate -name
+"config.yaml*"` = 0 resultados). Por eso no hubo de dónde recuperar la
+config del 30 jul y hubo que reconstruirla desde un respaldo del 17 jul
+que además está corrupto. Mismo hueco en `~/.hermes/scripts/` (26
+scripts de producción, incluido el watchdog).
+
+`scripts/respaldar_skills_y_sistema.py` ahora respalda **también**
+`~/.hermes/scripts/` (rsync, excluyendo `__pycache__`) y los dos
+`config.yaml`. Solo esos dos archivos de config, porque traen únicamente
+placeholders `${VAR}` — verificado antes de escribirlo; `.env` y
+`~/.hermes/boveda/` se siguen sin tocar. Un origen ausente reporta
+**FAIL**, no pasa en silencio (misma lección L6/L14: un respaldo que
+"sale bien" sin copiar nada es justo lo que dejó a Arturo sin nada).
+Eso rompió 4 pruebas cuyos `HERMES_HOME` de prueba no tenían esos
+archivos — actualizadas, porque un home sin ellos ya no es válido.
+
+Verificado con **corrida real**, no solo tests: 26 archivos + ambos
+config; el `watchdog.sh` respaldado trae el fix del 401 dentro; la
+config respaldada trae `toolsets: - kanban`; `__pycache__` fuera.
+37/37 en `tests/scripts`. Entra solo en la corrida nocturna de las 4am
+(el orquestador `restaurar_hermes.sh` invoca el script desde el repo).
 
 ## HALLAZGO GRAVE — Tarea E estuvo MUERTA en silencio (30 jul, 12:00pm, `/loop`) — RESUELTO y desplegado
 
