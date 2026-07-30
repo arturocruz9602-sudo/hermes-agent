@@ -4,6 +4,43 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Bloque AH — El watchdog revertía la config por un "401" dentro del session_id (30 Jul 2026, `/loop`) — **CERRADO, causa raíz de AG**
+
+Responde el pendiente que dejó AG. `~/.hermes/scripts/watchdog.sh` traía
+`grep -qi "...\|401\|..."` con el **`401` suelto**, sin delimitadores.
+Hacía match con el session_id de Arturo — `20260723_0144`**`01`**`_…` —
+así que **restauraba `config.yaml.known-good` (4 jul) y reiniciaba el
+gateway porque el ID de la sesión contiene esos tres dígitos.**
+
+Evidencia textual (`~/.hermes/logs/watchdog.log:25279`):
+`[jue 30 jul 2026 11:45:23 CST] 🔴 Auth error detectado` +
+`✅ Restaurado known-good` — mismo segundo que el `mtime` de config.yaml.
+Corroborado por duración: las corridas duran ~6s; la de 11:45:17 duró 19s.
+
+**15 veces desde el 4 jul**, dos de ellas el 23 jul justo después de que
+naciera esa sesión. Cada una devolvía la config a la forma que mata
+Tarea E (Bloque AG) sin que nada se viera roto por fuera.
+
+**Lección de jurisprudencia (la más cara del día):** un mecanismo de
+*auto-curación* con un patrón de detección demasiado laxo no es una red
+de seguridad — es una fuente de fallas periódicas que además borra la
+evidencia de sí misma. Al escribir cualquier `grep` de detección sobre
+logs, los números sueltos (códigos HTTP, PIDs, puertos) **deben ir
+delimitados**: los IDs de sesión, hashes y timestamps del propio sistema
+son texto adversario en la práctica.
+
+**Cierre:** `\b401\b` + vocabulario de autenticación en la misma línea;
+12/12 en casos reales (7 positivos legítimos, 5 falsos rechazados);
+simulación contra los logs del incidente → no dispara; corrida real
+13:03:21 `Result=success`. Aditivo: respaldo de la config vigente antes
+de sobrescribir + log de la línea que disparó la detección.
+
+**Deja abierto:** `~/.hermes/scripts/` (26 scripts de producción) no está
+versionado ni cubierto por el respaldo nocturno — recomendación:
+extender `scripts/respaldar_skills_y_sistema.py`. Y el known-good sigue
+siendo el del 4 jul (decisión de Arturo: regenerarlo desde la config
+vigente verificada).
+
 ## Bloque AG — Tarea E muerta en silencio: credenciales de LiteLLM (30 Jul 2026, `/loop`) — **CERRADO con evidencia real**
 
 Nace del pendiente "Bloque O completo -- buscar OTROS huecos parecidos en

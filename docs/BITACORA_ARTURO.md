@@ -62,13 +62,56 @@ cuando fallan. Lo que cambió es que **ahora avisan**. Y para no confiarme,
 le rompí un aviso a propósito para comprobar que la prueba lo detecta: sí
 lo detectó.
 
-**Algo que le toca decidir a usted, no a mí:** no sé *qué* le cambió la
-cerradura a las 11:45. Un proceso restauró un archivo de configuración a
-como estaba hace 26 días y reinició a Hermes en el mismo segundo. Yo no
-fui. Mientras no sepamos qué fue, cualquier ajuste de configuración que
-hagamos lo puede borrar otra vez sin avisar. Lo dejé anotado como
-pendiente y se cruza con lo que ya le había reportado: Hermes andaba
-leyendo su propio código fuente esa misma media hora.
+**Ya sé qué le cambió la cerradura (13:05). Y le va a dar risa de coraje.**
+
+Hermes tiene un "enfermero de guardia" (un vigilante automático que lo
+revisa cada 3 minutos). Cuando cree que hay un problema de contraseñas o
+llaves, hace dos cosas: le devuelve a Hermes una configuración vieja que
+guardó como "esta seguro que servía" — **la del 4 de julio** — y lo
+reinicia.
+
+Para decidir si hay problema, ese vigilante busca la palabra "401" en los
+registros (401 es el código que usan los sistemas para decir "llave
+rechazada"). El detalle: lo buscaba **suelto**, sin fijarse si era un
+código o parte de otra cosa. Y resulta que el identificador de su sesión
+de conversación con Hermes es `20260723_014401_...` — que **contiene
+"401" en medio**.
+
+O sea: **cada vez que aparecía el nombre de su sesión en un registro, el
+vigilante creía que había un error de llaves, le devolvía a Hermes la
+configuración del 4 de julio y lo reiniciaba.** Nunca hubo tal error.
+
+**Ha pasado 15 veces desde el 4 de julio.** Y cada una de esas veces
+dejaba apagado el supervisor interno que le expliqué arriba — sin que
+nada se viera roto por fuera. Buena parte de ese "siempre son las mismas
+fallas" que me dijo tiene aquí su explicación: no eran fallas distintas
+repitiéndose, era **la misma causa volviendo cada tantos días**.
+
+**Ya quedó arreglado**, y lo probé con 12 casos: los 7 errores de llaves
+de verdad los sigue detectando, y los 5 falsos (incluido el suyo) ya no.
+Lo verifiqué corriendo de verdad a las 13:03 en su máquina, sin fallas.
+De pasada le puse dos cosas más al vigilante: ahora **guarda una copia**
+de la configuración antes de reemplazarla (antes la borraba sin más), y
+**anota qué línea exacta** le hizo creer que había un problema.
+
+**Dos cosas que le toca decidir a usted:**
+1. Esa configuración "de respaldo" que el vigilante instala sigue siendo
+   la del 4 de julio. Ahora casi nunca se va a usar, pero si algún día se
+   usa, le va a instalar algo de hace 26 días. **Mi recomendación:**
+   regenerarla a partir de la que está funcionando hoy.
+2. Descubrí que la carpeta con los 26 programas que hacen funcionar a
+   Hermes (incluido este vigilante) **no está respaldada ni guardada en
+   ningún control de versiones**. Si un día se borran, no hay de dónde
+   sacarlos. Guardé una copia manual del arreglo de hoy en el disco de
+   1TB por lo pronto. **Mi recomendación:** agregarla al respaldo
+   nocturno que ya existe.
+
+**Queda un cabo suelto aparte**, que no tiene que ver con el vigilante y
+sigue pendiente de que usted decida: a esa misma media hora, Hermes
+andaba leyendo su propio código fuente con intención de editarlo. Eso ya
+se lo había reportado y sigue igual — no es el vigilante, es Hermes
+mismo, y toca decidir si le quitamos el permiso de tocar archivos
+críticos a nivel de sistema, no solo pidiéndoselo.
 
 ---
 

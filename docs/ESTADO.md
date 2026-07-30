@@ -2,6 +2,72 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
+## CAUSA RAÍZ ENCONTRADA (30 jul, 13:05, `/loop`) — el watchdog revertía la configuración por un `401` dentro del ID de sesión de Arturo
+
+Respuesta al pendiente "¿qué restauró `config.yaml` a las 11:45:23?".
+**Fue `~/.hermes/scripts/watchdog.sh`, y el motivo es un falso positivo
+de una línea de `grep`.**
+
+Línea textual del log (`~/.hermes/logs/watchdog.log:25279`):
+```
+[jue 30 jul 2026 11:45:23 CST] 🔴 Auth error detectado
+[jue 30 jul 2026 11:45:23 CST] ✅ Restaurado known-good
+```
+Mismo segundo exacto que el `mtime` de `config.yaml`. El watchdog corre
+cada 3 min; todas sus corridas duran ~6s salvo la de 11:45:17, que duró
+**19s** (11:45:17→11:45:36) — dentro de esa ventana el gateway recibió
+SIGTERM (11:45:23) y arrancó (11:45:25).
+
+**El falso positivo:** el patrón era
+`grep -qi "authentication failed\|401\|auth fail\|..."` — con **`401`
+suelto**, sin delimitadores. Hizo match contra esta línea, que no tiene
+ningún error de autenticación:
+```
+turn 20260723_014401_467841eb:20260723_014401_467841eb:f5c39a2d starting while...
+```
+El **session_id de Arturo contiene `401`** (`20260723_0144`**`01`**`_…`).
+Es decir: **el watchdog restauraba una configuración de hace 26 días y
+reiniciaba Hermes porque el ID de la sesión de Arturo contiene esos tres
+dígitos.** Como esa sesión nació el 23 jul 01:44:01, cualquier warning
+rutinario que la nombre volvía a dispararlo.
+
+**No fue un incidente aislado: pasó 15 veces desde el 4 de julio**
+(`grep -c "Restaurado known-good"`), con dos el 23 jul (02:56 y 02:59,
+justo después de crearse esa sesión). Explica buena parte del "siempre
+son las mismas fallas" que hartó a Arturo: cada restauración devolvía
+`config.yaml` a la forma que **mata Tarea E** (Bloque AG), en silencio,
+y el gateway seguía funcionando porque el known-good sí trae las
+credenciales en `model:`.
+
+**Arreglado** (`~/.hermes/scripts/watchdog.sh`): el `401` ahora exige ser
+código delimitado (`\b401\b`) **y** venir acompañado de vocabulario de
+autenticación en la misma línea. Verificado contra **12 casos: 7 auth
+errors legítimos detectados + 5 falsos positivos rechazados, 12/12**, y
+simulado contra los logs reales de la franja del incidente → ya no
+dispara. Corrida real en producción a las 13:03:21 con la versión nueva:
+`Result=success`, 6s, sin restauración espuria.
+
+**Además** (aditivo, misma edición): antes de sobrescribir, el watchdog
+ahora respalda la config vigente en `config.yaml.pre-watchdog-<fecha>` y
+registra en el log **qué línea** disparó la detección. Antes destruía la
+config vigente sin dejar cómo volver atrás ni por qué.
+
+**HALLAZGO ADICIONAL, sin resolver:** `~/.hermes/scripts/` **no está
+versionado en ningún repo ni cubierto por el respaldo nocturno**
+(`scripts/respaldar_skills_y_sistema.py` cubre `skills/` y unidades
+systemd, no `scripts/`). Son 26 scripts de producción — incluido este
+watchdog — sin control de versiones ni respaldo. Copia manual del fix
+guardada en `/mnt/seagate/hermes_backups/scripts_manual/`. **Recomiendo**
+agregar `~/.hermes/scripts/` al respaldo nocturno (es el mecanismo que ya
+existe y solo hay que extenderlo) — pendiente del próximo tramo.
+
+**DECISIÓN PARA ARTURO (no la tomo yo):** `config.yaml.known-good` sigue
+siendo el del **4 de julio**. Ahora que el watchdog ya no dispara en
+falso, solo se usaría ante un auth error real — pero cuando eso pase,
+volvería a instalar una configuración de hace 26 días. **Recomiendo
+regenerar el known-good a partir de la config vigente ya verificada**,
+para que "curar" signifique volver a algo actual y no a julio 4.
+
 ## HALLAZGO GRAVE — Tarea E estuvo MUERTA en silencio (30 jul, 12:00pm, `/loop`) — RESUELTO y desplegado
 
 Corrida de `/loop` buscando "otros huecos del rubro" (el pendiente que
