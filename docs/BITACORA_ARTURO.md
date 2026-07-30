@@ -94,17 +94,47 @@ De pasada le puse dos cosas más al vigilante: ahora **guarda una copia**
 de la configuración antes de reemplazarla (antes la borraba sin más), y
 **anota qué línea exacta** le hizo creer que había un problema.
 
-**Dos cosas que le toca decidir a usted:**
-1. Esa configuración "de respaldo" que el vigilante instala sigue siendo
-   la del 4 de julio. Ahora casi nunca se va a usar, pero si algún día se
-   usa, le va a instalar algo de hace 26 días. **Mi recomendación:**
-   regenerarla a partir de la que está funcionando hoy.
-2. Descubrí que la carpeta con los 26 programas que hacen funcionar a
-   Hermes (incluido este vigilante) **no está respaldada ni guardada en
-   ningún control de versiones**. Si un día se borran, no hay de dónde
-   sacarlos. Guardé una copia manual del arreglo de hoy en el disco de
-   1TB por lo pronto. **Mi recomendación:** agregarla al respaldo
-   nocturno que ya existe.
+**Ya que me dijo que sí (13:16): resultó que faltaba más de lo que creía.**
+
+Cuando fui a rehacer esa configuración de respaldo me topé con dos cosas:
+
+Primero, una trampa: el archivo "bueno" que íbamos a rehacer **ya era**
+el que el vigilante le había instalado. O sea, copiarlo habría sido
+copiar el archivo encima de sí mismo — se habría visto como "listo,
+arreglado" sin arreglar nada. Menos mal que lo revisé antes.
+
+Segundo, y más importante: al comparar contra copias viejas descubrí que
+la restauración del 4 de julio **sí le borró cosas de verdad**. La más
+notoria: **su tablero kanban quedó apagado.** No era una impresión mía;
+estaba escrito en los registros de cada arranque desde las 11:46
+("kanban… no disponible"). También le había revertido una preferencia
+suya (ese recordatorio de "¿por qué no creas una skill para esto?" que
+usted había apagado — volvió a encenderse).
+
+Ya restauré las tres cosas que faltaban, y lo comprobé de verdad: el
+kanban volvió a quedar habilitado (pasó de "no" a "sí"), Hermes reinició
+limpio a la 1:15 pm sin un solo error. Y ahora **sí** rehice la
+configuración de respaldo, partiendo de esta que ya está verificada
+funcionando — guardé la vieja del 4 de julio por si acaso, en la laptop y
+en el disco de 1TB.
+
+**Una cosa más que encontré de paso, y no es menor:** los respaldos
+nocturnos **no estaban guardando su archivo de configuración**. Por eso
+no hubo de dónde recuperarlo y tuve que reconstruirlo a mano comparando
+contra una copia del 17 de julio (que además estaba dañada). Voy a
+arreglar eso ahora.
+
+**Lo que sigue de esto (ya no necesito que decida nada, se lo aviso):**
+la carpeta con los 26 programas que hacen funcionar a Hermes (incluido
+este vigilante) **no está respaldada ni guardada en ningún control de
+versiones**, y tampoco se respaldaba su archivo de configuración. Si un
+día se borran, no hay de dónde sacarlos. Guardé copias manuales en el
+disco de 1TB por lo pronto y estoy extendiendo el respaldo nocturno para
+que los cubra.
+
+**Prueba que puede hacer usted mismo ahora:** pídale a Hermes que le
+muestre su tablero (`/kanban` o "muéstrame el kanban"). Antes de hoy le
+habría dicho que no tiene esa herramienta disponible.
 
 **Queda un cabo suelto aparte**, que no tiene que ver con el vigilante y
 sigue pendiente de que usted decida: a esa misma media hora, Hermes

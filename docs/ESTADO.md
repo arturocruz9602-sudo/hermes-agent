@@ -61,12 +61,63 @@ guardada en `/mnt/seagate/hermes_backups/scripts_manual/`. **Recomiendo**
 agregar `~/.hermes/scripts/` al respaldo nocturno (es el mecanismo que ya
 existe y solo hay que extenderlo) — pendiente del próximo tramo.
 
-**DECISIÓN PARA ARTURO (no la tomo yo):** `config.yaml.known-good` sigue
-siendo el del **4 de julio**. Ahora que el watchdog ya no dispara en
-falso, solo se usaría ante un auth error real — pero cuando eso pase,
-volvería a instalar una configuración de hace 26 días. **Recomiendo
-regenerar el known-good a partir de la config vigente ya verificada**,
-para que "curar" signifique volver a algo actual y no a julio 4.
+### Reconstrucción del config y del known-good (13:16) — **AUTORIZADO POR ARTURO Y HECHO**
+
+Arturo autorizó regenerar el known-good. Al ir a hacerlo apareció una
+trampa que hubiera vuelto el arreglo un no-op, y debajo, **pérdida
+funcional real**.
+
+**La trampa:** `config.yaml` **ya era** el known-good (mismo md5
+`c8910c8c…`) — el watchdog lo había sobrescrito. Regenerar el known-good
+"desde la config vigente" habría copiado el archivo sobre sí mismo y no
+habría arreglado nada, dejándolo con la falsa sensación de resuelto.
+
+**Lo que de verdad se había perdido** (diff contra
+`config.yaml.corrupt.20260717-231236.bak`, el respaldo más reciente que
+todavía tenía la forma previa — nótese que es **YAML inválido**, por eso
+se copiaron piezas y no el archivo entero):
+1. **`toolsets: - kanban`** → **el kanban de Arturo quedó deshabilitado.**
+   Confirmado en el journal del arranque post-restauración (11:46:34):
+   `check_fn _check_kanban_mode returned False; dependent tools will be
+   unavailable this turn`. Verificado en el código antes de tocar nada:
+   `tools/kanban_tools.py::_profile_has_kanban_toolset` hace
+   `cfg.get("toolsets", [])` y `"kanban" in toolsets` — es exactamente
+   esa clave de nivel superior, no `platform_toolsets`.
+2. **entrada `custom_providers: LiteLLM`** → la que mató Tarea E (AG).
+3. **`agent.skills.creation_nudge_interval: 0`** → preferencia de Arturo
+   (apaga el recordatorio de "podrías crear una skill para esto").
+
+**Hecho:** las 3 restauradas quirúrgicamente sobre la config vigente
+(que es YAML válido y funciona), cada una con comentario explicando qué
+la borró. Respaldo previo en
+`config.yaml.pre-reconstruccion-20260730-131455`. No se tocó
+`model.provider: custom` — funciona y verificado en vivo; principio de
+cambiar lo mínimo.
+
+**Verificado (real, no asumido):** YAML válido, 28 claves;
+`_profile_has_kanban_toolset()` → **True** (era False);
+`_resolve_litellm_credentials()` → resuelve; gateway reiniciado 13:15:48
+PID 544277, **sin errores y sin el warning de kanban**.
+
+**Known-good regenerado** desde esa config ya verificada (nuevo md5
+`6e2c694c…`). El del 4 de julio se conservó en
+`config.yaml.known-good.old-4jul-20260730` y copiado a
+`/mnt/seagate/hermes_backups/scripts_manual/`, junto con la config
+verificada de hoy. Ahora "curar" significa volver a algo actual.
+
+**Contexto que dio Arturo (importante para leer los tiempos):** él dio
+`/new` a Hermes a las **11:49**, por hartazgo — cuatro minutos DESPUÉS
+de la restauración del watchdog (11:45:23). Su `/new` no causó nada; el
+`◆ Provider: custom` que le salió en pantalla es justamente la huella de
+la config del 4 jul recién instalada. Empezó de cero encima de un
+sistema ya alterado.
+
+**HALLAZGO ADICIONAL:** los respaldos nocturnos **no incluyen
+`config.yaml`** (`find /mnt/seagate -name "config.yaml*"` = 0
+resultados). Por eso no hubo de dónde recuperar la config del 30 jul y
+hubo que reconstruirla desde un respaldo del 17 jul que además está
+corrupto. Junto con `~/.hermes/scripts/`, es el mismo hueco: **el
+respaldo nocturno cubre `skills/` y unidades systemd, y nada más.**
 
 ## HALLAZGO GRAVE — Tarea E estuvo MUERTA en silencio (30 jul, 12:00pm, `/loop`) — RESUELTO y desplegado
 
