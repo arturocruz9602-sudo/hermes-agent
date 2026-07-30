@@ -129,6 +129,21 @@ Resumen para este registro:
   son historial preservado, nunca borrado. Verificado en vivo sobre la
   misma sesión del hallazgo original: coincidencia EXACTA
   (`message_count=16` = `COUNT(*) WHERE active=1`). Sin fix necesario.
+- **Bloque 8 -- REEVALUADO, cerrado parcial a propósito.** Hallazgo
+  importante que corrige la nota original del plan: el arnés E2E
+  (`tests/e2e/hermes_harness.py`) maneja mensajes REALES contra el
+  pipeline REAL de producción (state.db compartido con el gateway
+  vivo, costo real de LLM) -- no es una sandbox segura. R.8 (ráfaga) y
+  S.8 (inyección adversarial) se difirieron a propósito a una sesión
+  con Arturo despierto, en vez de correrlos solo a las 3am. Sí se hizo,
+  seguro: `pyfakefs==6.2.0` agregado como dependencia dev, 2 pruebas
+  nuevas fijan con precisión el umbral de `_probe_disk()` (antes
+  aceptaba "ok o degraded" sin controlar el uso real de disco).
+  Hallazgo de diseño sin resolver: `_probe_disk()` es de solo lectura,
+  R.10 pide un guard ACTIVO antes de escribir que no existe hoy --
+  queda para que Arturo decida prioridad. R.9 no automatizado --
+  resuelto con evidencia real ya existente (el hallazgo de
+  `Persistent=true` del Bloque 3, más relevante que una simulación).
 
 **Commits:** ver `git log` de esta fecha en `arturo/prod` (docs +
 `has_progress.py`/`fase2_extract_candidates.py` viven fuera del repo,

@@ -5,7 +5,7 @@ import os
 import sqlite3
 from pathlib import Path
 
-from gateway.readiness import collect_runtime_readiness
+from gateway.readiness import _probe_disk, collect_runtime_readiness
 
 
 def test_collect_runtime_readiness_reports_healthy_local_runtime(tmp_path, monkeypatch):
@@ -101,3 +101,45 @@ def test_collect_runtime_readiness_uses_active_profile_home(tmp_path, monkeypatc
     assert result["checks"]["config"]["status"] == "ok"
     assert not (tmp_path / ".hermes" / "state.db").exists()
     assert os.environ["HERMES_HOME"] == str(profile_home)
+
+
+# HAS GUION_PRUEBAS.md R.10 (disco lleno) -- plan nocturno 30 jul 2026,
+# Bloque 8. El caso real (24-25 jul: /tmp lleno tumbo Bash 3 horas) motiva
+# probar el umbral de _probe_disk con precision en vez de aceptar "ok o
+# degraded" como ya hacia el test de arriba (linea 38, sin control real
+# del uso de disco). pyfakefs permite fijar el tamano total del "disco"
+# y llenarlo de forma deterministica -- sin arriesgar el disco real de la
+# HP, a diferencia de intentar llenar /tmp de verdad.
+#
+# Alcance real de esta prueba, marcado a proposito: _probe_disk() es un
+# probe DE SOLO LECTURA (expuesto via un endpoint de salud) -- reporta
+# "degraded" al pasar el umbral, pero NO bloquea escrituras activamente.
+# R.10 pide algo mas fuerte ("detecta espacio bajo ANTES de escribir, no
+# se corrompe ni pierde datos a medio escribir") -- eso implicaria un
+# guard activo en las rutas de escritura reales (state.db, audio/imagen
+# cache, etc.), que hoy no existe como mecanismo unificado. Esa brecha de
+# diseno queda documentada en docs/ESTADO.md para que Arturo decida su
+# prioridad -- esta prueba cierra la parte que SI existe hoy (el umbral
+# de deteccion), no inventa un mecanismo de bloqueo que no esta construido.
+def test_probe_disk_reports_degraded_when_over_threshold(fs):
+    home = Path("/fake_home")
+    fs.create_dir(home)
+    fs.set_disk_usage(total_size=100_000_000, path=str(home))
+    fs.create_file(str(home / "llenador.bin"), st_size=95_000_000)
+
+    result = _probe_disk(home)
+
+    assert result["status"] == "degraded"
+    assert result["used_percent"] >= 90.0
+
+
+def test_probe_disk_reports_ok_when_under_threshold(fs):
+    home = Path("/fake_home")
+    fs.create_dir(home)
+    fs.set_disk_usage(total_size=100_000_000, path=str(home))
+    fs.create_file(str(home / "poquito.bin"), st_size=10_000_000)
+
+    result = _probe_disk(home)
+
+    assert result["status"] == "ok"
+    assert result["used_percent"] < 90.0

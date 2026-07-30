@@ -370,6 +370,72 @@ hallazgo original: `sessions.message_count=16`,
 hace falta ningún fix -- el campo funciona exactamente como está
 diseñado. Cierra el hallazgo del 23-24 jul sin dejarlo abierto.
 
+**Bloque 8 -- REEVALUADO, parcial a propósito (no es el bloque chico
+que parecía).** Al investigar cómo automatizar R.8/R.9/R.10/S.8 se
+encontró algo importante que corrige la nota original ("mismo patrón
+que R.1/R.7"): `tests/e2e/hermes_harness.py` (`enviar_texto` etc.)
+maneja mensajes REALES a través del pipeline REAL de producción --
+`state.db` real (compartido con `hermes-gateway.service` vivo),
+llamadas reales a proveedores LLM (costo real), usando la identidad
+real de Arturo. No es una sandbox segura. Correr R.8 (ráfaga de 20
+entradas) o S.8 (inyección adversarial, que necesita que el propio
+modelo decida si cae en la trampa) contra ese arnés a las 3am, sin
+Arturo despierto para confirmar que no colisiona con su uso real,
+es exactamente el tipo de acción que CLAUDE.md pide NO tomar sola --
+**deliberadamente no se corrieron esta noche.**
+
+**Lo que SÍ se hizo, seguro y real:** `pyfakefs==6.2.0` agregado como
+dependencia de desarrollo (`pyproject.toml`, extra `dev`) -- permite
+simular un disco lleno sin arriesgar el disco real de la HP (a
+diferencia de llenar `/tmp` de verdad, que es justo lo que causó el
+incidente del 24-25 jul). 2 pruebas nuevas en
+`tests/gateway/test_readiness.py` fijan con precisión el umbral de
+`_probe_disk()` (90%) -- antes el único test que tocaba disco aceptaba
+`"ok" o "degraded"` sin controlar el uso real, no probaba nada de
+verdad. Las 7 pruebas del archivo pasan.
+
+**Hallazgo real de diseño, sin resolver, para que Arturo decida
+prioridad:** `_probe_disk()` es un probe de SOLO LECTURA (expone un
+endpoint de salud) -- reporta "degraded" pero no bloquea ninguna
+escritura activamente. R.10 pide algo más fuerte ("detecta espacio
+bajo ANTES de escribir, no se corrompe ni pierde datos a medio
+escribir") -- eso requeriría un guard activo en las rutas de escritura
+reales (`state.db`, caché de audio/imagen, etc.) que hoy no existe
+como mecanismo unificado. No se inventó ese guard esta noche (cambio
+de comportamiento real en rutas de escritura de producción, mejor con
+Arturo presente para decidir el diseño).
+
+**R.9 (reloj/suspensión) sin automatizar, decisión deliberada:** la
+mayor parte de lo que pide probar (que systemd sobreviva
+suspensión/cambio de hora sin duplicar) es comportamiento del propio
+systemd, no código de Hermes -- de bajo valor simularlo con
+`freezegun` cuando ya hay evidencia REAL de esta misma noche más
+relevante: el hallazgo de `Persistent=true` del Bloque 3 (un cambio de
+horario causó un disparo fantasma) es exactamente la clase de bug que
+R.9 buscaba, encontrado en producción real, no en una simulación. No
+se instaló `freezegun`.
+
+**Bloque 8 queda:** cerrado en la parte que se pudo hacer segura y
+real hoy (disco lleno, detección); R.8/S.8 explícitamente diferidos a
+una sesión con Arturo despierto (arnés E2E real); R.9 resuelto por
+evidencia ya existente en vez de simulación; brecha de diseño de R.10
+(guard activo) documentada, no construida.
+
+**Hallazgo real, sin resolver, sobre `uv.lock`:** al agregar `pyfakefs`
+a `pyproject.toml` se intentó regenerar `uv.lock` con `uv lock` (`uv`
+no estaba instalado, se instaló solo para esto) para mantenerlo
+consistente -- pero la regeneración trajo **633 líneas** de cambios no
+relacionados (paquetes CUDA/torch/transformers enteros) en vez de solo
+la entrada nueva. Revertido (`git checkout -- uv.lock`) sin commitear
+-- ese diff es demasiado grande y no entendido para meterlo a las 3am
+sin que alguien lo revise. **Queda inconsistente a propósito:**
+`pyproject.toml` ya declara `pyfakefs==6.2.0` (funciona real, probado,
+instalado a mano en el venv de esta sesión), pero `uv.lock` no lo
+sabe todavía -- un `uv sync` fresco en otra máquina no lo instalaría
+solo. Pendiente: correr `uv lock` con calma, revisando el diff completo
+antes de aceptarlo (probablemente el lock ya estaba desactualizado
+desde antes de esta noche, no es exclusivo de este cambio).
+
 **Hallazgo chico real, sin arreglar (falso positivo del guard):**
 `~/.claude/hooks/hermes-guard.sh` (regla 3, DROP/DELETE SQL directo)
 bloqueó el primer intento de commit de este paso porque el mensaje
