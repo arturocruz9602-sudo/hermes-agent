@@ -2,6 +2,99 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
+## ARRANCAR AQUÍ (30 jul, 15:35) — jornada de rendimiento: peaje por vuelta de ~65,000 → ~19,100 tokens (71% menos)
+
+Sesión larga con Arturo presente. Él llevaba semanas viendo a Hermes
+saturar las APIs gratuitas con tareas triviales y preguntó lo correcto:
+*"¿ninguna API tiene capacidad de no saturarse? Mis tareas son
+sencillas… ¿o estoy exigiendo mucho?"*. **No estaba exigiendo mucho.**
+
+### El diagnóstico (todo medido, nada supuesto)
+
+Un `"Hola Hermes"` con respuesta de voz costó **219,930 tokens = 88% del
+límite por minuto** de Gemini free tier (250,000 TPM, verificado contra
+documentación pública 2026). Desglose de ese turno real:
+```
+14:38:14  iteracion 1   69,177 tok
+14:38:31  iteracion 2   74,290 tok
+14:38:41  iteracion 3   74,449 tok
+```
+**Hallazgo central: el costo fijo no se paga por MENSAJE, se paga por
+ITERACIÓN.** Y el peaje era ~65,000 tokens por vuelta.
+
+De dónde salía (leído del `system_prompt` real en `state.db`):
+
+| Componente | Antes | Ahora |
+|---|---|---|
+| MEMORY.md completo | 25,475 | **848** (índice) |
+| Definiciones de herramientas | 20,150 | **6,711** (bajo demanda) |
+| USER.md completo | 5,480 | **2,387** (índice) |
+| Guidance fijos | 4,206 | 4,206 |
+| Skills | 3,810 | 3,810 |
+| CLAUDE.md + SOUL.md | 1,151 | 1,151 |
+| **TOTAL por vuelta** | **~65,000** | **~19,100** |
+
+El bloque más pesado de todos: **13,843 tokens describiendo una laptop
+Windows** que ni siquiera es esta máquina, viajando en cada "hola".
+
+### Segundo hallazgo: la escalera de 3 APIs no protegía
+
+El análisis que pidió Arturo murió con
+`litellm.MidStreamFallbackError: RateLimitError` tras 3 reintentos. El
+fallback de LiteLLM funciona **antes** de empezar a responder; si la
+cuota se agota **a mitad del stream**, no alcanza a saltar a Groq ni a
+OpenRouter. Es bug conocido del proyecto (BerriAI/litellm#22296). Con
+llamadas de 48k tokens, agotarse a media respuesta era lo normal.
+
+### Bloques cerrados hoy (todos con evidencia y desplegados)
+
+- **AG** — Tarea E muerta en silencio (credenciales LiteLLM + fallo sin log)
+- **AG.2** — 9 fallos mudos de Tarea E ahora dejan rastro
+- **AH** — el watchdog revertía `config.yaml` por un `401` dentro del
+  session_id de Arturo. **15 veces desde el 4 de julio.**
+- **AJ** — Hermes no sabía qué hora era ("buenas noches" a las 2:38 PM);
+  no existe herramienta de tiempo en esta instalación
+- **AK** — MEMORY.md como índice + indexado semántico por secciones
+- **AL** — USER.md como índice; fuera `browser`/`computer_use`/`delegation`
+- **AM** — toolsets ocasionales solo cuando el mensaje los pide
+- **Inglés** — respuestas cortas en inglés no se detectaban (piso de 20
+  palabras); Arturo lo reportó en vivo
+- **"Tony"** — la memoria tenía una instrucción ACTIVA que ordenaba
+  llamarlo Tony ("Arturo es TONY", "él es mi Tony"), contradiciendo a
+  USER.md y CLAUDE.md. Corregida vía `memory_tool`, con respaldo.
+
+### DECISIÓN DE ARQUITECTURA PENDIENTE (de Arturo, con números listos)
+
+Arturo propuso **invertir la arquitectura: DeepSeek como llave principal**
+y las gratuitas para tareas simples/respaldo. **Los números le dan la
+razón** — costo mensual proyectado sobre su consumo real de julio
+(15.5M tokens entrada / 301k salida), a precios verificados del 25 jul 2026:
+
+| Escenario (con el consumo ya arreglado) | MXN/mes |
+|---|---|
+| v4-flash como principal | **$6.55** |
+| v4-pro (todo) | **$20.17** |
+| Mixto: flash normal + pro para razonar (~20%) | **$9.28** |
+| Presupuesto de Arturo | $300 |
+
+Gasto real de julio con la config actual: **$10.73 MXN** (ledger completo).
+**Recomendación: el mixto.** Sin el arreglo de hoy habría costado
+$22–68/mes; ahora cabe de sobra. Falta el "sí" de Arturo y decidir qué
+papel queda para Gemini/Groq/OpenRouter (propuesta: primera línea para
+triviales + respaldo real cuando DeepSeek falle).
+
+### Lo que queda por optimizar (rendimientos decrecientes)
+
+- Herramientas base 6,711 — condensar descripciones una por una
+- Guidance fijos 4,206
+- Skills 3,810 — mismo truco que la memoria, pero con riesgo real de que
+  no encuentre una skill
+
+### Deuda preexistente detectada (NO causada hoy, verificada con `git stash` + checkout a `ccfceefbc`)
+
+- `tests/agent/test_turn_context_overflow_warning.py` — 2 tests fallando
+- `tests/agent/test_i18n.py[ar]` — 2 tests fallando
+
 ## L17 verificado con evidencia real (30 jul, 13:48) — implementado en su núcleo, con 2 brechas contra lo que promete el HAS
 
 Primero del repaso "confirmar si de verdad se implementó o solo se

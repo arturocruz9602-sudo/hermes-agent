@@ -2418,3 +2418,39 @@ completo en este archivo (fuera de alcance de O.8):
   `agent.conversation_loop` (no llega a journald en modo gateway).
 - Bloque N: contexto no disponible en esta sesión (ver SUPUESTOS en
   `~/.hermes/reporte_bloque_o_22jul.md`).
+
+## Bloques AI/AJ/AK/AL/AM — jornada de rendimiento (30 Jul 2026) — **CERRADOS**
+
+Peaje fijo por vuelta del agente: **~65,000 → ~19,100 tokens (71% menos)**.
+
+**Hallazgo central, y es el que hay que recordar:** el costo fijo del
+prompt NO se paga una vez por mensaje — se paga **una vez por iteración**.
+Un "Hola Hermes" con voz dio 3 vueltas de ~70k = 219,930 tokens = 88% del
+límite por minuto de Gemini free tier. Cualquier optimización del prompt
+se multiplica por el número de vueltas; cualquier derroche también.
+
+- **AI** — recorte de herramientas en turnos triviales (44 → 4).
+- **AJ** — la hora local entró al prompt. No existía herramienta de tiempo
+  en la instalación, pese a que el comentario de upstream asume que sí.
+- **AK** — MEMORY.md como índice (25,475 → 848 tok) + `memoria_indexador.py`
+  ahora indexa MEMORY.md/USER.md por secciones (`source='memory_md'`).
+- **AL** — USER.md como índice (usa separadores `§`, no `##`); fuera
+  `browser`/`computer_use`/`delegation` de Telegram tras consultar el HAS
+  (cero menciones) y el uso real (0 de 1,125 llamadas).
+- **AM** — toolsets ocasionales bajo demanda. `kanban` NO se elimina: el
+  HAS lo pone como pieza central de Fase 5.
+
+**Método que vale repetir:** todo se midió contra datos reales antes de
+tocar nada — `sessions.system_prompt` en `state.db` para el peso real del
+prompt, el `cost_ledger` para tokens por llamada, y `messages.tool_calls`
+para saber qué herramientas usa Arturo de verdad (1,125 llamadas: 21
+herramientas distintas de 44 cargadas). Tres hipótesis mías murieron en
+el camino por medirlas: los archivos de contexto (1,151 tok, no 60,000),
+la memoria del `MemoryManager` (0 tok) y el caché de prefijos (sí se usa:
+7.4M tokens de hit — por eso la hora se puso en la parte volátil y no
+arriba).
+
+**Regla de diseño que sale de aquí:** al recortar herramientas el riesgo
+es **asimétrico**. Gastar tokens de más es molesto; dejar a Hermes sin una
+herramienta que necesitaba le rompe la tarea a Arturo. Todo recorte va
+con disparadores generosos y "ante duda, mandar todo".

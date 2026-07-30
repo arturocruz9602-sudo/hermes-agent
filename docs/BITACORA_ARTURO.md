@@ -7,6 +7,64 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 30 Jul 2026 (3:35 pm) — Por qué se le acababan las APIs con tareas sencillas: Hermes gastaba 65 mil tokens por vuelta
+
+Usted preguntó si estaba exigiendo mucho. **No.** Estaba exigiendo poco y
+recibiendo mal servicio. Aquí está la explicación en su idioma:
+
+Imagine que cada vez que le pide algo a Hermes, él tiene que cargar una
+mochila antes de contestar. En esa mochila iba: su memoria **completa**
+(102 mil caracteres, incluidas 55 mil describiendo una laptop Windows que
+ni siquiera es esta máquina), la descripción de sus 44 herramientas, y
+todo su perfil. **Cargaba esa mochila entera aunque usted solo dijera
+"hola".**
+
+Y lo peor: **la cargaba de nuevo en cada vuelta.** Para contestarle
+"Buenas noches, Arturo" dio 3 vueltas — 3 mochilas. Total: **219,930
+tokens, el 88% de todo lo que Gemini le permite en un minuto.** Con dos
+saludos así se le acababa la cuota. No importaba cuántas APIs gratuitas
+tuviera conectadas.
+
+**Qué cambió hoy:**
+
+| | Antes | Ahora |
+|---|---|---|
+| Peso por vuelta | ~65,000 | **~19,100** |
+| Vueltas que le caben en un minuto | ~4 | **~13** |
+
+**71% menos.** Su memoria **no se perdió**: sigue completa en disco, y
+ahora Hermes lleva solo el índice y busca la sección que necesita — que
+es exactamente lo que usted me pidió.
+
+**También le arreglé, en el mismo día:**
+- Le contestaba **en inglés** a mensajes cortos (el corrector existía pero
+  solo revisaba respuestas de 20 palabras o más; un saludo nunca llega).
+- **No sabía qué hora era** — por eso le dijo "buenas noches" a las 2:38
+  de la tarde. Resulta que el sistema le daba la fecha pero nunca la hora,
+  y la herramienta de reloj que el código asume que existe **no existe**.
+  Ya la lleva. Sin eso no había despertador ni "son las 6, tiene 35 minutos".
+- **Lo de "Tony"**: no era una mención suelta. Su memoria tenía una
+  instrucción que decía *"Arturo es TONY (con mayúsculas), él es mi Tony"*,
+  peleada con sus otras dos reglas que lo prohibían. Corregida.
+
+**Una decisión que le toca a usted, y ya tengo los números:**
+Usted propuso poner DeepSeek como cabeza y dejar las gratuitas para lo
+simple. **Tiene razón, y sale barato.** Con el gasto ya arreglado:
+
+| Opción | Costo al mes |
+|---|---|
+| DeepSeek ligero como principal | **$6.55** |
+| DeepSeek Pro para todo | **$20.17** |
+| **Mixto: ligero normal, Pro para razonar** | **$9.28** |
+| Lo que usted puede gastar | $300 |
+
+Todo julio le costó **$10.73** en total. Mi recomendación es el mixto: le
+daría respuestas siempre disponibles, sin depender de cuotas gratuitas
+que se agotan, por menos de lo que gasta ahora. Las gratuitas quedarían
+para lo trivial y como respaldo real.
+
+---
+
 ## 30 Jul 2026 (1:48 pm) — Cuando se acaba la cuota gratis le avisaba que entraba en pausa… pero nunca que ya había vuelto
 
 Hoy en la mañana (11:39 a 11:51) se le acabó la cuota gratuita de Gemini
