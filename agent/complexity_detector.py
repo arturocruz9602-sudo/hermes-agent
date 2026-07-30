@@ -1082,3 +1082,101 @@ def run_incident_verification(window_minutes: int = 45) -> str:
             f"correr ({e}). Dile a Arturo que no se pudo verificar "
             "automáticamente -- NUNCA inventes una causa sin esta evidencia.]"
         )
+
+
+# =============================================================================
+# Bloque AI (30 Jul 2026) -- recorte de herramientas por turno.
+#
+# Medicion real que lo motiva (cuenta de Arturo, Telegram, 30 jul):
+#   "Hola Hermes" + respuesta de voz -> 219,930 tokens = 88% del limite por
+#   minuto de la cuota gratuita de Gemini. Desglose de ese turno:
+#     14:38:14  iteracion 1   69,177 tok
+#     14:38:31  iteracion 2   74,290 tok
+#     14:38:41  iteracion 3   74,449 tok
+# De cada iteracion, ~20,150 tokens son las 44 definiciones de herramientas
+# de Telegram -- remandadas INTEGRAS en cada vuelta. El costo no se paga una
+# vez por mensaje: se paga una vez por ITERACION.
+#
+# Un saludo no necesita browser, terminal, kanban, computer_use ni
+# delegation. Recortar a un nucleo minimo en esos turnos ahorra ~18k tokens
+# POR VUELTA sin quitarle a Arturo ninguna capacidad real: el recorte solo
+# aplica cuando el mensaje no pide nada, y se restaura solo en el siguiente
+# turno (patron self-healing de Bloque O.6.2, ver agent/turn_context.py).
+#
+# Deliberadamente CONSERVADOR: ante cualquier duda devuelve None (= no
+# recortar). Un falso positivo aqui le quitaria a Hermes una herramienta que
+# si necesitaba, y eso es mucho peor que gastar tokens de mas.
+# =============================================================================
+
+# Herramientas que SI se conservan en un turno trivial. tts porque Arturo
+# usa respuesta por voz a diario (verificado en el turno real de arriba:
+# el saludo genero audio); las de memoria porque un saludo puede seguir
+# alimentando/consultando memoria; clarify por si el mensaje era ambiguo.
+_NUCLEO_TURNO_TRIVIAL = {
+    "tts", "speak", "text_to_speech",
+    "memory", "memory_add", "memory_search", "remember",
+    "clarify",
+}
+
+# Un mensaje es trivial si NO trae ningun signo de peticion real. Se exige
+# ademas que sea corto: "hola, y de paso mandame el reporte" NO es trivial.
+_TRIVIAL_MAX_PALABRAS = 6
+_PETICION_RE = re.compile(
+    r"[?¿]|\b(dame|dime|manda|envia|busca|revisa|haz|pon|crea|abre|lee|"
+    r"muestra|explica|calcula|agenda|recuerda|recuerdame|programa|corre|"
+    r"ejecuta|actualiza|borra|cambia|necesito|quiero|puedes|podrias|"
+    r"ayuda|ayudame|checa|verifica|analiza|resume|traduce|escribe)\b"
+)
+_SALUDO_RE = re.compile(
+    r"^(hola+|holi|buen[oa]s?( (dias?|tardes?|noches?))?|hey+|ey|que onda|"
+    r"que tal|saludos|hermes|oye|buen dia|gracias|ok|okay|va|sale|listo|"
+    r"perfecto|excelente|entendido|de acuerdo|si|no|claro|bien|adios|"
+    r"hasta luego|nos vemos|buenas)\b"
+)
+
+
+def is_trivial_turn(user_message: str) -> bool:
+    """True si el mensaje no pide nada que requiera herramientas pesadas.
+
+    Determinista y sin llamada a modelo (igual que looks_like_incident_check):
+    esto corre en el camino caliente de CADA turno, no puede costar una
+    llamada de red ni cuota.
+    """
+    if not user_message:
+        return False
+    texto = _strip_accents(user_message).lower().strip()
+    if not texto:
+        return False
+    palabras = re.findall(r"[a-z0-9]+", texto)
+    if not palabras or len(palabras) > _TRIVIAL_MAX_PALABRAS:
+        return False
+    if _PETICION_RE.search(texto):
+        return False
+    if not _SALUDO_RE.match(texto):
+        return False
+    return True
+
+
+def select_tools_for_turn(user_message: str, tools: "list | None") -> "list | None":
+    """Devuelve la lista recortada de definiciones de herramientas para
+    este turno, o None si no hay que recortar nada (caso por defecto).
+
+    *tools* es ``agent.tools`` (formato OpenAI: ``{"function": {"name": ...}}``).
+    Fail-safe: cualquier problema -> None (no recortar).
+    """
+    try:
+        if not tools or not is_trivial_turn(user_message):
+            return None
+        recortadas = [
+            t for t in tools
+            if ((t.get("function") or {}).get("name") or t.get("name")) in _NUCLEO_TURNO_TRIVIAL
+        ]
+        # Si el recorte no dejo nada util, es mejor no recortar: un turno
+        # sin ninguna herramienta ya lo cubre Bloque O.6.2 para su propio
+        # caso, y aqui seria un cambio de comportamiento no pedido.
+        if not recortadas:
+            return None
+        return recortadas
+    except Exception:
+        _log.warning("select_tools_for_turn fallo -- se mandan todas las herramientas", exc_info=True)
+        return None

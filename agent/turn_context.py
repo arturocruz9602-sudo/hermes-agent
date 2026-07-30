@@ -1306,6 +1306,29 @@ def build_turn_context(
             if looks_like_incident_check(original_user_message or ""):
                 agent._o6_original_tools = agent.tools
                 agent.tools = []
+            else:
+                # Bloque AI (30 jul 2026): recorte de herramientas en turnos
+                # triviales. Reusa EXACTAMENTE el mismo override
+                # (_o6_original_tools) que la rama de arriba, para no crear
+                # un segundo mecanismo con su propia restauracion -- el
+                # self-healing del inicio del turno ya lo cubre.
+                # Motivo medido: las 44 definiciones de Telegram son ~20,150
+                # tokens y se remandan en CADA iteracion; un "Hola Hermes"
+                # con voz costo 219,930 tokens en 3 vueltas (88% del limite
+                # por minuto de la cuota gratuita).
+                from agent.complexity_detector import select_tools_for_turn
+
+                _recortadas = select_tools_for_turn(
+                    original_user_message or "", agent.tools,
+                )
+                if _recortadas is not None:
+                    logger.info(
+                        "Bloque AI: turno trivial -- herramientas recortadas de "
+                        "%d a %d para este turno",
+                        len(agent.tools), len(_recortadas),
+                    )
+                    agent._o6_original_tools = agent.tools
+                    agent.tools = _recortadas
     except Exception as exc:
         logger.warning("Bloque O.1 (gather_pre_response_context) failed: %s", exc)
 
