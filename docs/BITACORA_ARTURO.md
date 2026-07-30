@@ -7,6 +7,36 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 30 Jul 2026 (1:48 pm) — Cuando se acaba la cuota gratis le avisaba que entraba en pausa… pero nunca que ya había vuelto
+
+Hoy en la mañana (11:39 a 11:51) se le acabó la cuota gratuita de Gemini
+y Groq **al mismo tiempo** — de verdad, no en teoría: fueron 88 intentos
+fallidos en diez minutos. Hermes tiene un mecanismo para esto y funcionó:
+le mandó un aviso de que entraba en pausa, y lo mandó **una sola vez**
+(no lo estuvo molestando cada 3 minutos). Eso está bien hecho.
+
+**El hueco:** cuando la cuota volvió, a usted **no le llegó nada**. El
+sistema lo anotaba en un registro interno que usted no lee. O sea: se
+enteraba de que Hermes se había ido, pero no de que ya había regresado.
+Si en ese rato usted no le escribió nada, se quedaba creyendo que seguía
+en pausa.
+
+Ya le puse el aviso de vuelta: *"Ya volvió la cuota gratuita, jefe.
+Hermes sale de pausa y retoma normal"*. Probado y corriendo en su máquina
+desde la 1:48 pm.
+
+**Una cosa que NO hice a propósito, y necesito que decida usted:** el
+documento del proyecto dice que en esa situación Hermes debería
+ofrecerle *"puedo intentar con DeepSeek (~$X estimado), ¿sí o no?"*. Hoy
+no lo ofrece — dice lo contrario, que no lo va a usar sin su permiso. Y
+usted me dijo hace poco que sí quiere esa oferta automática. **No lo
+implementé porque toca dinero y va contra una regla suya escrita**
+("nunca DeepSeek automático sin autorización"). Prefiero que me lo
+confirme antes de tocar algo que gasta de su bolsillo — se lo pregunto
+abajo.
+
+---
+
 ## 30 Jul 2026 (mediodía, trabajando solo) — Resulta que esa autoevaluación llevaba rato APAGADA, sin avisar. Ya funciona de verdad
 
 Usted me pidió repasar de fondo, no solo parchar. Al buscar más huecos

@@ -2,6 +2,53 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
+## L17 verificado con evidencia real (30 jul, 13:48) — implementado en su núcleo, con 2 brechas contra lo que promete el HAS
+
+Primero del repaso "confirmar si de verdad se implementó o solo se
+documentó". **Corrección de mi propio diagnóstico a media verificación:**
+empecé concluyendo "cero implementación" porque busqué solo en `.py` —
+estaba mal: L17 vive en `~/.hermes/scripts/watchdog.sh` (bash), no en
+Python.
+
+**Lo que SÍ está implementado y funcionando** — verificado contra una
+caída real de hoy, no simulada (`watchdog.log`):
+```
+[jue 30 jul 2026 11:39:22 CST] 🔴 Gemini y Groq agotados simultaneamente (429 real via LiteLLM) — avisando y marcando pausa
+[jue 30 jul 2026 11:42:23 CST] 🔴 Gemini y Groq siguen agotados (ya avisado antes, sin repetir alerta)
+[jue 30 jul 2026 11:51:23 CST] ✅ Al menos uno de los dos volvio — limpiando estado de pausa
+[jue 30 jul 2026 11:51:23 CST] 📤 Disparando reprocesamiento de mensajes_pendientes
+```
+Alcance real de esa caída: **24 fallos de `chat-primary` y 64 de
+`chat-fallback`** entre 11:40 y 11:50. La detección usa los 429 reales
+del proxy, sin llamadas de prueba (cero consumo extra de cuota) — buen
+diseño. El trigger de reprocesamiento **sí se consume**
+(`gateway/run.py:9299`), no es un archivo huérfano.
+
+**Brecha 1 (NO la toco — es decisión de Arturo y toca dinero):** el aviso
+real dice *"NO se usará DeepSeek automáticamente — requiere tu
+autorización explícita"*, mientras `HAS.md:1170` promete *"puedo intentar
+con DeepSeek (~$X MXN estimado) — ¿sí/no?"*. No hay oferta accionable ni
+costo estimado. **Y esto se cruza con el Bloque 10**, donde Arturo dijo
+que sí quiere la oferta automática. Implementarlo choca de frente con la
+regla dura del `CLAUDE.md` ("NUNCA agregar código que llame a DeepSeek de
+forma automática sin autorización explícita"), cuyas excepciones se
+documentan una por una allí. **PROTOCOLO C12: me detengo y pregunto en
+vez de resolverlo yo.**
+
+**Brecha 2 (CERRADA):** `HAS.md` promete *"te aviso cuando vuelva"* y eso
+**no ocurría** — el bloque de recuperación solo escribía al log, que
+Arturo no lee. Se enteraba únicamente de rebote, si tenía mensajes
+encolados que se reprocesaran; si la caída lo agarraba sin escribir, se
+quedaba creyendo que Hermes seguía en pausa. Confirmado en la caída de
+hoy: el aviso de **entrada** sí le llegó, el de **salida** no existía.
+Agregado `alert_telegram` en ese bloque. Simulado (aviso enviado, trigger
+creado, pausa limpiada) y corrida real 13:48:24 → `Result=success`.
+Respaldo en `/mnt/seagate/hermes_backups/scripts_manual/`.
+
+**No se tocó `HAS.md`**: corregir el documento maestro para que describa
+lo implementado es cambio de HAS, y eso va por el canal de diseño, no por
+una corrida de `/loop`.
+
 ## CAUSA RAÍZ ENCONTRADA (30 jul, 13:05, `/loop`) — el watchdog revertía la configuración por un `401` dentro del ID de sesión de Arturo
 
 Respuesta al pendiente "¿qué restauró `config.yaml` a las 11:45:23?".
