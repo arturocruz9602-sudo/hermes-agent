@@ -2,6 +2,45 @@
 
 **Versiones vigentes: HAS v1.5 · PROTOCOLO v1.3.1**
 
+## Cola v2 (HAS §E5, OT-5 Bloque 3), CERRADA -- la más compleja de las 4 pendientes (29 Jul 2026, tarde)
+
+Arturo pidió las 4 pendientes de hoy, empezando por la más difícil.
+**Decisión de alcance, documentada, no un pendiente olvidado:** NO se
+migró `mensajes_pendientes`/Tarea C (que sigue viva sin tocar, ya
+probada en producción) -- hacerlo hubiera significado reescribir ~15
+puntos de `gateway/run.py` que hoy entregan mensajes reales, en la misma
+sesión que ya lleva 7 piezas de trabajo grandes. Cola v2 se construyó
+como el mecanismo GENERAL nuevo que HAS pide para trabajo encolado
+futuro (Fase 6-9: recordatorios, análisis en segundo plano), separado.
+
+**Hallazgo real que evitó repetir un bug ya confirmado hoy mismo:**
+Cola v2 corre DENTRO del proceso vivo del gateway (mixin
+`GatewayTaskQueueMixin`, mismo patrón que el notificador de kanban), NO
+como script externo de systemd timer -- porque esta misma sesión ya
+había confirmado (Bloque 1.3 de esta mañana) que `hermes cron run`
+desde fuera del proceso del gateway NO logra entregar por Telegram (sin
+adaptador vivo). Repetir ese error aquí habría dejado la "garantía de
+notificación" rota desde el diseño.
+
+**Construido:** tabla `task_queue` (hermes_state.py, esquema HAS §E5) +
+`gateway/task_queue.py` (escalera de reintentos Groq→Gemini→OpenRouter,
+máx 5 intentos por proveedor; watchdog cada 30 min para tareas >2h en
+`en_proceso`; garantía real de notificación vía compare-and-swap en
+cada transición de estado, protegida contra workers zombie).
+
+**Verificado con datos reales, no solo mocks:** encolé una tarea real
+apuntada a la cuenta QA de Telegram (nunca a la cuenta real de Arturo,
+para no mandarle un mensaje de prueba inesperado) -- el watcher real del
+gateway la reclamó, la resolvió con Groq (1 intento), y la entregó de
+verdad, confirmado leyendo `state.db`: `estado='notificada'`,
+`resultado='OK'`, `proveedor_actual='chat-fallback'`. Un bug real
+encontrado en esa misma verificación: `proveedor_actual` nunca se
+guardaba (columna del esquema HAS, nunca poblada) -- corregido antes de
+cerrar. 26 tests nuevos (17 de la capa de datos + 9 de la escalera/
+watcher, incluida la verificación E2E que pide HAS: 15 tareas
+sintéticas con el proveedor primario deshabilitado, cero pérdidas), 0
+fallas. Aplicado en vivo con reinicio del servicio.
+
 ## Espejo Obsidian -> Notion, mejora visual (29 Jul 2026, tarde)
 
 Arturo, tras ver el espejo funcionando: "que sea bonito el boceto, no

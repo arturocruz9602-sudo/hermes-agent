@@ -7,6 +7,14 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 29 Jul 2026 (tarde) — La pieza más difícil de hoy: una cola de tareas que nunca pierde nada
+
+Esta es la más técnica de las 4 cosas que pidió terminar hoy, y la que menos se nota en el día a día por ahora -- es la base para que en el futuro (recordatorios, análisis en segundo plano) nada que Hermes encole se pierda nunca, aunque el proveedor de IA que use falle o la laptop se reinicie a medio proceso.
+
+**Decisión importante que tomé y quiero que sepa:** NO toqué el mecanismo viejo que ya usa hoy para reintentar sus mensajes cuando se acaba la cuota de Gemini/Groq -- ese sigue exactamente igual, funcionando. Construí uno nuevo y separado para trabajo futuro, en vez de arriesgar el que ya funciona en medio de una sesión tan larga.
+
+**Probado con una tarea real, no inventada:** encolé una tarea de prueba dirigida a la cuenta de pruebas (QA), nunca a la suya real para no mandarle un mensaje inesperado -- se procesó sola, se resolvió, y se entregó de verdad, confirmado revisando la base de datos real.
+
 ## 29 Jul 2026 (tarde) — Cada nota de Obsidian ahora también sale numerada en Notion
 
 Ya quedó armado lo que decidimos: como la visualización de nodos se queda pendiente hasta la Mac Mini, cada vez que Hermes guarde una nota en Obsidian, también le crea una fila numerada en Notion — así puede consultarla ahí, o Hermes le puede decir "esto conecta con la nota número 5 que ya tenías".

@@ -4,6 +4,25 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Cola v2 (HAS §E5, OT-5 Bloque 3), CERRADA (29 Jul 2026, tarde)
+
+Primera de las 4 tareas que Arturo pidió completar hoy, empezando por
+la más compleja. Detalle completo en `docs/ESTADO.md`. Resumen: NO se
+migró Tarea C/`mensajes_pendientes` (decisión de alcance documentada,
+sigue viva en producción sin tocar) -- se construyó `task_queue` como
+mecanismo GENERAL nuevo (`hermes_state.py` esquema + `gateway/
+task_queue.py` mixin), corriendo dentro del proceso vivo del gateway a
+propósito (evita el bug de entrega ya confirmado esta mañana en cron
+externo). Escalera Groq→Gemini→OpenRouter, watchdog de huérfanos,
+garantía de notificación por compare-and-swap. Verificado con una tarea
+real contra la cuenta QA (nunca la real de Arturo) -- resuelta,
+entregada, notificada, confirmado leyendo `state.db`. Bug real
+encontrado y arreglado en esa verificación: `proveedor_actual` nunca se
+guardaba. 26 tests nuevos incluida la E2E de 15 tareas sintéticas con
+proveedor primario deshabilitado que pide HAS, 0 fallas.
+
+**Commits:** pendiente de commit al cierre de esta sesión (ver git log).
+
 ## Espejo Obsidian -> Notion, CERRADO (29 Jul 2026, tarde)
 
 Cierre de la misma sesión larga. Arturo difirió la visualización de

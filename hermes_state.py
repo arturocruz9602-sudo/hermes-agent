@@ -1197,6 +1197,37 @@ CREATE TABLE IF NOT EXISTS mensajes_pendientes (
 CREATE INDEX IF NOT EXISTS idx_mensajes_pendientes_estado
 ON mensajes_pendientes(estado, fecha_recibido);
 
+-- Cola v2 (HAS §E5, OT-5 Bloque 3, 29 Jul 2026): cola de tareas GENERAL
+-- con garantia de notificacion, para trabajo en segundo plano futuro
+-- (recordatorios, analisis, Fase 6-9) -- deliberadamente NO reemplaza
+-- mensajes_pendientes/Tarea C arriba (esa sigue viva sin tocar, es un
+-- mecanismo mas angosto y ya probado en produccion para reintentos de
+-- turnos de chat por cuota agotada). Cola v2 es la maquina de estados
+-- general que HAS pide para trabajo encolado nuevo.
+-- Timestamps en REAL (epoch), no TEXT -- mismo estilo que
+-- mensajes_pendientes.fecha_recibido, por consistencia con el resto de
+-- esta base (HAS §E5 los describe como TEXT/fecha, adaptado aqui).
+CREATE TABLE IF NOT EXISTS task_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    descripcion TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    estado TEXT NOT NULL DEFAULT 'encolada'
+        CHECK (estado IN ('encolada', 'en_proceso', 'resuelta', 'notificada', 'atorada')),
+    proveedor_actual TEXT,
+    intentos INTEGER NOT NULL DEFAULT 0,
+    result_hash TEXT,
+    resultado TEXT,
+    chat_id TEXT NOT NULL,
+    platform TEXT NOT NULL DEFAULT 'telegram',
+    created_at REAL NOT NULL,
+    started_at REAL,
+    resolved_at REAL,
+    notified_at REAL
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_queue_estado
+ON task_queue(estado, created_at);
+
 CREATE TABLE IF NOT EXISTS async_delegations (
     delegation_id TEXT PRIMARY KEY,
     origin_session TEXT NOT NULL,
@@ -4091,6 +4122,150 @@ class SessionDB:
         )
         row = cursor.fetchone()
         return row[0] if row and row[0] else None
+
+    # -----------------------------------------------------------------
+    # Cola v2 (HAS §E5, OT-5 Bloque 3, 29 Jul 2026) -- ver el comentario
+    # junto al CREATE TABLE task_queue arriba: mecanismo GENERAL de cola
+    # con garantia de notificacion, separado de mensajes_pendientes/
+    # Tarea C (que sigue viva sin tocar).
+    # -----------------------------------------------------------------
+
+    def enqueue_task(
+        self, descripcion: str, payload: str, chat_id: str, platform: str = "telegram",
+    ) -> int:
+        """Encola una tarea nueva en estado 'encolada'. Devuelve su id."""
+        def _do(conn):
+            cur = conn.execute(
+                """INSERT INTO task_queue
+                   (descripcion, payload, chat_id, platform, created_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (descripcion, payload, chat_id, platform, time.time()),
+            )
+            return cur.lastrowid
+        return self._execute_write(_do)
+
+    def claim_next_task(self) -> Optional[Dict[str, Any]]:
+        """Reclama atomicamente la tarea 'encolada' mas antigua -> 'en_proceso'.
+
+        Compare-and-swap real (UPDATE ... WHERE estado='encolada'): si dos
+        workers compiten por la misma fila, solo uno gana (rowcount>0).
+        Devuelve la fila reclamada, o None si no habia nada que reclamar."""
+        def _do(conn):
+            row = conn.execute(
+                """SELECT id FROM task_queue
+                   WHERE estado = 'encolada'
+                   ORDER BY created_at ASC LIMIT 1"""
+            ).fetchone()
+            if row is None:
+                return None
+            task_id = row[0]
+            cur = conn.execute(
+                """UPDATE task_queue SET estado = 'en_proceso', started_at = ?
+                   WHERE id = ? AND estado = 'encolada'""",
+                (time.time(), task_id),
+            )
+            if cur.rowcount == 0:
+                return None  # otro worker gano la carrera
+            claimed = conn.execute(
+                "SELECT * FROM task_queue WHERE id = ?", (task_id,),
+            ).fetchone()
+            return dict(claimed) if claimed else None
+        return self._execute_write(_do)
+
+    def mark_task_resolved(
+        self, task_id: int, resultado: str, result_hash: str, intentos: int,
+        proveedor: Optional[str] = None,
+    ) -> bool:
+        """'en_proceso' -> 'resuelta'. CAS: solo transiciona si la fila
+        SIGUE en 'en_proceso' -- si el watchdog ya la re-encolo (tarea
+        zombie que termina tarde), esto no hace nada (rowcount=0),
+        evitando notificar dos veces el mismo trabajo."""
+        def _do(conn):
+            cur = conn.execute(
+                """UPDATE task_queue
+                   SET estado = 'resuelta', resolved_at = ?, resultado = ?,
+                       result_hash = ?, intentos = ?, proveedor_actual = ?
+                   WHERE id = ? AND estado = 'en_proceso'""",
+                (time.time(), resultado, result_hash, intentos, proveedor, task_id),
+            )
+            return cur.rowcount > 0
+        return self._execute_write(_do)
+
+    def mark_task_stuck(self, task_id: int, intentos: int) -> bool:
+        """'en_proceso' -> 'atorada' (los 3 proveedores fallaron)."""
+        def _do(conn):
+            cur = conn.execute(
+                """UPDATE task_queue SET estado = 'atorada', intentos = ?
+                   WHERE id = ? AND estado = 'en_proceso'""",
+                (intentos, task_id),
+            )
+            return cur.rowcount > 0
+        return self._execute_write(_do)
+
+    def mark_task_notified(self, task_id: int, *, keep_stuck: bool = False) -> bool:
+        """GARANTIA (HAS §E5): esta es la UNICA forma de registrar que un
+        aviso se entrego de verdad -- si el envio de Telegram falla, la
+        fila se queda sin notified_at y el siguiente tick la reintenta
+        (ver get_unnotified_tasks), nunca se marca sin haber entregado.
+
+        keep_stuck=False (caso normal): 'resuelta' -> 'notificada'.
+        keep_stuck=True (tarea atorada, HAS invariante 1: "toda fila
+        llega a notificada o atorada+aviso"): la fila se queda en
+        'atorada' -- solo se registra notified_at, no hay estado
+        'atorada-notificada' en el esquema."""
+        def _do(conn):
+            if keep_stuck:
+                cur = conn.execute(
+                    """UPDATE task_queue SET notified_at = ?
+                       WHERE id = ? AND estado = 'atorada' AND notified_at IS NULL""",
+                    (time.time(), task_id),
+                )
+            else:
+                cur = conn.execute(
+                    """UPDATE task_queue SET estado = 'notificada', notified_at = ?
+                       WHERE id = ? AND estado = 'resuelta'""",
+                    (time.time(), task_id),
+                )
+            return cur.rowcount > 0
+        return self._execute_write(_do)
+
+    def get_unnotified_tasks(self) -> List[Dict[str, Any]]:
+        """Tareas sin notificar todavia (para reintentar el envio) --
+        'resuelta' (siempre pendiente de notificar) o 'atorada' sin
+        notified_at (el aviso de "necesito ayuda" tambien falló antes)."""
+        cursor = self._conn.execute(
+            """SELECT * FROM task_queue
+               WHERE estado = 'resuelta' OR (estado = 'atorada' AND notified_at IS NULL)
+               ORDER BY COALESCE(resolved_at, started_at) ASC"""
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_orphaned_processing_tasks(self, max_age_seconds: float) -> List[Dict[str, Any]]:
+        """Tareas 'en_proceso' desde hace mas de max_age_seconds -- probable
+        worker muerto (crash/reinicio a medio proceso). Usado por el
+        watchdog (HAS §E5: >2h -> re-encolar)."""
+        cutoff = time.time() - max_age_seconds
+        cursor = self._conn.execute(
+            """SELECT * FROM task_queue
+               WHERE estado = 'en_proceso' AND started_at IS NOT NULL AND started_at < ?
+               ORDER BY started_at ASC""",
+            (cutoff,),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def reclaim_orphaned_task(self, task_id: int) -> bool:
+        """'en_proceso' -> 'encolada' (re-encolar una tarea huerfana). CAS:
+        si el worker "muerto" en realidad seguia vivo y termina justo
+        antes del watchdog, esto no hace nada (rowcount=0) -- el
+        resultado real gana, no se pisa con un re-encolado innecesario."""
+        def _do(conn):
+            cur = conn.execute(
+                """UPDATE task_queue SET estado = 'encolada', started_at = NULL
+                   WHERE id = ? AND estado = 'en_proceso'""",
+                (task_id,),
+            )
+            return cur.rowcount > 0
+        return self._execute_write(_do)
 
     def find_latest_gateway_session_for_peer(
         self,

@@ -2125,6 +2125,7 @@ from gateway.delivery import (
 from gateway.turn_lease import SessionTurnLeaseRegistry
 from gateway.authz_mixin import GatewayAuthorizationMixin
 from gateway.kanban_watchers import GatewayKanbanWatchersMixin
+from gateway.task_queue import GatewayTaskQueueMixin
 from gateway.slash_commands import GatewaySlashCommandsMixin
 from gateway.platforms.base import (
     BasePlatformAdapter,
@@ -3393,7 +3394,10 @@ def _reconnect_backoff(attempt: int) -> int:
     return min(30 * (2 ** (attempt - 1)), _RECONNECT_BACKOFF_CAP)
 
 
-class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, GatewaySlashCommandsMixin):
+class GatewayRunner(
+    GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, GatewayTaskQueueMixin,
+    GatewaySlashCommandsMixin,
+):
     """
     Main gateway controller.
 
@@ -8716,6 +8720,15 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         # When false, users run `hermes kanban daemon` externally or
         # simply don't use kanban; this loop becomes a no-op.
         self._spawn_supervised(self._kanban_dispatcher_watcher, "kanban_dispatcher_watcher")
+
+        # Start background Cola v2 worker (HAS §E5, OT-5 Bloque 3, 29 Jul
+        # 2026) -- procesa task_queue con escalera de reintentos y
+        # garantía de notificación. Corre dentro del proceso vivo del
+        # gateway a propósito (self.adapters ya conectado) -- ver
+        # gateway/task_queue.py docstring sobre por qué un proceso
+        # externo (systemd timer aparte) no puede entregar por Telegram
+        # de forma confiable.
+        self._spawn_supervised(self._task_queue_watcher, "task_queue_watcher")
 
         # Start background reconnection watcher for platforms that failed at startup
         if self._failed_platforms:
