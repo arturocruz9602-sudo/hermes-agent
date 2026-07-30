@@ -1,6 +1,117 @@
-# Estado de Hermes — actualizado 29 Jul 2026, noche
+# Estado de Hermes — actualizado 29 Jul 2026, madrugada del 30
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
+
+## Avance autónomo de la madrugada (30 Jul 2026, corrida de `/loop`)
+
+Corrida sin Arturo presente (durmiendo), siguiendo el PLAN NOCTURNO de
+abajo tal como pedía "arrancar aquí en cuanto abra la siguiente sesión".
+Bootup completo verificado primero (`docs/ESTADO.md`/`BLOQUES.md`
+versionados, sin `TEMP-DIAG`, `hermes-gateway`+`litellm` activos, dentro
+de tmux, tapa OK en logind Y GNOME, sin reinicio inesperado -- uptime 3
+días). Nota aparte: `/var/run/reboot-required` SÍ está pendiente (de un
+`apt upgrade` viejo, no de un reinicio real) -- no bloquea nada, pero
+Arturo debería reiniciar quesque cuando le convenga.
+
+**Bloque 1 -- diagnóstico REAL con evidencia, corrige la hipótesis de
+anoche (no fue "turno interrumpido a media conversación"):**
+
+Se leyó `~/.hermes/logs/agent.log` línea 36032 y se consultó `state.db`
+directo (sesión `20260723_014401_467841eb`, mensajes 16790-16814). La
+secuencia real:
+- 09:16am (mismo 29 jul): incidente REAL, verificado con
+  `verificar_incidente.py` -- el gateway sí se había reiniciado antes
+  (SIGTERM→parada→inicio) con advertencias de compresión de contexto.
+  Hermes reportó esto correctamente con evidencia real (mensaje 16804).
+- 21:35:57: reinicio real y limpio del gateway (deploy de
+  `memoria_hecho_tool`), sin turno en proceso, sin duplicados.
+- 22:45:46 (~70 min después del reinicio, 13h después del incidente de
+  las 9am): Arturo manda "Hermes buenas noches" -- un saludo, sin
+  relación con nada. `history=14` en el log, sin llamada a herramienta
+  este turno (confirmado). El modelo respondió narrando de nuevo el
+  incidente de las 9am ("el servicio se reinició... advertencias de
+  compresión..."), casi palabra por palabra igual al mensaje 16804 que
+  seguía en la ventana de contexto (`active=1`, sin compactar). El guardia
+  anti-fabricación (Tarea 1) SÍ lo bloqueó antes de llegar a Arturo
+  (correcto: cero tool_calls este turno) -- pero el mensaje de reemplazo
+  ("No puedo confirmar que esa acción se haya completado...") es un
+  non-sequitur raro para alguien que solo dijo "buenas noches".
+
+**Conclusión:** no es un bug de checkpoint en el límite de turno
+(`current_turn_user_idx`/`repair_message_sequence_with_cursor` -- eso
+ya se investigó y arregló en Bloque Q/AF con esta MISMA sesión de
+evidencia). Es que el modelo, con un mensaje de bajo contenido
+("buenas noches"), vuelve a narrar el tema más saliente de su propio
+historial reciente (un reporte de incidente real, dramático, de 13h
+antes) en vez de responder solo al saludo. El guardia de Tarea 1 ya
+evita que la mentira llegue a Arturo -- lo que falta es que el mensaje
+de rechazo no sea confuso cuando el usuario no pidió ninguna acción.
+
+**NO se implementó un fix especulativo esta noche** -- cambiar el
+comportamiento del guardia de no-fabricación es exactamente la clase de
+cambio que ya quemó varias sesiones completas con hipótesis equivocadas
+(Bloques H, P, Q, AE, AF, todos sobre esta misma área). Sin Arturo
+despierto para validar en vivo, el riesgo de "arreglar" con otra
+hipótesis no probada es mayor que el beneficio de dejarlo documentado
+para la próxima sesión con él presente. **Pendiente, decisión de
+Arturo:** ¿vale la pena una regeneración condicionada (una llamada extra
+al modelo con recordatorio de "responde solo lo que el usuario dijo")
+cuando el guardia dispara y el mensaje del usuario no menciona ninguna
+acción/tema relacionado? Tiene costo/latencia extra real (un turno más
+a Gemini), por chico que sea -- por eso es decisión suya, no algo para
+decidir solo a las 11pm sin él.
+
+**Prueba `GUION_PRUEBAS.md` R.11 -- NO escrita todavía**, porque el
+escenario original ("reinicio a media conversación") no es el que de
+verdad pasó -- escribir el test equivocado no vale nada. Reescribir su
+descripción antes de automatizarla: "mensaje de bajo contenido (saludo)
+después de que un incidente real quedó narrado en el historial activo
+→ la respuesta no debe re-narrar el incidente viejo sin que el usuario
+lo haya pedido".
+
+**Bloque 6 -- CERRADO.** `has_progress.py` no tenía `--quiet` pese a que
+`CLAUDE.md` lo invoca literalmente en el arranque de cada sesión.
+Agregado (`~/.hermes/scripts/has_progress.py`, respaldo previo en
+`~/.hermes/backups/scripts/has_progress.py.20260729_2324.pre_quiet_flag`):
+suprime las líneas `[PASS]`/`[MANUAL]` y el encabezado, pero **nunca**
+las `[FAIL]`/`[SKIP]` ni el resumen final (silencio nunca es un estado
+válido de fallo, HAS L14) -- una corrida limpia no imprime nada más que
+el resumen de 1 línea, una con problemas reales sigue siendo visible.
+Verificado en vivo, ambos modos:
+```
+$ python3 ~/.hermes/scripts/has_progress.py --quiet
+[FAIL] tarea_i_allowlist_cleared — command_allowlist vacío en config.yaml (Tarea I)
+        patrón '^command_allowlist:\s*\[\]' NO encontrado en /home/arturo/.hermes/config.yaml
+
+=== RESULTADO AUTOMATIZADO: 9/10 (90.0%) ===
+
+(4 check(s) manual(es) pendiente(s) -- correr sin --quiet para verlos)
+```
+**Hallazgo colateral real, sin investigar todavía** (lo sacó a la luz
+esta misma corrida, no estaba buscándolo): `tarea_i_allowlist_cleared`
+falla -- `command_allowlist` en `config.yaml` no está vacío como Tarea I
+(20 jul) decía haber dejado. Puede ser regresión real o que el check
+esté desactualizado; no tocado esta noche, fuera del alcance de Bloque 6.
+
+**Bloque 7 -- verificación urgente completada (paso 1 de 2), con
+evidencia real, SIN necesitar sudo ni Google Cloud Console:** la llave
+Gemini que usa Hermes hoy SÍ sigue funcionando después del corte del 19
+de junio -- la llamada real de las 22:46:08 de esta misma noche
+(`agent.conversation_loop: API call #1... provider=custom... model=
+chat-primary`, 81,681 tokens de entrada, 200 OK) es tráfico de
+producción real, no una prueba. Descarta la hipótesis más barata/urgente
+del bloque (llave sin restricción de API bloqueada en silencio). El
+resto de Bloque 7 (confirmar rotación real de las credenciales de la
+fuga vieja) sigue pendiente -- eso sí necesita a Arturo o probar las
+llaves viejas contra el proveedor, ninguna de las dos se puede hacer
+sola esta noche.
+
+**Sin tocar esta noche (deliberado, requieren a Arturo despierto o
+sudo):** Bloque 2 (`restaurar_hermes.sh`) sigue bloqueado en los 2
+comandos `sudo` de abajo -- no verificado si ya se corrieron. Bloques 3,
+4, 5, 8, 9, 10 sin empezar, mismo orden que antes.
+
+---
 
 ## PLAN NOCTURNO (29-30 Jul 2026) — arrancar aquí en cuanto abra la siguiente sesión
 

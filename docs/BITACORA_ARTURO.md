@@ -7,6 +7,58 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 30 Jul 2026 (madrugada, trabajo mientras dormías) — Por qué te dijo cosas raras del gateway cuando solo le dijiste "buenas noches"
+
+Anoche a las 22:46 le dijiste "Hermes buenas noches" y te contestó algo
+confuso sobre "no puedo confirmar que esa acción se haya completado" --
+un mensaje que no tiene nada que ver con un simple saludo. Investigué con
+los logs reales (no adiviné) y encontré qué pasó: esa misma mañana a las
+9am hubo un incidente real del gateway que Hermes te reportó bien, con
+evidencia. Ese reporte se quedó "fresco" en su memoria de la conversación
+-- y cuando le mandaste un mensaje corto sin mucho contenido ("buenas
+noches"), en vez de solo saludarte de vuelta, se puso a repetir ese
+reporte viejo de las 9am como si fuera nuevo. El seguro que ya tiene
+instalado (el que evita que te mienta) SÍ lo atajó antes de que te
+llegara la mentira -- por eso no te dijo nada falso, pero el mensaje de
+"no pude confirmar" que sí te llegó es raro para un simple saludo.
+
+**Lo que NO hice, a propósito:** no metí un arreglo improvisado a las
+11pm sin ti despierto para probarlo en vivo -- este tipo de bug ya me ha
+hecho perseguir teorías equivocadas varias veces antes, y prefiero
+dejarte la causa real bien documentada a arriesgarme a "arreglar" algo
+mal. Cuando estés al tanto, hay una decisión chica tuya pendiente: ¿vale
+la pena que Hermes gaste una llamada extra al modelo para responder mejor
+cuando esto pase (con su propio costo/tiempo, aunque sea chico), o lo
+dejamos como está porque al final la mentira nunca te llega?
+
+**Cómo probarlo:** no hay nada que probar todavía -- es diagnóstico, no
+arreglo. Si te vuelve a pasar algo parecido (un saludo o mensaje corto
+que recibe una respuesta sobre un tema viejo sin relación), avísame para
+confirmar que sigue siendo el mismo patrón.
+
+**De paso, arreglo chico:** el chequeo de salud que Claude Code corre
+solo/a cada vez que abre una sesión (`has_progress.py --quiet`) estaba
+roto -- el flag `--quiet` no existía. Ya se arregló; no afecta nada que
+tú uses directo, solo hace que el arranque de cada sesión sea más
+silencioso cuando todo está bien (y sigue mostrando cualquier problema
+real, nunca se calla eso).
+
+**Buena noticia confirmada:** la llave de Gemini sigue funcionando bien
+después del cambio de reglas de Google de junio -- lo confirmé con
+tráfico real de esta misma noche, no hace falta que revises nada en la
+consola de Google todavía.
+
+**Para cuando despiertes -- Bloque 2 (`restaurar_hermes.sh`) ya está
+desbloqueado:** los 2 comandos `sudo` que dejé pendientes ya están
+corridos (la carpeta de respaldos ya es tuya, `age` ya está instalado) --
+así que la próxima sesión puede empezar a construir el script de
+recuperación completa sin esperar nada más de ti.
+
+**Notas de Arturo:**
+
+
+---
+
 ## 29 Jul 2026 (noche) — Los 3 documentos que me pasaste: qué se queda, y el pendiente real que encontramos
 
 Revisamos juntos 3 análisis externos de Hermes. La mayoría de las ideas ya

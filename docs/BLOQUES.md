@@ -4,6 +4,56 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Corrida autónoma de `/loop` (30 Jul 2026, madrugada) -- corrige la hipótesis del Bloque 1 del plan nocturno, cierra Bloque 6
+
+Arturo dormido; corrida sin supervisión siguiendo el PLAN NOCTURNO ya
+dejado en `ESTADO.md`. Detalle completo de la evidencia real (log +
+`state.db`) en `ESTADO.md`, sección "Avance autónomo de la madrugada".
+Resumen para este registro:
+
+- **Bloque 1 (diagnóstico del "bug de reinicio a media conversación"):
+  hipótesis de anoche descartada con evidencia real.** No fue un turno
+  interrumpido a media conversación (ya arreglado en Bloques Q/AF sobre
+  esta misma sesión). Fue el modelo re-narrando, sin que se lo pidieran,
+  un incidente real de 13h antes que seguía en su ventana de contexto
+  activa, al recibir un mensaje de bajo contenido ("Hermes buenas
+  noches"). El guardia anti-fabricación (Tarea 1) bloqueó la mentira
+  antes de llegar a Arturo -- funcionó como se diseñó -- pero el mensaje
+  de rechazo genérico es un non-sequitur para un saludo. Deliberadamente
+  NO se implementó ningún fix del comportamiento del guardia esta noche
+  (riesgo de otra hipótesis no probada sin Arturo despierto para
+  verificar en vivo, mismo patrón que ya costó sesiones completas en
+  Bloques H/P/Q/AE/AF) -- queda como decisión pendiente de Arturo
+  (¿regeneración condicionada con costo/latencia extra, sí o no?). R.11
+  de `GUION_PRUEBAS.md` sigue sin escribir -- el escenario original no
+  es el que de verdad pasó.
+- **Bloque 6 -- CERRADO.** `has_progress.py --quiet` (invocado
+  literalmente por el arranque de sesión de `CLAUDE.md`) no existía.
+  Agregado con respaldo previo, verificado en vivo en ambos modos
+  (silencioso en corrida limpia, sigue mostrando `[FAIL]`/resumen
+  siempre -- HAS L14). Hallazgo colateral sin investigar: el check
+  `tarea_i_allowlist_cleared` falla (`command_allowlist` no está vacío
+  en `config.yaml` pese a que Tarea I decía haberlo dejado así) --
+  posible regresión real o check desactualizado, ninguno de los dos
+  confirmado todavía.
+- **Bloque 7 -- paso 1 (verificación urgente) completado, sin sudo ni
+  consola de Google.** La llave Gemini en uso sigue funcionando después
+  del corte de API-restriction del 19 jun -- confirmado con tráfico de
+  producción real de esta misma noche (22:46:08), no una prueba
+  sintética. Descarta la hipótesis más barata del bloque. La rotación de
+  credenciales de la fuga vieja (el resto de Bloque 7) sigue pendiente,
+  requiere a Arturo o probar las llaves viejas en vivo.
+- **Bloque 2 desbloqueado, sin empezar todavía:** los 2 comandos `sudo`
+  que Arturo tenía pendientes (`chown` de `/mnt/seagate/hermes_backups`,
+  `apt install age`) ya estaban corridos al momento de esta corrida --
+  confirmado en disco (`ls -ld`, `dpkg -l age`), no se tocó nada de
+  sudo esta noche. `restaurar_hermes.sh` puede empezar en la siguiente
+  sesión sin bloqueos.
+
+**Commits:** ver `git log` de esta fecha en `arturo/prod` (docs +
+`has_progress.py` vive fuera del repo, respaldo en
+`~/.hermes/backups/scripts/`).
+
 ## Triaje de propuestas externas de arquitectura (HAS v1.6), CERRADO (29 Jul 2026, noche)
 
 Arturo consultó 3 documentos de análisis externos sobre HAS (arquitectura
