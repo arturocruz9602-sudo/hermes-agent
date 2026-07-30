@@ -112,11 +112,23 @@ Resumen para este registro:
   (config de sistema + script en `~/.hermes/scripts/`), sin commit de
   código en `arturo/prod` para este bloque.
 
+- **Bloque 4 -- CERRADO (B9, reglas de comportamiento aprendidas).**
+  `detectar_patrones_repetidos()` en `fase2_extract_candidates.py`
+  (fuera del repo): 3+ apariciones de la misma corrección exacta
+  normalizada → candidato nuevo "regla_comportamiento", mismo flujo de
+  aprobación de siempre, mapeado a "meta" en
+  `tools/memoria_review.py::_CATEGORIA_MAP` (dentro del repo).
+  Reutiliza infraestructura existente, alcance chico a propósito.
+  Verificado con datos sintéticos (positivo y negativo). 3 pruebas
+  nuevas en el repo, todas pasan. Detalle completo con limitaciones
+  conocidas en `~/.hermes/CHANGELOG_SISTEMA.md` y `docs/ESTADO.md`.
+
 **Commits:** ver `git log` de esta fecha en `arturo/prod` (docs +
-`has_progress.py` vive fuera del repo, respaldo en
-`~/.hermes/backups/scripts/`; `scripts/respaldar_memoria.py`,
-`scripts/bovedar_secretos.py`, `scripts/respaldar_skills_y_sistema.py`,
-`scripts/restaurar_hermes.sh`, `docs/RECUPERACION.md` y las pruebas sí
+`has_progress.py`/`fase2_extract_candidates.py` viven fuera del repo,
+respaldo en `~/.hermes/backups/scripts/`;
+`scripts/respaldar_memoria.py`, `scripts/bovedar_secretos.py`,
+`scripts/respaldar_skills_y_sistema.py`, `scripts/restaurar_hermes.sh`,
+`docs/RECUPERACION.md`, `tools/memoria_review.py` y las pruebas sí
 viven dentro del repo).
 
 ## Triaje de propuestas externas de arquitectura (HAS v1.6), CERRADO (29 Jul 2026, noche)

@@ -331,6 +331,29 @@ seguridad lo bloquea a propósito; tampoco existe hoy una herramienta
 tipo `memory_tool.py` para chunks del índice semántico). Se deja
 explícito en vez de intentar un rodeo.
 
+**Bloque 4 -- CERRADO (B9, reglas de comportamiento aprendidas).**
+Detalle completo con evidencia en `~/.hermes/CHANGELOG_SISTEMA.md`.
+Resumen: `detectar_patrones_repetidos()` nuevo en
+`fase2_extract_candidates.py` (fuera del repo) -- si la misma
+corrección (texto exacto normalizado) aparece 3+ veces en TODO el
+historial de candidatos, propone un candidato nuevo de categoría
+"regla_comportamiento" por el mismo flujo de aprobación
+candidato-por-candidato de siempre (mapeado a "meta" en
+`tools/memoria_review.py`, dentro del repo). Reutiliza la
+infraestructura existente en vez de un mecanismo paralelo, como pedía
+el plan ("alcance chico a propósito").
+
+Verificado con datos sintéticos (sin tocar el cursor real ni gastar una
+llamada real al modelo): 3 apariciones con mayúsculas/espacios
+distintos SÍ dispara, 2 apariciones NO dispara, otras categorías se
+ignoran. 3 pruebas nuevas dentro del repo
+(`tests/tools/test_memoria_review_regla_comportamiento.py`), todas
+pasan. Limitación conocida marcada a propósito: texto exacto, no
+similitud semántica (mismo principio que el dedup ya existente); sin
+chequeo de "¿ya está aprobada esta regla?" -- se apoya en que Arturo
+rechace repeticiones ya adoptadas, misma fricción que el resto del
+sistema.
+
 **Hallazgo chico real, sin arreglar (falso positivo del guard):**
 `~/.claude/hooks/hermes-guard.sh` (regla 3, DROP/DELETE SQL directo)
 bloqueó el primer intento de commit de este paso porque el mensaje

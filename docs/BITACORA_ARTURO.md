@@ -214,6 +214,25 @@ diluyen solas con el tiempo y no afectan nada importante.
 
 ---
 
+## 30 Jul 2026 (madrugada) — Si me corriges la misma cosa 3 veces, Hermes ahora te lo hace notar
+
+Construí lo último que quedaba pendiente de HAS v1.6 de esta noche: si
+le corriges a Hermes la MISMA cosa 3 veces o más (mismo mecanismo que
+ya usa `/memoria` para proponerte hechos), ahora te va a proponer --
+como cualquier otro candidato, tú decides aprobar o rechazar -- que eso
+se vuelva una regla permanente de cómo debe comportarse contigo. Nunca
+se adopta solo, exactamente como pediste después de lo que pasó con la
+memoria contaminada hace unas noches.
+
+Lo probé con datos de prueba (no toqué tu cola real ni gasté una
+llamada real al modelo): confirmé que 3 repeticiones sí lo detecta, 2
+no, y que otro tipo de hecho no se confunde con esto.
+
+**Notas de Arturo:**
+
+
+---
+
 ## 29 Jul 2026 (noche) — Los 3 documentos que me pasaste: qué se queda, y el pendiente real que encontramos
 
 Revisamos juntos 3 análisis externos de Hermes. La mayoría de las ideas ya

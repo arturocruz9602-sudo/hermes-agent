@@ -67,12 +67,21 @@ def _build_sandbox_queue() -> List[Dict[str, Any]]:
 # memoria_estructurada exige una categoría de TEMA con un CHECK constraint
 # fijo (personal/académico/técnico/financiero/meta, HAS E3) -- no son el
 # mismo eje. Este mapeo es un supuesto marcado, no una equivalencia exacta.
+#
+# "regla_comportamiento" (HAS v1.6 B9, 30 jul 2026): categoría nueva que el
+# extractor propone cuando detecta que la MISMA corrección apareció 3+ veces
+# (ver detectar_patrones_repetidos() en fase2_extract_candidates.py, fuera
+# del repo). Mapea a "meta" -- es una regla sobre CÓMO comportarse, no un
+# hecho de tema personal/técnico/etc. sobre Arturo. Mismo candado de
+# aprobación candidato-por-candidato que todo lo demás en este archivo --
+# nunca se auto-adopta.
 _CATEGORIA_MAP = {
     "preferencia": "personal",
     "dato_dispositivo": "técnico",
     "proyecto_en_curso": "técnico",
     "correccion": "técnico",
     "decision": "personal",
+    "regla_comportamiento": "meta",
 }
 _CATEGORIA_DEFAULT = "personal"
 
