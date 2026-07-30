@@ -12,6 +12,14 @@ tests antes de pasar al siguiente -- nunca encadenar corridas grandes de
 pruebas sin verificar espacio en `/tmp` primero (regla ya existente,
 incidente del 24-25 jul).
 
+**10 bloques en total** -- 1 a 5 son el plan original (diagnóstico del
+bug de reinicio, `restaurar_hermes.sh`, ventana de mantenimiento, reglas
+aprendidas, tablero de Notion); 6 a 10 se agregaron después, cada uno
+verificado contra el código/estado real antes de anotarlo (se
+descartaron 2 candidatos que ya estaban arreglados hoy mismo --
+`_pending_reprocess_ids` y el bug de `.usage.json` -- para no repetir
+trabajo ya cerrado).
+
 ### ANTES DE EMPEZAR — 2 comandos que necesitan `sudo` de Arturo
 
 Pégalos tú mismo en una terminal (no yo, regla dura de tocar `sudo`).
@@ -146,6 +154,56 @@ chico a propósito.
 6 vistas, sync cada 15 min. Sin cambios respecto a lo ya documentado
 arriba en este archivo -- sigue pendiente, solo se corrió de lugar en la
 prioridad.
+
+### Bloque 6 — `has_progress.py --quiet` está roto (bug chico, confirmado ahora mismo)
+
+`python3 ~/.hermes/scripts/has_progress.py --quiet` -- el flag que el
+arranque de sesión de `CLAUDE.md` invoca literalmente -- no existe:
+`--help` solo lista `--checks-file`. Cada sesión que sigue el arranque
+al pie de la letra recibe un error en vez de un chequeo silencioso.
+Arreglo chico: agregar el flag (o quitar la mención de `CLAUDE.md` si de
+verdad no hace falta un modo silencioso) -- decidir cuál de las dos antes
+de tocar código.
+
+### Bloque 7 — Rotación de credenciales filtradas, nunca confirmada (hallazgo de seguridad real, viejo)
+
+`has_progress.py` sigue marcando `credential_rotation_confirmed` como no
+verificable desde disco -- las llaves de la fuga de Google + 2 Groq +
+fragmentos de Gemini (documentadas en `project_hermes_credential_leak.md`)
+nunca tuvieron una confirmación explícita de que de verdad se rotaron.
+No es un chequeo que Claude Code pueda hacer solo (probar las llaves
+contra los proveedores reales está fuera de alcance de una auditoría de
+lectura) -- necesita que Arturo confirme directamente, o que se pruebe
+cada llave vieja y se verifique 401/403 real.
+
+### Bloque 8 — Automatizar como pruebas reales los 4 casos nuevos de `GUION_PRUEBAS.md`
+
+R.8 (ráfaga), R.9 (reloj/suspensión), R.10 (disco lleno) y S.8
+(inyección contra `memoria_hecho_tool`) quedaron escritos como
+descripción esta noche, no como test ejecutable. Implementarlos de
+verdad sobre el arnés E2E (`tests/e2e/hermes_harness.py`), mismo patrón
+que ya usan R.1/R.7 (marcados 🔁, ya automatizados) -- no inventar un
+mecanismo nuevo de pruebas.
+
+### Bloque 9 — Discrepancia real encontrada esta noche: `sessions.message_count` no coincide con los mensajes reales
+
+Verificado en vivo sobre la sesión `20260723_014401_467841eb`:
+`sessions.message_count = 16`, pero `SELECT COUNT(*) FROM messages WHERE
+session_id=...` da **301**. Hallazgo nuevo, sin investigar todavía --
+puede ser una columna que ya no se actualiza en algún camino de código,
+o que cuenta algo distinto a "filas reales" a propósito (turnos en vez
+de mensajes, por ejemplo) -- verificar antes de asumir cuál de las dos.
+
+### Bloque 10 — Decisión de diseño pendiente desde el 23 jul, nunca resuelta: modo "toda la escalera gratis caída"
+
+Hallazgo AA.3 (histórico, `ESTADO.md`): cuando Gemini+Groq+OpenRouter
+están caídos a la vez, hoy Tarea E se queda en silencio en vez de
+ofrecer DeepSeek (su propia autoevaluación también depende de Gemini, y
+si Gemini falla, cae a un valor por defecto que suprime la oferta).
+**Esto no es un bug de código para arreglar solo** -- es una decisión de
+Arturo pendiente: ¿quiere un modo explícito "si todo lo gratis falló,
+autorizo DeepSeek de todos modos" sin la pregunta de sí/no de cada vez?
+Presentarle la pregunta concreta antes de tocar nada.
 
 ### Sin acción activa esta noche (solo verificar cuando pase el tiempo)
 
