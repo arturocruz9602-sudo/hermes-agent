@@ -102,18 +102,32 @@ mañana, no contra el documento maestro solo -- regla K.0)
   VERDAD (27-28 jul, los 6 pasos + corte a producción confirmados).
 - **Fase 3 (ciclo de vida de skills)** -- ✅ CERRADA COMPLETA (28 jul,
   los 5 bloques de OT-3).
-- **Fase 4 (memoria que encuentra)** -- **~95%, un gap real conocido.**
+- **Fase 4 (memoria que encuentra)** -- **✅ CERRADA, sin gap real.**
   Índice semántico (FTS5+vector, retrieval híbrido con ranking
   recencia·relevancia·importancia), inyección automática al contexto,
   diario de reflexión (semanal Y nocturno desde anoche), reindexado
   nocturno automático, aprobación de candidatos por Telegram, y ahora
   detección de patrón repetido (B9, anoche) -- todo construido y
-  verificado con evidencia real. **Gap real, documentado, no
-  fabricado:** Obsidian vive en la MacBook remota sin canal de sync
-  hacia esta HP -- la prueba E2E literal del HAS ("SSH a la MacBook,
-  565 notas") nunca se pudo correr por esto. Necesita decisión de
-  Arturo: ¿rsync periódico, montaje remoto, algo más? Investigar
-  opciones actuales antes de proponer.
+  verificado con evidencia real.
+
+  **Corrección real (30 jul, mañana):** la entrada de abajo ("Obsidian
+  vive en la MacBook remota") era una SUPOSICIÓN mal fundada de una
+  sesión anterior, presentada como "no fabricado" sin serlo -- nunca se
+  verificó de verdad. Confirmado con Arturo en vivo: él NO usa Obsidian
+  en ningún lado; la decisión de arquitectura (29 jul) fue que el
+  vault de Obsidian vive SOLO localmente en la HP
+  (`/mnt/seagate/obsidian`, escrito por `tools/obsidian_note_tool.py`
+  cuando Hermes guarda una idea), y Arturo lo revisa vía Notion (el
+  espejo de `notion_mirror.py`), nunca directo. El indexador
+  (`memoria_indexador.py`) YA lee ese vault local correctamente (línea
+  23: "vault LOCAL en esta maquina (decision de arquitectura)") --
+  verificado en vivo: la única nota real que existe hoy
+  (`segundo-cerebro/2026-07-29_video-...md`) ya está indexada en
+  `memoria_semantica.db`. **No hay nada pendiente aquí.** La mención de
+  "565 notas"/"SSH a la MacBook" en `docs/HAS.md` línea 144/203 es de
+  un incidente histórico ambiguo, sin relación con Obsidian real --
+  dejar sin tocar ese archivo (documento maestro), pero no volver a
+  asumir que implica un vault remoto.
 - **Fase 5 (tablero central y cola garantizada)** -- **EN CURSO.**
   Cola de tareas v2 (máquina de estados, reintentos, watchdog) ✅
   CERRADA (29 jul, la más compleja de las 4 tareas de ese día). Tablero
@@ -149,8 +163,11 @@ empezar; `[QA]` = usar la cuenta QA para la parte de prueba real;
    `[Arturo]` `[investigar primero: alternativas a un usuario Linux nuevo]`
 3. Fase 5 -- confirmar si el checklist diario (B11) ya existe antes de
    construirlo.
-4. Fase 4 -- investigar opciones reales de sync Obsidian↔MacBook↔HP
-   (rsync por Tailscale, Syncthing, montaje SSHFS) antes de proponer. `[investigar primero]`
+4. ~~Fase 4 -- sync Obsidian↔MacBook~~ **DESCARTADO (30 jul, mañana)** --
+   era una suposición falsa (ver corrección arriba en "Estado real de
+   las Fases"). Arturo no usa Obsidian en la MacBook; el vault local de
+   Hermes ya funciona e indexa bien. Nada que investigar ni construir
+   aquí -- no proponer Syncthing ni ningún puente remoto.
 5. Bloque 8 (anoche) -- R.8 (ráfaga 20 entradas) y S.8 (inyección
    adversarial contra `memoria_hecho_tool`) con la cuenta QA. `[QA]`
 
@@ -162,7 +179,15 @@ empezar; `[QA]` = usar la cuenta QA para la parte de prueba real;
 10. Vista "Escuela" -- mismo bloqueo que Finanzas, comparte con Fase 6 (horario). `[Arturo]`
 
 **Fase 6 -- Tutor académico, primera pieza real (≈8 puntos):**
-11. Investigar API de Google Classroom vigente (scopes, cambios 2026) antes de tocar nada. `[investigar primero]`
+
+**Investigado 30 jul, mañana:** la API de Classroom (`developers.google.com/workspace/classroom`)
+no muestra cambios grandes anunciados para 2026 -- sigue siendo OAuth
+con scopes granulares (ej. `classroom.coursework.students.readonly`
+para solo lectura, que es lo que se necesita para el monitoreo del
+punto 18). **Sigue pendiente de Arturo:** crear el proyecto en Google
+Cloud Console + activar la API + hacer el login de autorización una
+vez -- no se puede hacer sin él.
+11. ~~Investigar API~~ **YA INVESTIGADO** (ver arriba) -- falta el permiso de Arturo antes de empezar. `[Arturo]`
 12. Ingesta de horario por foto -> tabla `horario` en state.db (Gemini Vision).
 13. Vista "Escuela" en Notion alimentada por la tabla real (junta con punto 10).
 14. Flujo pizarrón: foto+descripción -> carpeta `biblioteca/escuela/<materia>/`.
@@ -180,7 +205,16 @@ empezar; `[QA]` = usar la cuenta QA para la parte de prueba real;
 24. Prueba real con una foto de ticket real o simulada vía QA. `[QA]`
 
 **Fase 8 -- Producción de video, primera pieza real (≈6 puntos):**
-25. Investigar API de scripting actual de DaVinci Resolve Studio (cambios 2026) antes de tocar nada. `[investigar primero]`
+
+**Investigado 30 jul, mañana (real, con fuentes):** desde Resolve 19.1
+(nov 2024) la API externa de scripting **solo funciona con DaVinci
+Resolve Studio** (de paga) -- la versión gratis dejó de aceptar
+conexiones. **Confirmado con Arturo: SÍ tiene Studio en la M1** -- sin
+bloqueo aquí. Resolve debe estar corriendo con un proyecto abierto
+antes de que un script pueda conectar (`scriptapp("Resolve")` regresa
+`None` si no). Documentación vigente: gist de mhadifilms (v20.3) y
+extremraym.com tienen la referencia más completa hoy.
+25. ~~Investigar API de scripting~~ **YA INVESTIGADO** (ver arriba) -- empezar directo.
 26. Confirmar acceso SSH real a la M1 (¿sigue vigente desde Fase 11 SSH/Tailscale de anoche?).
 27. Corte de silencios v2 con verificación anti-destrucción de habla (E6) -- confirmar si v1 ya existe.
 28. Script `alista_setup` -- versión mínima sin hardware nuevo (enchufe inteligente es opcional, no bloqueante).
@@ -195,15 +229,29 @@ empezar; `[QA]` = usar la cuenta QA para la parte de prueba real;
 35. Seguimiento semanal de metas -- versión mínima, un solo check-in de prueba.
 
 **Fase 10 -- Trading en papel, primera pieza real (≈6 puntos):**
-36. Investigar API pública actual de Binance (testnet spot) y CoinGecko -- cambios de auth/rate limits 2026. `[investigar primero]`
-37. Confirmar si Arturo ya tiene llaves de testnet de Binance. `[Arturo]`
+
+**Investigado 30 jul, mañana -- 2 hallazgos reales importantes:**
+(a) Binance cambió el testnet en enero 2026: la URL vieja
+(`testnet.binance.vision`) ya no sirve para peticiones autenticadas,
+ahora es `demo-api.binance.com` ("Demo Trading") con firma
+percent-encoded obligatoria (si no, error -1022). **Cualquier llave
+vieja que Arturo tuviera de antes NO va a funcionar, necesita generar
+llaves nuevas en el sistema nuevo.** (b) CoinGecko: plan gratis "Demo"
+da 10,000 llamadas/mes y 100/min (mejor que sin cuenta, que da 5-15/min) --
+requiere registro gratis + API key.
+36. ~~Investigar APIs~~ **YA INVESTIGADO** (ver arriba).
+37. Pedirle a Arturo llaves NUEVAS de Binance Demo Trading + una API key gratis de CoinGecko. `[Arturo]`
 38. Feed de datos básico (precio + noticias) sin ejecutar nada todavía.
 39. Motor de estrategia determinista v1, versionado.
 40. Registro por operación en state.db (esquema nuevo).
 41. **NUNCA activar dinero real** -- regla dura explícita del HAS, la fase real no se activa hasta cumplir criterios de B4.
 
 **Fase 11 -- Voz y USB-llave, primera pieza real (≈5 puntos):**
-42. USB-llave -- esto NO depende de la Mac Mini, se puede adelantar. Investigar VeraCrypt vigente 2026 antes de construir. `[investigar primero]`
+
+**Investigado 30 jul, mañana:** VeraCrypt 1.26.29 (jun 2026) es la
+versión vigente, con CLI real en Linux/Mac (documentación separada de
+la de Windows). Sin bloqueos, no necesita nada de Arturo para empezar.
+42. ~~Investigar VeraCrypt~~ **YA INVESTIGADO** (ver arriba) -- sin bloqueo, empezar directo.
 43. Bóveda VeraCrypt del USB -- diseño mínimo.
 44. Lanzador para Linux (el que Arturo más usa hoy) primero, Windows/Mac después.
 45. Confirmar si la Mac Mini ya se compró (voz completa depende de esto). `[Arturo]`
@@ -224,6 +272,25 @@ empezar; `[QA]` = usar la cuenta QA para la parte de prueba real;
 58. Systemd: revisar que los 2 timers nuevos de esta mañana (Notion, reflexión nocturna) sigan sanos tras las primeras corridas reales.
 59. Documentación: `docs/RECUPERACION.md` -- actualizar con la lección de esta mañana (usuario Linux aparte no es el camino, replantear paso 5).
 60. Barrido general: `grep -rn "TEMP-DIAG"` + `git status` limpio antes de cerrar cada bloque, como siempre.
+
+### Fuentes de la investigación del 30 jul (mañana)
+
+- DeepSeek: [DeepSeek API Pricing 2026](https://deepseek.ai/pricing), [NxCode guía completa jul 2026](https://www.nxcode.io/resources/news/deepseek-api-pricing-complete-guide-2026)
+- DaVinci Resolve: [gist mhadifilms v20.3](https://gist.github.com/mhadifilms/2b84d469135315793220dbf2226cbe63), [extremraym.com](https://www.extremraym.com/en/resolve-api-doc-release/)
+- Binance testnet: [Changelog oficial](https://developers.binance.com/docs/binance-spot-api-docs/testnet), [general-info.md](https://github.com/binance/binance-spot-api-docs/blob/master/testnet/general-info.md)
+- CoinGecko: [pricing oficial](https://www.coingecko.com/en/api/pricing), [rate limit plan público](https://support.coingecko.com/hc/en-us/articles/4538771776153-What-is-the-rate-limit-for-CoinGecko-API-public-plan)
+- Google Classroom: [guía de auth/scopes oficial](https://developers.google.com/workspace/classroom/guides/auth), [changelog oficial](https://developers.google.com/workspace/classroom/reference/changelog)
+- VeraCrypt: [release 1.26.29](https://github.com/veracrypt/VeraCrypt/releases/tag/VeraCrypt_1.26.29), [Command Line Usage](https://veracrypt.io/en/Command%20Line%20Usage.html)
+
+### Corrección real (30 jul, mañana): no hay sync de Obsidian pendiente
+
+Ver la sección "Estado real de las Fases del HAS" arriba (Fase 4) --
+la idea de un vault de Obsidian en la MacBook era una suposición falsa
+de una sesión anterior, nunca verificada. Arturo confirmó en vivo: no
+usa Obsidian en la MacBook, la decisión de arquitectura (29 jul) fue un
+vault local en la HP solamente, y ya funciona correctamente (verificado:
+la nota real que existe ya está indexada). No proponer Syncthing ni
+ningún puente remoto para esto -- quedó cerrado, no pendiente.
 
 ---
 
