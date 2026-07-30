@@ -39,6 +39,15 @@ def _make_fake_hermes_home(base: Path) -> Path:
     (home / "skills" / "skill-de-prueba").mkdir(parents=True)
     (home / "skills" / "skill-de-prueba" / "SKILL.md").write_text("# prueba\n")
 
+    # scripts/ y config.yaml entraron al respaldo el 30 jul 2026 (Bloque
+    # AH): el watchdog sobrescribio config.yaml y no habia copia de donde
+    # recuperarla. El respaldo ahora reporta FAIL si faltan, asi que un
+    # HERMES_HOME de prueba sin ellos ya no es una instalacion valida.
+    (home / "scripts").mkdir(parents=True)
+    (home / "scripts" / "watchdog.sh").write_text("#!/bin/bash\necho check\n")
+    (home / "config.yaml").write_text("model:\n  default: chat-primary\n")
+    (home / "config.yaml.known-good").write_text("model:\n  default: chat-primary\n")
+
     return home
 
 

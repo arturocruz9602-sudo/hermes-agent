@@ -79,8 +79,23 @@ def test_respaldar_systemd_units_falla_si_no_existe(tmp_path):
     assert any("no existe" in d for d in detalles)
 
 
+def _add_scripts_y_config(base: Path) -> None:
+    """Completa un HERMES_HOME de prueba con scripts/ y config.yaml.
+
+    Desde el 30 jul 2026 main() tambien los respalda y reporta FAIL si
+    faltan (Bloque AH), asi que un origen de prueba sin ellos ya no
+    representa una instalacion valida.
+    """
+    scripts = base / "scripts"
+    scripts.mkdir(parents=True, exist_ok=True)
+    (scripts / "watchdog.sh").write_text("#!/bin/bash\necho check\n")
+    (base / "config.yaml").write_text("model:\n  default: chat-primary\n")
+    (base / "config.yaml.known-good").write_text("model:\n  default: chat-primary\n")
+
+
 def test_main_cli_reporta_ambos_pasos(tmp_path, capsys, monkeypatch):
     _make_fake_skills(tmp_path / "origen")
+    _add_scripts_y_config(tmp_path / "origen")
     monkeypatch.setattr(rs, "HERMES_HOME", tmp_path / "origen")
 
     units_src = tmp_path / "systemd_user"
@@ -106,6 +121,7 @@ def test_main_cli_no_timestamp_usa_dest_dir_tal_cual(tmp_path, monkeypatch):
     """--no-timestamp es lo que usa restaurar_hermes.sh para coordinar un
     solo timestamp entre memoria, skills y systemd en la misma corrida."""
     _make_fake_skills(tmp_path / "origen")
+    _add_scripts_y_config(tmp_path / "origen")
     monkeypatch.setattr(rs, "HERMES_HOME", tmp_path / "origen")
 
     units_src = tmp_path / "systemd_user"
@@ -119,3 +135,80 @@ def test_main_cli_no_timestamp_usa_dest_dir_tal_cual(tmp_path, monkeypatch):
     assert exit_code == 0
     assert (dest_dir / "skills" / "ejemplo-skill" / "SKILL.md").is_file()
     assert (dest_dir / "systemd" / "hermes-gateway.service").is_file()
+
+
+# ── scripts/ + config.yaml (agregado 30 jul 2026, Bloque AH) ───────────
+# El watchdog sobrescribio config.yaml y no habia respaldo de donde
+# sacarlo: `find /mnt/seagate -name "config.yaml*"` = 0 resultados. Estas
+# pruebas fijan que ambos queden cubiertos de aqui en adelante.
+
+
+def _make_fake_home(base: Path) -> Path:
+    home = base / "hermes_home"
+    scripts = home / "scripts"
+    scripts.mkdir(parents=True)
+    (scripts / "watchdog.sh").write_text("#!/bin/bash\necho check\n")
+    (scripts / "has_progress.py").write_text("print('ok')\n")
+    (scripts / "__pycache__").mkdir()
+    (scripts / "__pycache__" / "basura.pyc").write_text("no copiar")
+    (home / "config.yaml").write_text("model:\n  default: chat-primary\n")
+    (home / "config.yaml.known-good").write_text("model:\n  default: chat-primary\n")
+    return home
+
+
+def test_respaldar_scripts_y_config_copia_ambos(tmp_path):
+    home = _make_fake_home(tmp_path)
+    dest_dir = tmp_path / "destino"
+
+    ok, detalles = rs.respaldar_scripts_y_config(
+        dest_dir, scripts_src=home / "scripts", config_src=home,
+    )
+
+    assert ok, detalles
+    assert (dest_dir / "scripts" / "watchdog.sh").read_text() == "#!/bin/bash\necho check\n"
+    assert (dest_dir / "scripts" / "has_progress.py").is_file()
+    assert (dest_dir / "config" / "config.yaml").is_file()
+    assert (dest_dir / "config" / "config.yaml.known-good").is_file()
+
+
+def test_respaldar_scripts_excluye_pycache(tmp_path):
+    """__pycache__ es ruido regenerable; copiarlo infla el respaldo y
+    puede traer .pyc de una version de Python distinta."""
+    home = _make_fake_home(tmp_path)
+    dest_dir = tmp_path / "destino"
+
+    ok, detalles = rs.respaldar_scripts_y_config(
+        dest_dir, scripts_src=home / "scripts", config_src=home,
+    )
+
+    assert ok, detalles
+    assert not (dest_dir / "scripts" / "__pycache__").exists()
+
+
+def test_respaldar_scripts_falla_si_no_hay_scripts(tmp_path):
+    """Un origen ausente debe reportarse como FAIL, no pasar en silencio
+    -- el respaldo que "sale bien" sin copiar nada es justo el modo de
+    falla que dejo a Arturo sin config de donde recuperar (HAS F9-L6/L14)."""
+    home = _make_fake_home(tmp_path)
+    dest_dir = tmp_path / "destino"
+
+    ok, detalles = rs.respaldar_scripts_y_config(
+        dest_dir, scripts_src=tmp_path / "no_existe", config_src=home,
+    )
+
+    assert not ok
+    assert any("no existe" in d for d in detalles)
+
+
+def test_respaldar_config_falla_si_no_hay_ninguno(tmp_path):
+    home = _make_fake_home(tmp_path)
+    (home / "config.yaml").unlink()
+    (home / "config.yaml.known-good").unlink()
+    dest_dir = tmp_path / "destino"
+
+    ok, detalles = rs.respaldar_scripts_y_config(
+        dest_dir, scripts_src=home / "scripts", config_src=home,
+    )
+
+    assert not ok
+    assert any("config" in d for d in detalles)

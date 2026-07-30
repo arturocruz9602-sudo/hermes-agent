@@ -125,6 +125,78 @@ def respaldar_systemd_units(dest_dir: Path, units_src: "Path | None" = None) -> 
     return True, detalles
 
 
+# Archivos de configuracion que SI se respaldan: solo traen placeholders
+# ${VAR}, nunca el secreto en claro (verificado el 30 jul 2026 --
+# `grep -E "(api_key|token|secret|password):" config.yaml` sin `${` = 0
+# resultados). Los secretos reales viven en .env y en ~/.hermes/boveda/,
+# y ninguno de los dos se toca aqui a proposito (ver nota del encabezado).
+_CONFIG_FILES = ("config.yaml", "config.yaml.known-good")
+
+
+def respaldar_scripts_y_config(
+    dest_dir: Path,
+    scripts_src: "Path | None" = None,
+    config_src: "Path | None" = None,
+) -> tuple[bool, list[str]]:
+    """Copia ``HERMES_HOME/scripts`` y los config.yaml a *dest_dir*.
+
+    Agregado el 30 jul 2026 tras el incidente del Bloque AH: el watchdog
+    sobrescribio config.yaml y no habia respaldo de donde recuperarlo --
+    `find /mnt/seagate -name "config.yaml*"` daba 0 resultados, y hubo
+    que reconstruirlo a mano desde una copia del 17 jul que ademas era
+    YAML invalido. `scripts/` tenia el mismo hueco: 26 scripts de
+    produccion (incluido watchdog.sh) sin respaldo ni control de
+    versiones.
+
+    Mismo motivo que :func:`respaldar_skills` para resolver los defaults
+    en tiempo de llamada y no como default de argumento.
+    """
+    if scripts_src is None:
+        scripts_src = HERMES_HOME / "scripts"
+    if config_src is None:
+        config_src = HERMES_HOME
+    detalles: list[str] = []
+    ok = True
+
+    if scripts_src.is_dir():
+        dest_scripts = dest_dir / "scripts"
+        dest_scripts.mkdir(parents=True, exist_ok=True)
+        result = subprocess.run(
+            [
+                "rsync", "-a", "--delete",
+                "--exclude", "__pycache__",
+                f"{scripts_src}/", f"{dest_scripts}/",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            ok = False
+            detalles.append(f"scripts: rsync exit={result.returncode}: {result.stderr.strip()[:200]}")
+        else:
+            n = sum(1 for p in dest_scripts.rglob("*") if p.is_file())
+            detalles.append(f"scripts: {n} archivo(s) -> {dest_scripts}")
+    else:
+        ok = False
+        detalles.append(f"scripts: no existe {scripts_src}")
+
+    dest_config = dest_dir / "config"
+    dest_config.mkdir(parents=True, exist_ok=True)
+    copiados = []
+    for nombre in _CONFIG_FILES:
+        origen = config_src / nombre
+        if origen.is_file():
+            shutil.copy2(origen, dest_config / nombre)
+            copiados.append(nombre)
+    if not copiados:
+        ok = False
+        detalles.append(f"config: ninguno de {_CONFIG_FILES} encontrado en {config_src}")
+    else:
+        detalles.append(f"config: {', '.join(copiados)} -> {dest_config}")
+
+    return ok, detalles
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dest-dir", type=Path, default=DEFAULT_DEST)
@@ -149,6 +221,18 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="override de dónde viven las unidades systemd de usuario",
     )
+    parser.add_argument(
+        "--scripts-src",
+        type=Path,
+        default=None,
+        help="override de dónde vienen los scripts (default: HERMES_HOME/scripts)",
+    )
+    parser.add_argument(
+        "--config-src",
+        type=Path,
+        default=None,
+        help="override de dónde vienen los config.yaml (default: HERMES_HOME)",
+    )
     args = parser.parse_args(argv)
 
     if args.no_timestamp:
@@ -169,6 +253,14 @@ def main(argv: list[str] | None = None) -> int:
     for d in detalles_systemd:
         print(f"        {d}")
     resultado_general = resultado_general and ok_systemd
+
+    ok_sc, detalles_sc = respaldar_scripts_y_config(
+        dest_dir, scripts_src=args.scripts_src, config_src=args.config_src,
+    )
+    print(f"[{'OK' if ok_sc else 'FAIL'}] scripts+config:")
+    for d in detalles_sc:
+        print(f"        {d}")
+    resultado_general = resultado_general and ok_sc
 
     estado_final = "COMPLETO" if resultado_general else "CON PROBLEMAS"
     print(f"\n=== RESPALDO {estado_final}: {dest_dir} ===")
