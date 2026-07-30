@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 from agent.prompt_builder import (
@@ -142,6 +143,68 @@ def _tui_embedded_pane_clarifier(hint: str) -> str:
     if not is_truthy_value(os.getenv("HERMES_DESKTOP_TERMINAL")):
         return hint
     return hint + _TUI_EMBEDDED_PANE_CLARIFIER
+
+
+_MEMORIA_INDICE_UMBRAL_CHARS = 12_000
+
+
+def _memoria_como_indice(bloque: str) -> str:
+    """Bloque AK (30 jul 2026): reemplaza el volcado COMPLETO de MEMORY.md
+    por un indice de sus secciones + puntero a ``memory_search``.
+
+    Medicion real que lo motiva (cuenta de Arturo, Telegram):
+      MEMORY.md              102,597 chars  (~25,650 tokens)
+      system prompt completo 156,281 chars  (~39,070 tokens)
+      seccion mas pesada     "LAPTOP WINDOWS - ESPECIFICACIONES TECNICAS",
+                             ~13,843 tokens -- viajando en CADA vuelta del
+                             agente aunque el mensaje fuera "hola".
+    Con la escalera gratuita (Gemini free tier = 250,000 tokens/minuto) eso
+    agota la cuota en 3-4 mensajes, y el 429 llega a mitad de stream, donde
+    el fallback de LiteLLM ya no puede saltar a Groq/OpenRouter
+    (MidStreamFallbackError, bug conocido del proyecto).
+
+    Es seguro porque la memoria NO se pierde: ``scripts/memoria_indexador.py``
+    indexa MEMORY.md/USER.md por secciones en memoria_semantica.db
+    (source='memory_md'), y la busqueda las recupera con score alto --
+    verificado antes de activar esto:
+      "especificaciones de la laptop windows" -> ## HARDWARE LAPTOP WINDOWS  0.868
+      "hardware de voz open source"           -> ## HARDWARE VOZ OPEN SOURCE 0.875
+      "como esta configurado Groq en litellm" -> ## GROQ EN LITELLM          0.883
+    Ademas el turno ya inyecta automaticamente los fragmentos relevantes
+    (HAS Fase 4 Bloque 2, ver agent/turn_context.py).
+
+    Pedido textual de Arturo: "que Hermes no olvide, tenga memoria, tenga
+    una buena manera de trabajar, pero que con cada tarea no se autocargue".
+
+    Conservador: solo aplica si el bloque supera el umbral. Una memoria
+    chica se sigue mandando entera (es mas barato que mandar el indice y
+    ademas buscar), y ante cualquier error se devuelve el bloque original.
+    """
+    try:
+        if not bloque or len(bloque) <= _MEMORIA_INDICE_UMBRAL_CHARS:
+            return bloque
+        titulos = re.findall(r"^##\s+(.+?)\s*$", bloque, re.MULTILINE)
+        if len(titulos) < 3:
+            # Sin secciones reconocibles no hay indice que construir; mejor
+            # no tocar nada que mandar un resumen inutil.
+            return bloque
+        lineas = "\n".join(f"- {t}" for t in titulos)
+        return (
+            "## Memoria persistente (indice)\n"
+            "Tu memoria de largo plazo NO viaja completa en este prompt: son "
+            f"{len(bloque):,} caracteres y se comeria la cuota por minuto en "
+            "cada vuelta. Abajo estan los TITULOS de lo que recuerdas. El "
+            "contenido completo sigue guardado y es recuperable.\n"
+            "Para leer cualquiera de estas secciones usa la herramienta "
+            "`memory_search` con lo que necesites. Los fragmentos relevantes "
+            "al mensaje actual ya se te inyectan automaticamente cuando "
+            "aplican, asi que normalmente no hace falta buscar.\n"
+            "NUNCA digas que no recuerdas algo que aparezca en esta lista: "
+            "lo tienes, solo hay que buscarlo.\n\n"
+            f"{lineas}"
+        )
+    except Exception:
+        return bloque
 
 
 def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) -> Dict[str, str]:
@@ -484,7 +547,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         if agent._memory_enabled:
             mem_block = agent._memory_store.format_for_system_prompt("memory")
             if mem_block:
-                volatile_parts.append(mem_block)
+                volatile_parts.append(_memoria_como_indice(mem_block))
         # USER.md is always included when enabled.
         if agent._user_profile_enabled:
             user_block = agent._memory_store.format_for_system_prompt("user")
