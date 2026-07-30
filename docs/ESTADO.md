@@ -354,6 +354,22 @@ chequeo de "¿ya está aprobada esta regla?" -- se apoya en que Arturo
 rechace repeticiones ya adoptadas, misma fricción que el resto del
 sistema.
 
+**Bloque 9 -- CERRADO, NO era un bug (discrepancia explicada con
+evidencia exacta).** `sessions.message_count` NO cuenta filas totales
+de `messages` -- cuenta específicamente `messages WHERE active=1`, el
+tamaño de la ventana de contexto EN VIVO que de verdad se manda a la
+API cada turno (`agent/conversation_loop.py`:
+`message_count=len(api_messages)`). El resto de filas (`compacted=1`)
+son historial preservado por compactación -- nunca se borran ("el
+crudo es sagrado", HAS F1.3), solo dejan de contar como "activas".
+
+Verificado en vivo, coincidencia EXACTA sobre la misma sesión del
+hallazgo original: `sessions.message_count=16`,
+`COUNT(*) WHERE active=1 = 16` (coincide exacto),
+`COUNT(*) WHERE compacted=1 = 285`, `16+285=301=COUNT(*) total`. No
+hace falta ningún fix -- el campo funciona exactamente como está
+diseñado. Cierra el hallazgo del 23-24 jul sin dejarlo abierto.
+
 **Hallazgo chico real, sin arreglar (falso positivo del guard):**
 `~/.claude/hooks/hermes-guard.sh` (regla 3, DROP/DELETE SQL directo)
 bloqueó el primer intento de commit de este paso porque el mensaje

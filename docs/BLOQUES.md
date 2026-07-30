@@ -123,6 +123,13 @@ Resumen para este registro:
   nuevas en el repo, todas pasan. Detalle completo con limitaciones
   conocidas en `~/.hermes/CHANGELOG_SISTEMA.md` y `docs/ESTADO.md`.
 
+- **Bloque 9 -- CERRADO, no era un bug.** `sessions.message_count`
+  cuenta `messages WHERE active=1` (la ventana de contexto en vivo que
+  se manda a la API), no el total de filas -- las filas `compacted=1`
+  son historial preservado, nunca borrado. Verificado en vivo sobre la
+  misma sesión del hallazgo original: coincidencia EXACTA
+  (`message_count=16` = `COUNT(*) WHERE active=1`). Sin fix necesario.
+
 **Commits:** ver `git log` de esta fecha en `arturo/prod` (docs +
 `has_progress.py`/`fase2_extract_candidates.py` viven fuera del repo,
 respaldo en `~/.hermes/backups/scripts/`;
