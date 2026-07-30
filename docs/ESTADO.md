@@ -149,6 +149,34 @@ timer automático todavía -- esta corrida fue manual, la automatización
 nocturna (E14, ventana 2:00-5:00) es un paso posterior explícito, no
 implícito en tener el script.
 
+**Bloque 2, paso 2/5 -- CERRADO (mecanismo de bóveda `age`, sin tocar
+credenciales reales todavía).** Construido `scripts/bovedar_secretos.py`
+(`cifrar`/`descifrar` sobre `age -p`). Hallazgo real durante la
+construcción: `age -p` exige una terminal real (`/dev/tty`) para pedir
+la passphrase -- probado en vivo, un pipe normal a stdin falla con
+`/dev/tty is not available`. Por eso el script NUNCA redirige
+stdin/stdout: hereda los descriptores del proceso que lo invoca, para
+que el prompt de `age` llegue directo a la terminal real de quien lo
+corre (nunca pasa por mi código, nunca queda en un argumento de shell
+ni en `ps`).
+
+4 pruebas en `tests/scripts/test_bovedar_secretos.py`, incluido el
+roundtrip real cifrar→descifrar y el caso de passphrase incorrecta
+(debe fallar y no dejar archivo de salida) -- como `age -p` no acepta
+passphrase por pipe, las pruebas manejan el CLI real dentro de un
+pseudo-terminal (`pty`) para automatizar el prompt sin tocar el
+mecanismo de producción. Las 4 pasan, con contenido de prueba
+sintético (`GEMINI_API_KEY=clave-de-prueba-no-real`, nunca una
+credencial real).
+
+**Deliberadamente NO se tocó el `.env` real ni ninguna credencial
+real esta noche** -- `CLAUDE.md` lo marca sin excepción ("tocar `.env`
+o credenciales reales" siempre requiere preguntar primero, incluso en
+autonomía nocturna). El mecanismo ya está probado y listo; aplicarlo al
+`.env` real de Arturo (y decidir qué pasa con el `.env` en texto plano
+después -- ¿se borra?, ¿se deja?, ¿dónde vive el `.age` resultante?) es
+una decisión suya, no algo para resolver solo a la 1am.
+
 **Sin tocar esta noche (deliberado, requieren a Arturo despierto o
 sudo):** Bloques 3, 4, 5, 8, 9, 10 sin empezar, mismo orden que antes.
 

@@ -63,10 +63,23 @@ Resumen para este registro:
   `ESTADO.md` para el detalle. Sin timer automático configurado todavía
   (deliberado, corrida manual de esta noche).
 
+- **Bloque 2, paso 2/5 -- CERRADO, mismo `/loop`, tick siguiente.**
+  `scripts/bovedar_secretos.py` (cifrar/descifrar con `age -p`), 4
+  pruebas. Hallazgo real: `age -p` exige `/dev/tty`, no acepta
+  passphrase por pipe -- confirmado con un experimento real antes de
+  escribir el script (`age -p ... <<< "x"` falla con `/dev/tty is not
+  available`). El script hereda stdio del proceso que lo invoca en vez
+  de redirigir nada, para que el prompt llegue a la terminal real; las
+  pruebas manejan el CLI dentro de un `pty` para automatizar el prompt
+  sin cambiar el mecanismo de producción. Deliberadamente sin tocar el
+  `.env` real ni ninguna credencial real -- solo contenido sintético de
+  prueba, por la regla dura de `CLAUDE.md` de siempre preguntar antes
+  de tocar credenciales reales.
+
 **Commits:** ver `git log` de esta fecha en `arturo/prod` (docs +
 `has_progress.py` vive fuera del repo, respaldo en
-`~/.hermes/backups/scripts/`; `scripts/respaldar_memoria.py` y su
-prueba sí viven dentro del repo).
+`~/.hermes/backups/scripts/`; `scripts/respaldar_memoria.py`,
+`scripts/bovedar_secretos.py` y sus pruebas sí viven dentro del repo).
 
 ## Triaje de propuestas externas de arquitectura (HAS v1.6), CERRADO (29 Jul 2026, noche)
 

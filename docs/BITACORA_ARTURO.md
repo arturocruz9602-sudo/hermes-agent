@@ -89,6 +89,21 @@ ls -la /mnt/seagate/hermes_backups/20260729_235806/
 Deberías ver dos archivos (`state.db`, `memoria_semantica.db`) con
 fecha de esta madrugada.
 
+**Seguí con la segunda pieza esta misma madrugada:** ya está listo y
+probado el mecanismo para guardar tus llaves/API keys cifradas (con
+`age`, con UNA sola frase secreta que memorizas tú, nada de llaves de
+terceros). Lo probé de punta a punta con datos de prueba -- cifrar,
+descifrar, y también que si alguien mete la frase secreta equivocada,
+falla y no suelta nada.
+
+**Lo que NO hice, a propósito:** no toqué tu `.env` real (donde viven
+tus API keys de verdad) -- esa parte, por regla dura del proyecto,
+siempre te la pregunto primero, ni siquiera en trabajo nocturno
+automático. Cuando quieras, la próxima sesión contigo presente puede
+aplicarlo a tus credenciales reales y decidir qué hacer con el archivo
+`.env` sin cifrar después (¿se borra?, ¿se queda?) -- esa decisión es
+tuya.
+
 **Notas de Arturo:**
 
 
