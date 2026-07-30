@@ -175,6 +175,33 @@ queda como lo primero que hagamos juntos la próxima vez.
 
 ---
 
+## 30 Jul 2026 (madrugada) — Hermes ahora "piensa" un poco cada noche, no solo los domingos, y el respaldo ya corre solo
+
+Dos cosas nuevas que ya están corriendo automáticamente, dentro de la
+ventana de mantenimiento que armamos en HAS v1.6 esta misma noche
+(2:00-5:00am, cuando tú no estás usando a Hermes):
+
+1. **Reflexión diaria además de la semanal.** Ya sabías que cada
+   domingo Hermes escribe 5 observaciones sobre tu semana. Ahora
+   TAMBIÉN lo hace cada noche, pero solo sobre el día anterior -- lo
+   probé en vivo ahora mismo y funcionó bien (5 observaciones reales
+   sobre lo que hiciste hoy). La del domingo sigue igual, sin tocar.
+2. **El respaldo completo que armamos hace rato ahora corre solo,
+   cada noche.** Ya no tienes que acordarte de correrlo a mano.
+
+**Encontré algo real mientras lo armaba, y lo corregí antes de dejarlo
+así:** al mover el horario de uno de los timers que ya existían, sin
+querer hice que corriera una vez de más, fuera de su horario normal
+(un chequeo de saldo de DeepSeek, sin ningún costo ni riesgo -- solo
+revisó un número y ya). Lo detecté, entendí por qué pasó, y lo corregí
+para que no se repita. Te lo cuento porque prefiero que sepas de los
+tropiezos chicos, no solo de lo que salió bien.
+
+**Notas de Arturo:**
+
+
+---
+
 ## 29 Jul 2026 (noche) — Los 3 documentos que me pasaste: qué se queda, y el pendiente real que encontramos
 
 Revisamos juntos 3 análisis externos de Hermes. La mayoría de las ideas ya

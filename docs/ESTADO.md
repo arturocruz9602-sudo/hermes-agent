@@ -270,6 +270,44 @@ regla dura) o una VM/contenedor -- fuera de lo que se puede resolver
 solo a la 1am sin decírselo antes a Arturo. Queda como el primer punto
 para la siguiente sesión CON Arturo presente.
 
+**Bloque 3 -- CERRADO (E14, ventana de mantenimiento nocturna 2:00-5:00).**
+Detalle completo en `~/.hermes/CHANGELOG_SISTEMA.md` (entrada de esta
+madrugada, regla F4 del HAS). Resumen:
+
+- `hermes-memoria-reflexion-nocturna.timer` (nuevo, ~02:15) -- reflexión
+  diaria (ventana de 1 día, `--dias` nuevo en
+  `memoria_diario_reflexion.py`, default 7 preserva la semanal del
+  domingo intacta). Verificado en vivo: 5 observaciones reales
+  indexadas correctamente.
+- `hermes-respaldo-total.timer` (nuevo, ~04:00) -- corre
+  `restaurar_hermes.sh respaldar` cada noche (sin credenciales, un
+  timer no puede pedir passphrase).
+- `hermes-memoria-index.timer` + `hermes-deepseek-balance-check.timer`
+  (existentes) -- `RandomizedDelaySec=600` agregado a ambos, chocaban
+  en el mismo `03:00:00` exacto (confirmado con `systemctl list-timers`
+  antes del cambio).
+- Ninguno de los 2 timers nuevos tiene `Persistent=true` (a propósito,
+  documentado en cada `.timer`) -- si la HP estuvo apagada durante la
+  ventana, se saltan la noche en vez de disparar fuera de horario de
+  servicio (HAS E14: "si un mantenimiento invade horario de servicio,
+  es bug, no característica").
+
+**Hallazgo real durante el cambio, ya corregido:** un primer intento
+movió la hora base de `hermes-deepseek-balance-check.timer` (03:00 →
+03:05) en vez de solo agregar el jitter -- con `Persistent=true`
+activo, systemd interpretó que se había "perdido" una corrida bajo el
+horario nuevo y la disparó de inmediato al hacer `daemon-reload`
+(confirmado en `journalctl`, corrida real fuera de horario a las
+02:06am). Inofensivo esta vez (el chequeo es de solo lectura, sin
+costo), pero es exactamente la sorpresa que la investigación de anoche
+ya advertía sobre `Persistent=true` -- revertido a la hora base
+original, solo se dejó el jitter. Lección para cualquier cambio futuro
+de horario en un timer con `Persistent=true`.
+
+`systemd-analyze --user verify` sin errores en los 6 archivos tocados.
+Respaldo de los 3 archivos modificados en
+`~/.hermes/backups/scripts/` antes de tocarlos (regla del HAS).
+
 **Hallazgo chico real, sin arreglar (falso positivo del guard):**
 `~/.claude/hooks/hermes-guard.sh` (regla 3, DROP/DELETE SQL directo)
 bloqueó el primer intento de commit de este paso porque el mensaje

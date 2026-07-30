@@ -100,6 +100,18 @@ Resumen para este registro:
   la prueba de restauración real en máquina limpia (necesita sudo/VM,
   queda para sesión con Arturo presente).
 
+- **Bloque 3 -- CERRADO.** Ventana de mantenimiento nocturna (HAS E14):
+  2 timers systemd nuevos (`hermes-memoria-reflexion-nocturna`,
+  reflexión diaria vía `--dias` nuevo en `memoria_diario_reflexion.py`;
+  `hermes-respaldo-total`, corre `restaurar_hermes.sh respaldar` cada
+  noche) + `RandomizedDelaySec` en los 2 timers existentes que chocaban
+  a las 03:00:00 exacto. Detalle completo, incluido un hallazgo real
+  sobre `Persistent=true` disparando una corrida fuera de horario al
+  cambiar mal la hora base de un timer (ya corregido), en
+  `~/.hermes/CHANGELOG_SISTEMA.md` y `docs/ESTADO.md`. Fuera del repo
+  (config de sistema + script en `~/.hermes/scripts/`), sin commit de
+  código en `arturo/prod` para este bloque.
+
 **Commits:** ver `git log` de esta fecha en `arturo/prod` (docs +
 `has_progress.py` vive fuera del repo, respaldo en
 `~/.hermes/backups/scripts/`; `scripts/respaldar_memoria.py`,
