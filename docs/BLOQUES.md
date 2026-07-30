@@ -145,13 +145,23 @@ Resumen para este registro:
   resuelto con evidencia real ya existente (el hallazgo de
   `Persistent=true` del Bloque 3, más relevante que una simulación).
 
+- **Bloque 5 -- PARCIAL.** `tools/notion_avance_has.py`: primera de 6
+  vistas de Fase 5/OT-5 Bloque 2, sync cada 15 min a una página "Avance
+  HAS" en Notion (reemplaza contenido, no acumula). Verificado en vivo
+  dos veces contra la API real + confirmado vía el timer systemd real.
+  Hallazgo real que bloquea el resto: ninguna de las bases de datos
+  personales de Arturo (Finanzas/Proyectos/Tareas académicas/Ideas)
+  está compartida con la integración -- Finanzas/Escuela necesitan que
+  Arturo las comparta; Kanban espejo/Cola de tareas necesitan que
+  decida base nueva vs. reusar "Proyectos".
+
 **Commits:** ver `git log` de esta fecha en `arturo/prod` (docs +
 `has_progress.py`/`fase2_extract_candidates.py` viven fuera del repo,
 respaldo en `~/.hermes/backups/scripts/`;
 `scripts/respaldar_memoria.py`, `scripts/bovedar_secretos.py`,
 `scripts/respaldar_skills_y_sistema.py`, `scripts/restaurar_hermes.sh`,
-`docs/RECUPERACION.md`, `tools/memoria_review.py` y las pruebas sí
-viven dentro del repo).
+`docs/RECUPERACION.md`, `tools/memoria_review.py`,
+`tools/notion_avance_has.py` y las pruebas sí viven dentro del repo).
 
 ## Triaje de propuestas externas de arquitectura (HAS v1.6), CERRADO (29 Jul 2026, noche)
 

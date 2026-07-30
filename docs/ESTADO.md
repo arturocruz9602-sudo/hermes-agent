@@ -447,8 +447,31 @@ de seguridad, fuera de alcance sin Arturo). Queda como nota para quien
 toque ese hook algún día: el patrón es más ancho de lo que su propio
 propósito necesita.
 
+**Bloque 5 -- PARCIAL, primera de 6 vistas real (Avance HAS).** Detalle
+completo con evidencia en `~/.hermes/CHANGELOG_SISTEMA.md`. Resumen:
+`tools/notion_avance_has.py` (dentro del repo, 7 pruebas) sincroniza
+una página "Avance HAS" en Notion cada 15 min (`hermes-notion-avance-
+has.timer`) con la salida real de `has_progress.py`, reemplazando el
+contenido en cada corrida. Verificado en vivo dos veces contra la API
+real (crea la página una sola vez, cacheada; reemplaza sin acumular
+bloques) y confirmado disparando el timer real vía systemd, no solo
+invocación manual.
+
+**Hallazgo real que bloquea el resto de las 6 vistas:** de las bases de
+datos personales de Arturo (Finanzas, Proyectos, Tareas académicas,
+Ideas -- documentadas en `~/.hermes/skills/productivity/notion/
+SKILL.md`), NINGUNA está compartida con la integración de Hermes hoy
+(verificado con `/v1/search` real) -- solo "Segundo Cerebro" (de esta
+misma noche). Finanzas/Escuela necesitan que Arturo comparta esas
+bases primero (menú `...` → `Connect to` → la integración). Kanban
+espejo/Cola de tareas no tienen ese bloqueo (Hermes ya es dueño de
+`kanban.db`/`task_queue`) pero sí necesitan que Arturo decida: ¿base
+Notion nueva y dedicada, o reusar "Proyectos" ya existente? Quedan sin
+construir hasta esa decisión.
+
 **Sin tocar esta noche (deliberado, requieren a Arturo despierto o
-sudo):** Bloques 3, 4, 5, 8, 9, 10 sin empezar, mismo orden que antes.
+sudo):** Bloque 10 sin empezar (decisión pendiente de Arturo, no algo
+para construir solo).
 
 ---
 

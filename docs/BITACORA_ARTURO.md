@@ -233,6 +233,31 @@ no, y que otro tipo de hecho no se confunde con esto.
 
 ---
 
+## 30 Jul 2026 (madrugada) — Primera vista real en tu tablero de Notion: "Avance HAS"
+
+Ya tienes una página nueva en tu Notion (dentro de la página "Hermes")
+llamada **"Avance HAS"** que se actualiza sola cada 15 minutos con el
+avance real del proyecto -- no tienes que pedírmelo, ya está corriendo.
+
+**Encontré algo que necesita tu acción para las otras 5 vistas que
+faltan (Hoy, Kanban espejo, Finanzas, Cola de tareas, Escuela):** tus
+bases de datos de Notion que ya tenías (Finanzas, Proyectos, Tareas
+académicas, Ideas) no están conectadas con la integración de Hermes
+todavía -- por eso Hermes no puede escribir ahí. Cuando quieras avanzar
+con esas vistas, en cada una: menú `...` (arriba a la derecha) →
+`Connect to` → busca la integración de Hermes. Eso desbloquea Finanzas
+y Escuela. Para Kanban espejo y Cola de tareas también me falta que me
+digas: ¿prefieres que cree tableros nuevos dedicados, o que reuse tu
+base "Proyectos" que ya existe?
+
+**Cómo probarlo:** abre tu página "Hermes" en Notion, deberías ver
+"Avance HAS" ahí adentro con el estado de esta noche.
+
+**Notas de Arturo:**
+
+
+---
+
 ## 29 Jul 2026 (noche) — Los 3 documentos que me pasaste: qué se queda, y el pendiente real que encontramos
 
 Revisamos juntos 3 análisis externos de Hermes. La mayoría de las ideas ya
