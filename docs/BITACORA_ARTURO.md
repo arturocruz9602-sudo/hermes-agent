@@ -46,6 +46,22 @@ averiguarlo solo.
 - `ayuda` → debe pedirle que concrete, **sin** ofrecerle DeepSeek.
 - `hola` → saludo normal, **sin** oferta (lo de ayer, sigue firme).
 
+**Continuación (12:35pm):** en vez de dar el caso por cerrado, fui a
+buscar cuántos mecanismos más de Hermes podían apagarse igual de callados.
+Encontré **nueve** dentro de este mismo sistema. Los dos que más me
+preocuparon no eran los obvios:
+
+- El contador que impide que Hermes le ofrezca DeepSeek más de 3 veces al
+  día: si fallaba, respondía "van 0 ofertas hoy" — o sea, **el tope
+  desaparecía** y podía ofrecerle gasto sin límite.
+- El pedazo que interpreta su "sí" o su "no" cuando le pide permiso para
+  gastar: si fallaba, su respuesta quedaba en "no entendí", sin registro.
+
+Ninguno cambió de comportamiento — siguen siendo igual de prudentes
+cuando fallan. Lo que cambió es que **ahora avisan**. Y para no confiarme,
+le rompí un aviso a propósito para comprobar que la prueba lo detecta: sí
+lo detectó.
+
 **Algo que le toca decidir a usted, no a mí:** no sé *qué* le cambió la
 cerradura a las 11:45. Un proceso restauró un archivo de configuración a
 como estaba hace 26 días y reinició a Hermes en el mismo segundo. Yo no

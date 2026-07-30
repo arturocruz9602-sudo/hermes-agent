@@ -65,6 +65,37 @@ custom_provider"`. Desplegado con la excepción permanente del CLAUDE.md
 (reinicio de `hermes-gateway`) a las **12:05:19**; gateway `active`,
 PID 528048, sin errores en el journal.
 
+### AG.2 (12:35pm) — el barrido de fallos mudos, hecho. **CERRADO**
+
+Segundo pendiente de arriba, resuelto en la misma corrida de `/loop`.
+Barrido **AST** (no grep) sobre los 50 `.py` propios, cruzando cada
+handler contra las líneas que Hermes realmente agregó
+(`git diff origin/main...HEAD`) para no ahogarse en código heredado del
+fork: **385** handlers silenciosos → **25** en código propio → **10** de
+esos en `complexity_detector.py`, el corazón de Tarea E.
+
+Nueve arreglados (commit `efd421c93`), cada mensaje nombrando la
+consecuencia real, para que el journal diga **qué** se apagó:
+`detect_categories` (Tarea E ciega a todo), `should_offer` (nunca
+ofrece), `parse_yes_no` (**el "sí" de Arturo queda ambiguo** — es la ruta
+de autorización de gasto), `check_pending_reply` (se pierde su respuesta
+a una oferta viva), `gather_pre_response_context` (**responde SIN los
+datos frescos que ya tenía** — responder sin verificar),
+`offers_today_count` (**devolver 0 deja el tope anti-spam sin efecto** —
+riesgo de presupuesto), `regenerate_in_spanish` (responde en inglés),
+`fetch_context_summary`, `fetch_coingecko_prices`.
+
+Comportamiento intacto: los 9 conservan su default fail-safe; lo único
+que cambia es que ahora se ven. `run_incident_verification` se dejó como
+está a propósito — ya le explica el fallo a Arturo en la respuesta; es el
+ejemplo de cómo debería verse.
+
+**Verificado, no asumido:** fallos forzados en tres de ellos → los 3
+loggean Y conservan su fail-safe (`[]`, `0`, `None`); **prueba de
+mutación** → al quitar el log de `detect_categories`, 2 tests fallan (el
+guard muerde de verdad); sonda de 8 casos con llamada real → sigue 8/8.
+Pruebas **31/31**. Desplegado 12:34:57, gateway `active` PID 531722.
+
 **PENDIENTE que esto deja abierto (para Arturo, no lo decido yo):**
 ¿**qué** restauró `config.yaml.known-good` a las 11:45:23 y reinició el
 gateway en el mismo segundo? No lo hice yo en esta corrida. Se cruza con
@@ -72,9 +103,12 @@ el hallazgo de gobernanza de la entrada de abajo (Hermes en vivo leyendo
 `complexity_detector.py` con intención de editarlo, ~11:47am, misma
 franja). Si un proceso puede revertir `config.yaml` a un estado de hace
 26 días sin dejar aviso, cualquier arreglo de configuración es temporal.
-**Segundo pendiente derivado:** buscar si hay MÁS `except: ... return
-default` sin log en el árbol — esta falla vivió justo ahí, y el fix de
-hoy solo tapó las dos instancias que encontré.
+~~Segundo pendiente derivado: buscar más `except → default` sin log.~~
+**Hecho en AG.2, arriba.** Quedan 15 handlers mudos en código propio
+fuera de `complexity_detector.py` (`gateway/run.py` ×3, `hermes_logging.py`,
+`memory_semantic.py` ×2, `obsidian_note_tool.py` ×2, `vault_tool.py` ×3,
+etc.) — menos críticos que los de Tarea E, buen material para el próximo
+tramo de la ventana.
 
 ---
 

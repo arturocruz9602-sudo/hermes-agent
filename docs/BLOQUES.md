@@ -38,7 +38,28 @@ en gateway. Desplegado 12:05:19, gateway `active` PID 528048.
 **Deja abierto:** (1) qué proceso restauró `config.yaml` y reinició el
 gateway a las 11:45:23 — decisión de Arturo, se cruza con el hallazgo de
 gobernanza de Hermes leyendo su propio código fuente ~11:47am;
-(2) barrer el árbol buscando más `except: return default` sin log.
+(2) ~~barrer el árbol~~ → hecho en AG.2.
+
+### AG.2 — barrido de fallos mudos (commit `efd421c93`) — **CERRADO**
+
+385 handlers silenciosos en los 50 `.py` propios → 25 en líneas que
+Hermes agregó → 10 en `complexity_detector.py`. Nueve arreglados con el
+mensaje nombrando la consecuencia real; comportamiento fail-safe intacto.
+Los dos de mayor riesgo no eran los obvios: `offers_today_count` (su
+`return 0` deja el tope diario anti-spam **sin efecto** — presupuesto) y
+`parse_yes_no` (ruta por la que Arturo autoriza gasto).
+
+**Método que vale la pena repetir:** AST + cruce con `git diff
+origin/main...HEAD`. Grep solo daba 385 resultados indistinguibles entre
+código propio y heredado del fork; el cruce los bajó a 25 accionables.
+
+**Prueba de mutación** como control de calidad del guard: al quitar un
+log a propósito, 2 tests fallan. Un guard que no se prueba rompiéndolo es
+otro silencio disfrazado. 31/31. Desplegado 12:34:57, PID 531722.
+
+**Quedan 15** handlers mudos en código propio fuera de Tarea E
+(`gateway/run.py` ×3, `hermes_logging.py`, `memory_semantic.py` ×2,
+`obsidian_note_tool.py` ×2, `vault_tool.py` ×3, …) — menos críticos.
 
 ## Sesión de tarde con Arturo presente (30 Jul 2026) -- fix en vivo + auditoría "desde el inicio" pedida
 
