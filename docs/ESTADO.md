@@ -1,6 +1,118 @@
-# Estado de Hermes — actualizado 30 Jul 2026, mañana
+# Estado de Hermes — actualizado 30 Jul 2026, tarde
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
+
+## PRIORIDAD MÁXIMA (30 jul, tarde) — auditoría "desde el inicio del proyecto", arrancar AQUÍ antes que el plan de 24h
+
+Arturo se hartó (sus palabras: "siempre son las mismas fallas de la
+investigación... estoy arto") después de ver en vivo, por Telegram, el
+mismo tipo de falla que ya se documentó varias veces desde Bloque H:
+Tarea E (el mecanismo de autoevaluación que decide si ofrece DeepSeek)
+disparó una oferta de gasto sobre un saludo trivial ("Hermes" ->
+"Buenas noches. ¿En qué puedo ayudarte?"). Pidió explícitamente: repasar
+**desde el inicio del proyecto** y corregir de verdad, no solo
+documentar, el patrón repetido de fallas de esta familia (autoevaluación
+/ investigación / verificación) — confirmado con él en vivo ("si desde
+el inicio del proyecto HAZ"). Esto va antes que el plan de 24h de abajo,
+no en paralelo sin criterio.
+
+**Ya resuelto esta tarde, con evidencia real (no solo mockeada):**
+`agent/complexity_detector.py::_SELF_ASSESS_RUBRIC` no tenía excepción
+para saludos/mensajes sin pregunta real -- el modelo de autoevaluación
+juzgaba "resolvi_con_confianza=false" solo porque el mensaje del usuario
+era una palabra suelta, aunque la respuesta (un saludo de vuelta) fuera
+completa y correcta. Agregada "EXCEPCIÓN 2" al rubro (mismo formato que
+la excepción existente). Verificado con una llamada REAL al modelo
+(no mockeada), reproduciendo el caso exacto:
+```
+self_assess_response("Hermes", "Buenas noches. ¿En qué puedo ayudarte?")
+-> {'resolvi_con_confianza': True, 'multivariable': False, 'que_me_falto': None}
+should_offer_v2(...) -> False
+```
+Test de regresión agregado en `tests/agent/test_complexity_detector_self_assess.py`
+(`test_greeting_with_no_real_question_does_not_offer`, mockeado como el
+resto del archivo pero con el JSON real que devolvió el modelo).
+`tests/agent/test_complexity_detector_self_assess.py` +
+`tests/smoke/test_s4_complexity_detector.py`: **11/11 pasan.** Sin
+commitear todavía al cierre de esta entrada -- confirmar `git status`
+en la siguiente sesión antes de asumir que ya se subió.
+
+**Pendiente para la próxima sesión (el repaso "desde el inicio" en
+serio, no solo este parche puntual):** revisar con evidencia real,
+uno por uno, que estén de verdad cerrados (regla F8: cerrado solo con
+evidencia pegada, no con que el documento diga "cerrado"):
+- Bloque H (blind spot de logging de `agent.conversation_loop`)
+- Bloque P (índice `current_turn_user_idx` no se recalcula tras
+  `repair_message_sequence_with_cursor()`)
+- Bloque Q (fix de Q.1 aplicado pero Q.2-Q.5 quedaron "EN CURSO"/"SIN
+  EMPEZAR" según la última entrada que se reconstruyó de este archivo --
+  confirmar si se cerraron después o si siguen abiertos hoy)
+- Bloque AE/AF (mencionados en el bloque de anoche como parte de la
+  misma área, sin detalle reconstruido aquí -- buscar en
+  `~/.hermes/reporte_*.md` o donde haya quedado su evidencia)
+- Bloque O completo (autoevaluación real vía Gemini, `self_assess_response`/
+  `should_offer_v2`) -- el que se acaba de parchar hoy es un síntoma de
+  esta misma familia; buscar OTROS huecos parecidos en el rubro antes de
+  darlo por cerrado en serio (ej. ¿qué pasa con mensajes de una sola
+  palabra que SÍ son una pregunta real, como "¿por qué?"? ¿con emojis
+  solos? ¿con silencios/mensajes vacíos?).
+- L17 (oferta de DeepSeek en silencio al caer la escalera gratuita) --
+  "RESUELTO con supuesto marcado" según este mismo archivo (línea ~1170
+  antes de esta edición) -- confirmar si de verdad se implementó o solo
+  se documentó la decisión.
+
+**Método pedido implícitamente por el hartazgo de Arturo:** no repetir
+el patrón de "reporto que investigué/verifiqué" sin evidencia pegada.
+Cada bloque de este repaso cierra con una llamada real (no mockeada)
+o una lectura real de logs/DB, igual que el fix de hoy -- nunca "se ve
+bien" como cierre.
+
+**AMPLIADO (30 jul, tarde-noche, Arturo insistió más fuerte):** no es
+solo la familia de Tarea E -- pidió explícitamente repasar **Fase 1 en
+adelante de todo el HAS**, corrigiendo y corriendo pruebas reales fase
+por fase, hasta donde se llegue, con una ventana de trabajo continuo
+**hasta el domingo 2 de agosto a las 12pm** vía `/loop` (Arturo va a dar
+`/clear` y luego `/loop`). Instrucción explícita: nada de "ahora no
+porque estamos fatigados" -- seguir sin pausas de "cansancio" (no
+aplica igual a un proceso automatizado, pero si el ciclo de `/loop`
+para de reportar avance, tratarlo como falla a diagnosticar, no como
+descanso aceptable). Orden real: Fase 1 -> Fase 2 -> Fase 3 -> Fase 4 ->
+Fase 5 (donde ya se documentó arriba qué falta) -> seguir con Fases 6+
+del plan de 24h solo después de confirmar con evidencia real que 1-5
+están genuinamente cerradas (no solo "el documento dice cerrado").
+
+**Aclaración importante para la siguiente sesión, sobre un malentendido
+de Arturo que hay que seguir corrigiendo con calma, no a la defensiva:**
+Arturo dijo sentir que "no quiero estropear su memoria usando la cuenta
+principal" es una excusa y que solo le "arrojo basura". Aclarar de
+nuevo si vuelve a salir: la única cautela real fue no correr DOS
+procesos de gateway con el mismo token de Telegram al mismo tiempo (eso
+sí tumba su Hermes real, es un conflicto técnico verificable, no una
+excusa) -- el diagnóstico y fix de esta tarde SÍ se hizo con sus datos
+reales de producción (logs y `state.db` reales, en modo lectura). La
+cuenta QA es para message-sending real cuando hace falta enviar/recibir
+mensajes de prueba sin arriesgar su cuenta -- nunca para evitar mirar
+evidencia real.
+
+**Hallazgo nuevo, sin resolver, encontrado al revisar `state.db` en
+vivo esta tarde:** mientras yo diagnosticaba el bug del saludo, **el
+propio Hermes (el agente en vivo, no Claude Code) también empezó a leer
+`agent/complexity_detector.py` con un tool call real** (confirmado en
+`state.db`, sesión `20260723_014401_467841eb`, ~11:47am) con intención
+de editarlo él mismo -- Arturo ya le había dicho que no ajustara nada
+sin mandarle el diff primero, pero el tool call de lectura sí ocurrió.
+`git diff --stat` confirma que **complexity_detector.py solo tiene las
++7 líneas de MI fix** (Hermes no llegó a escribir nada todavía), pero
+es un hallazgo real de gobernanza: Hermes tiene tool de lectura/posible
+escritura de código fuente y se acerca a tocar código núcleo
+(`nivel_riesgo: critico` en HAS E9), que la regla dice que le toca solo
+a Claude Code o a Arturo. **Pendiente:** confirmar con Arturo si Hermes
+debe perder la capacidad de tocar archivos `nivel_riesgo: critico` a
+nivel de permisos (no solo de instrucción/promesa), y decirle a Hermes
+por Telegram que este fix ya quedó resuelto por Claude Code, para que
+no proceda a escribir un cambio duplicado o contradictorio encima.
+
+---
 
 ## PLAN DE 24 HORAS (30-31 Jul 2026) — pedido explícito de Arturo, arrancar aquí
 
@@ -170,11 +282,33 @@ empezar; `[QA]` = usar la cuenta QA para la parte de prueba real;
    aquí -- no proponer Syncthing ni ningún puente remoto.
 5. Bloque 8 (anoche) -- R.8 (ráfaga 20 entradas) y S.8 (inyección
    adversarial contra `memoria_hecho_tool`) con la cuenta QA. `[QA]`
+5b. ~~15 filas duplicadas de reflexión~~ **CERRADO (30 jul, tarde).**
+   Arturo confirmó limpiar. Respaldo real verificado primero
+   (`/mnt/seagate/hermes_backups/20260730_113341`, integrity_check ok),
+   luego `scripts/limpiar_duplicados_reflexion_30jul.py` (uso único,
+   con guardas de seguridad: aborta si no encuentra exactamente las 10
+   filas viejas esperadas) borró las 10 filas del formato viejo de
+   `source_ref`, dejando las 5 del formato correcto. Verificado:
+   `integrity_check: ok`, 5 filas restantes.
+
+**Bloque 2 paso 5 (restauración real) -- decisión tomada, NO ejecutada
+todavía:** Arturo eligió Docker (no usuario Linux nuevo). Docker **no
+está instalado** en la HP -- le di el comando (`sudo apt install -y
+docker.io && sudo usermod -aG docker $USER`) para que lo pegue él mismo
+(regla del proyecto: sudo lo teclea Arturo). Aclaración importante
+acordada con él: el contenedor se reconstruye con el respaldo REAL
+(`/mnt/seagate/hermes_backups/20260730_113341`), pero **NO se conecta
+al Telegram real en vivo** -- dos procesos con el mismo bot token
+compitiendo por `getUpdates` puede tumbar el gateway real. Si se quiere
+probar mensajes en vivo dentro del contenedor, usar la cuenta QA, no la
+principal. Pendiente: que Arturo instale Docker, luego armar y correr
+el contenedor.
 
 **Fase 5, resto del tablero (5 puntos):**
 6. Vista "Hoy" (checklist del día) -- confirmar fuente de datos real (kanban+horario+metas) antes de construir.
-7. Vista "Kanban espejo" -- decisión previa de Arturo (base nueva vs "Proyectos"). `[Arturo]`
-8. Vista "Cola de tareas" -- mismo bloqueo que 7, o puede ir en base nueva sin esperar. `[Arturo]`
+7. Vista "Kanban espejo" -- **DECIDIDO (30 jul, tarde): base Notion nueva**, no reusar "Proyectos" (Arturo solo tiene ahí su lista de biografías de TikTok). `[Arturo]` ya no bloquea -- se puede construir.
+8. Vista "Cola de tareas" -- mismo criterio que 7, base nueva.
+8b. **Biografías de TikTok (nuevo, 30 jul tarde) -- pieza fundamental del proyecto de YouTube de Arturo, Hermes las va a organizar.** Hoy Hermes NO puede leerlas -- confirmado con `/v1/search` real: la integración de Notion solo tiene compartida "Segundo Cerebro", ninguna otra base. **Pendiente de Arturo:** compartir esa página/base (menú `...` -> `Connect to` -> integración de Hermes), igual que Finanzas/Escuela. `[Arturo]`
 9. Vista "Finanzas" -- necesita que Arturo comparta su base Notion existente. `[Arturo]`
 10. Vista "Escuela" -- mismo bloqueo que Finanzas, comparte con Fase 6 (horario). `[Arturo]`
 
@@ -187,7 +321,7 @@ para solo lectura, que es lo que se necesita para el monitoreo del
 punto 18). **Sigue pendiente de Arturo:** crear el proyecto en Google
 Cloud Console + activar la API + hacer el login de autorización una
 vez -- no se puede hacer sin él.
-11. ~~Investigar API~~ **YA INVESTIGADO** (ver arriba) -- falta el permiso de Arturo antes de empezar. `[Arturo]`
+11. ~~Investigar API~~ **YA INVESTIGADO** (ver arriba) -- falta el permiso de Arturo antes de empezar. `[Arturo]` Links ya entregados (30 jul tarde): proyecto https://console.cloud.google.com/projectcreate ; activar API https://console.cloud.google.com/apis/library/classroom.googleapis.com ; consentimiento OAuth https://console.cloud.google.com/apis/credentials/consent ; credenciales https://console.cloud.google.com/apis/credentials
 12. Ingesta de horario por foto -> tabla `horario` en state.db (Gemini Vision).
 13. Vista "Escuela" en Notion alimentada por la tabla real (junta con punto 10).
 14. Flujo pizarrón: foto+descripción -> carpeta `biblioteca/escuela/<materia>/`.
@@ -240,7 +374,7 @@ llaves nuevas en el sistema nuevo.** (b) CoinGecko: plan gratis "Demo"
 da 10,000 llamadas/mes y 100/min (mejor que sin cuenta, que da 5-15/min) --
 requiere registro gratis + API key.
 36. ~~Investigar APIs~~ **YA INVESTIGADO** (ver arriba).
-37. Pedirle a Arturo llaves NUEVAS de Binance Demo Trading + una API key gratis de CoinGecko. `[Arturo]`
+37. Pedirle a Arturo llaves NUEVAS de Binance Demo Trading + una API key gratis de CoinGecko. `[Arturo]` Aclarado (30 jul tarde): es dinero de PAPEL, sin fondear nada real; Arturo no tiene cuenta en Binance ni en Bitso -- solo Binance hace falta para arrancar Fase 10 (Bitso solo cuando se gradúe a dinero real, semanas/meses después). App móvil de Binance sirve para registrarse y usar Demo Trading; generar la API Key/Secret puede necesitar la web si no aparece en la app. CoinGecko es solo web (sin app), registro simple + API key del plan Demo.
 38. Feed de datos básico (precio + noticias) sin ejecutar nada todavía.
 39. Motor de estrategia determinista v1, versionado.
 40. Registro por operación en state.db (esquema nuevo).
@@ -254,7 +388,7 @@ la de Windows). Sin bloqueos, no necesita nada de Arturo para empezar.
 42. ~~Investigar VeraCrypt~~ **YA INVESTIGADO** (ver arriba) -- sin bloqueo, empezar directo.
 43. Bóveda VeraCrypt del USB -- diseño mínimo.
 44. Lanzador para Linux (el que Arturo más usa hoy) primero, Windows/Mac después.
-45. Confirmar si la Mac Mini ya se compró (voz completa depende de esto). `[Arturo]`
+45. Confirmar si la Mac Mini ya se compró (voz completa depende de esto). `[Arturo]` **Respondido (30 jul tarde): NO comprada todavía.** Arturo recordó correctamente algo que yo había pasado por alto: existe **OT-9.5 "modo llamada interino" (Gemini Live API, máx 15 min/llamada)**, aprobado desde el 21-jul, **que NO depende de la Mac Mini** y **nunca se construyó** (sin rastro en ESTADO.md/BLOQUES.md antes de esta entrada). Solo pide un proyecto de Google dedicado. Es la pieza de voz que sí se puede construir ya. Pendiente: decidir con Arturo si OT-9.5 va antes o junto con Bloque 10 -- se le propuso empezar por OT-9.5 pero no llegó a confirmar el orden antes de pasar a otros temas.
 46. Skills de ciberseguridad doméstica (E7) -- auditar qué ya existe antes de construir.
 
 **Pendientes sueltos, cualquier momento libre (≈10 puntos):**

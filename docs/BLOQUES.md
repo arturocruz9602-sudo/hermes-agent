@@ -4,6 +4,43 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Sesión de tarde con Arturo presente (30 Jul 2026) -- fix en vivo + auditoría "desde el inicio" pedida
+
+Arturo vio en vivo, por Telegram, la misma familia de falla ya
+documentada varias veces (Bloques H/P/Q/AE/AF): Tarea E ofreció DeepSeek
+sobre un saludo trivial ("Hermes" -> "Buenas noches. ¿En qué puedo
+ayudarte?"). Se hartó explícitamente ("siempre son las mismas fallas de
+la investigación... estoy arto") y pidió repasar **desde el inicio del
+proyecto** y corregir de verdad el patrón, no solo documentarlo --
+confirmado en vivo. Detalle completo y punch list del repaso pendiente
+en `docs/ESTADO.md`, sección "PRIORIDAD MÁXIMA".
+
+**Cerrado esta tarde, con evidencia real:**
+- Fix del hueco encontrado: `_SELF_ASSESS_RUBRIC` (Tarea E, Bloque O) sin
+  excepción para saludos/mensajes sin pregunta real -- agregada
+  "EXCEPCIÓN 2". Verificado con llamada REAL al modelo reproduciendo el
+  caso exacto (ver ESTADO.md para el output). Test de regresión agregado.
+  `tests/agent/test_complexity_detector_self_assess.py` +
+  `tests/smoke/test_s4_complexity_detector.py`: 11/11 pasan.
+- 15 filas duplicadas de reflexión del 30 jul (residuo de anoche,
+  Bloque 3) -- limpiadas con respaldo real verificado primero. Detalle
+  en ESTADO.md.
+- Links de Google Cloud Console/Classroom entregados a Arturo.
+- Aclaraciones a Arturo sobre Binance (solo papel, sin Bitso todavía),
+  CoinGecko (para qué sirve, web-only), Docker (comando sudo pendiente
+  de que Arturo lo pegue), Notion (biografías de TikTok son pieza del
+  proyecto de YouTube, pendiente que Arturo comparta esa base).
+- Corrección propia: **OT-9.5** (modo llamada interino, Gemini Live API,
+  no depende de Mac Mini) existe desde el 21-jul y nunca se construyó --
+  se me había pasado por alto al asumir que toda la voz esperaba a la
+  Mac Mini. Pendiente decidir con Arturo si va antes o junto con
+  Bloque 10.
+
+**Sin cerrar, para la siguiente sesión (`/loop` tras `/clear` de Arturo):**
+repaso real con evidencia de Bloques H/P/Q/AE/AF/O/L17 (lista exacta en
+ESTADO.md) antes de continuar con el plan de 24h -- Arturo lo puso como
+prioridad sobre ese plan, no en paralelo.
+
 ## Cierre de la sesión nocturna + Plan de 24 horas armado (30 Jul 2026, mañana)
 
 Arturo despertó (8:58am), revisó lo de la cuenta `hermes_test` (creada

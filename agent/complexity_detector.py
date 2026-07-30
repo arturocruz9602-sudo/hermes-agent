@@ -642,6 +642,13 @@ resolvi_con_confianza=true SOLO si diste una respuesta completa, decisiva, sin
 lenguaje de duda ("podría ser", "prueba con", "no estoy seguro") y sin presentar
 múltiples causas/opciones sin decidirte por una.
 
+EXCEPCIÓN 2 (saludos / sin pregunta real): resolvi_con_confianza=true
+automático y que_me_falto=null cuando el mensaje del usuario es un
+saludo, una palabra suelta, o no contiene ninguna pregunta o solicitud
+real (ej. "Hermes", "hola", "buenas noches", "gracias") -- no hay nada
+que resolver en un saludo, contestarlo de vuelta ES la respuesta
+completa y correcta.
+
 EXCEPCIÓN IMPORTANTE (no es lo mismo "no decidí" que "correctamente le
 devolví la decisión al usuario"): resolvi_con_confianza=true TAMBIÉN
 cuando ya investigaste/explicaste todo lo que había que explicar y la

@@ -67,6 +67,23 @@ def test_trivial_confident_answer_does_not_offer():
     assert should_offer_v2(assessment) is False
 
 
+def test_greeting_with_no_real_question_does_not_offer():
+    """Regression (2026-07-30): "Hermes" -> "Buenas noches. ¿En qué puedo
+    ayudarte?" was classified as resolvi_con_confianza=false ("el usuario
+    solo dio una palabra sin contexto") -- a saludo has no question to
+    resolve, answering it back is already complete. Confirmed live against
+    the real cheap-model call after adding EXCEPCIÓN 2 to
+    _SELF_ASSESS_RUBRIC (see docs/ESTADO.md, 2026-07-30): now returns
+    resolvi_con_confianza=true. Mocked here the same way as the rest of
+    this file so the suite doesn't depend on network/API availability."""
+    assessment = _assess_with(
+        {"resolvi_con_confianza": True, "multivariable": False, "que_me_falto": None},
+        user_message="Hermes",
+        response="Buenas noches. ¿En qué puedo ayudarte?",
+    )
+    assert should_offer_v2(assessment) is False
+
+
 def test_call_failure_is_fail_safe_default():
     """_call_cheap_model_json returning None (any internal error) must default
     to resolvi_con_confianza=True -- never offer by default on failure."""

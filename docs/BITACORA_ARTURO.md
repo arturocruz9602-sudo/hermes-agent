@@ -7,6 +7,45 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 30 Jul 2026 (tarde, en vivo contigo) — Por qué te ofreció DeepSeek solo por decirle "Hermes", y ya quedó arreglado
+
+Le escribiste solo "Hermes" y contestó bien ("Buenas noches. ¿En qué
+puedo ayudarte?"), pero justo después te salió la oferta de pagar por
+DeepSeek. Encontré la causa real en el código (no me fié de lo que
+Hermes te dijo en el momento, que fue impreciso): Hermes se autoevalúa
+después de cada respuesta preguntándose "¿resolví bien?", y esa
+autoevaluación juzgó que un saludo "sin contexto" era una respuesta
+incompleta -- un saludo no tiene nada que resolver, contestarlo de
+vuelta ya es completo. Le agregué una excepción a esa autoevaluación
+para que reconozca saludos/mensajes sin pregunta real, y lo comprobé
+mandándole exactamente ese mismo mensaje ("Hermes") de verdad, no solo
+en una prueba simulada -- ya no ofrece nada. Mensaje para probarlo tú
+mismo: mándale solo "Hermes" o "hola" y confirma que ya no aparece
+ninguna oferta de DeepSeek después del saludo.
+
+**Lo que me pediste después, y por qué la próxima sesión empieza distinto:**
+me dijiste que ya estás harto de que se repita este mismo tipo de falla
+(esta es la misma familia que ya se arregló varias veces antes, con
+nombres distintos) y pediste repasar desde el inicio del proyecto para
+que de verdad quede cerrado, no solo documentado. Dejé la lista completa
+de qué falta revisar en `docs/ESTADO.md` (sección "PRIORIDAD MÁXIMA") --
+es lo primero que se retoma en la siguiente sesión, antes que cualquier
+otra cosa del plan de 24 horas.
+
+**Otras 3 cosas que quedaron de esta tarde:**
+- Las 15 filas duplicadas de reflexión del 30 jul que habías dicho que
+  limpiara: ya está, con respaldo real hecho primero.
+- Docker para probar la restauración de respaldo: necesito que pegues
+  tú mismo `sudo apt install -y docker.io && sudo usermod -aG docker $USER`
+  cuando puedas -- yo no toco `sudo`.
+- Te debía una corrección: sí existe una forma de tener llamadas cortas
+  con Hermes (máx. 15 min) sin esperar a la Mac Mini -- se llama OT-9.5,
+  aprobada desde hace más de una semana pero nunca construida. Queda
+  pendiente decidir si la construyo antes o junto con el fix de DeepSeek
+  automático (Bloque 10).
+
+---
+
 ## 30 Jul 2026 (madrugada, trabajo mientras dormías) — Por qué te dijo cosas raras del gateway cuando solo le dijiste "buenas noches"
 
 Anoche a las 22:46 le dijiste "Hermes buenas noches" y te contestó algo
