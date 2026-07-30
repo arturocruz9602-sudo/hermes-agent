@@ -492,16 +492,29 @@ def _resolve_litellm_credentials() -> "tuple[str, str]":
     )
 
 
+# Bloque AN (30 Jul 2026): alias GRATIS, deliberadamente separado de
+# chat-primary. Hasta hoy esta funcion apuntaba a "chat-primary" dando por
+# hecho que era Gemini; al invertir la arquitectura (chat-primary pasa a
+# DeepSeek de pago) ese supuesto se volvio falso y peligroso: esta funcion la
+# usan Tarea D, Tarea E y la reflexion nocturna, y Tarea E corre en CADA
+# mensaje -- cada "hola" de Arturo habria disparado una llamada de pago
+# automatica, rompiendo la regla dura del CLAUDE.md.
+MODELO_GRATIS = "chat-gratis"
+
+
 def _call_cheap_model_json(prompt: str, *, max_tokens: int = 300) -> Optional[dict]:
-    """Llama chat-primary (Gemini, barato) pidiendo JSON, parsea la
-    respuesta. None en cualquier fallo -- nunca lanza."""
+    """Llama al modelo GRATIS (chat-gratis = Gemini) pidiendo JSON, parsea la
+    respuesta. None en cualquier fallo -- nunca lanza.
+
+    Nunca debe apuntar a un modelo de pago: sus llamadores son automaticos y
+    Arturo no autoriza gasto automatico (CLAUDE.md)."""
     try:
         import json as _json
         import urllib.request as _ur
 
         base_url, api_key = _resolve_litellm_credentials()
         payload = {
-            "model": "chat-primary",
+            "model": MODELO_GRATIS,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
             "temperature": 0,

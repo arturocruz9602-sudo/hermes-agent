@@ -4,6 +4,110 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Bloque AN — DeepSeek de llave principal + el freno que ya existía apagado (30 Jul 2026, tarde) — **CERRADO, verificado con corridas reales**
+
+Autorizado por Arturo en sesión, sobre números medidos, no estimados.
+
+**El análisis que lo motivó.** Simulación del costo real de su uso diario
+con precios verificados EXACTO contra el ledger (una fila real de
+v4-pro: `203904×0.003625 + 402×0.435 + 187×0.87 = 0.00107671` ✓):
+
+| Escenario | MXN/mes |
+|---|---|
+| Su día completo (30 msgs: mañana, escuela, gym, peso, YouTube) | **$8** |
+| Día pesado (64 msgs) | $17 |
+| Tareas automáticas nocturnas | $1–4 |
+
+Confirmado por un segundo método independiente: replicar **todas** las
+sesiones reales de julio a precios DeepSeek da **$4.32 MXN** para las
+sesiones normales del mes entero. Modelo teórico y réplica histórica
+coinciden.
+
+**El hallazgo central — el riesgo no es el uso, son los bugs.** De los
+$172.73 MXN que habría costado julio en flash, **$168.41 (97.5%) vienen
+de 5 sesiones desbocadas**, todas con Arturo escribiendo normal:
+
+```
+2026-07-09   107 msgs -> 1,294 vueltas    flash $58.07   pro $144.83
+2026-07-04   122 msgs -> 1,460 vueltas    flash $56.78   pro $155.44
+2026-06-30     8 msgs -> 1,211 vueltas    flash $19.72   pro  $33.88
+```
+
+**Causa raíz de las desbocadas:** `max_iterations = 90`, y el presupuesto
+se **recrea en cada turno** (`agent/turn_context.py:517`) — no eran 90 por
+sesión, eran **90 por cada mensaje**. El `90` no lo eligió nadie de este
+proyecto: `git blame agent/agent_init.py:458` → `a7d7c02cb`, nousbot-eng,
+default del upstream de NousResearch para un agente de programación.
+Verificado ANTES de tocarlo, precisamente porque un número así suele
+tener una razón.
+
+**Lo hecho:**
+- `chat-primary` → `deepseek/deepseek-v4-flash`, `rpm: 30` (freno, no
+  límite de proveedor).
+- **NUEVO** `chat-gratis` → gemini-2.5-flash-lite. Ver más abajo por qué.
+- Escalera invertida: primary → chat-gratis → chat-fallback → chat-fallback3.
+- `agent.max_turns: 25` (14x el uso real medido de 1.8 vueltas/mensaje).
+  Solo afecta al gateway; el CLI conserva 90, que sí necesita cadenas
+  largas para programar.
+- `tool_loop_guardrails.hard_stop_enabled: false → true`. **El freno ya
+  existía y estaba apagado** — cero infraestructura nueva.
+
+**Trampa evitada (la razón de ser de `chat-gratis`).** Varios llamadores
+automáticos daban por hecho que `chat-primary` era Gemini y era gratis:
+`memoria_diario_reflexion.py`, `fase2_extract_candidates.py`,
+`memoria_resumen_semanal.py` y — el más grave —
+`_call_cheap_model_json()` en `agent/complexity_detector.py`, que corre
+en **cada mensaje** vía Tarea E. Sin el alias, cada "hola" de Arturo
+habría disparado una llamada de pago automática, rompiendo la regla dura
+del `CLAUDE.md` y volteando la excepción acotada del `/memoria`
+dominical (donde DeepSeek es último recurso, no primero). Todos
+repuntados a `chat-gratis`.
+
+**Error propio, corregido a media ejecución (L-nueva).** Reporté que
+`chat-fallback2` "solo vive en comentarios" tras un `grep` y **era
+falso**: `gateway/run.py:9607` despacha Tarea D a ese alias por nombre y
+`turn_finalizer.py:978` lo usa para saber que un turno ya fue escalado.
+Ya lo había quitado del config. Restaurado antes de reiniciar nada. La
+condición de "pruebas de regresión obligatorias" que Arturo trajo de su
+revisión externa **cazó este error el mismo día que se propuso**.
+
+**Segundo error propio, corregido (el más instructivo).** Medí que
+`reasoning_effort: none` apagaba el razonamiento por completo (181 → 0
+tokens) y lo reporté como "95% menos". **Salió de UNA sola llamada.** Al
+repetir la misma llamada explícita dio 218. Con 6 muestras del mismo
+mensaje: media 166 con el parámetro contra 302 sin él → **la mejora real
+es ~45%, no 95%**. `deepseek-v4-flash` ES un modelo de razonamiento y
+razona 2.2x lo que responde; eso subía el costo proyectado de $7.92 a
+$13.78 MXN/mes. Con el parámetro vuelve a ~$8. Descartado
+`reasoning_effort: minimal`: apaga igual el razonamiento pero **contestó
+en inglés**, falla que Arturo ya había reportado.
+
+**Verificación (real, no asumida):**
+- LiteLLM reiniciado por Arturo (el hook bloquea correctamente que lo
+  haga Claude Code; la excepción pre-aprobada es solo `hermes-gateway`).
+- `chat-gratis` → `'OK'`, servido por Gemini ✓
+- `chat-primary` → responde en español, servido por DeepSeek ✓
+- Línea textual del log tras reiniciar el gateway:
+  `2026-07-30 17:07:04,736 INFO gateway.run: Agent budget: max_iterations=25`
+  (era `=90` a las 15:22 y 15:31).
+- **194 pruebas en verde**: 16 toolsets ocasionales + 69 complexity_detector
+  (5 archivos) + 46 task_queue y scripts + 63 presupuesto de vueltas y
+  compresión. Por bloques chicos, según el pedido del 26 jul.
+- Ledger registrando el camino nuevo: 18 llamadas, **$0.02 MXN** de
+  pruebas.
+
+**Corrección de presupuesto (de Arturo, en sesión).** El "$300 mensuales"
+que mencionó es su **capacidad de pago, NO un presupuesto autorizado ni
+un compromiso**. No existe autorización de gasto nueva; sigue vigente
+solo lo del `CLAUDE.md`/HAS. Esto corre sobre el saldo ya cargado ($0.60
+USD ≈ $10.80 MXN), que a ~$8/mes alcanza ~mes y medio sin que ponga un
+peso. Si se agota, la escalera baja a los gratuitos y Hermes no se cae.
+
+**Pendiente que deja:** el HAS dice que el proyecto está dimensionado
+para "presupuesto de $100 MXN/mes" — línea que ya no describe la
+realidad. Cambiar el HAS va por el canal de diseño, no por una sesión de
+trabajo. Queda a decisión de Arturo.
+
 ## Bloque AH — El watchdog revertía la config por un "401" dentro del session_id (30 Jul 2026, `/loop`) — **CERRADO, causa raíz de AG**
 
 Responde el pendiente que dejó AG. `~/.hermes/scripts/watchdog.sh` traía

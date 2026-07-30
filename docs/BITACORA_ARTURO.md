@@ -7,6 +7,74 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 30 Jul 2026 (5:10 pm) — Hermes ya no se va a quedar mudo a media respuesta, y un bucle ya no le puede vaciar el saldo
+
+**Qué le pasaba antes.** Hermes hablaba primero con las APIs gratuitas.
+Gratis suena bien, pero tienen cupo: cuando se llenaba —y hoy mismo se
+llenó, de 11:39 a 11:51— Hermes se quedaba callado a media frase. Peor:
+el respaldo no alcanzaba a entrar, porque el cupo se acababa *mientras*
+ya estaba escribiendo.
+
+**Qué cambió.** Ahora habla primero con DeepSeek, que es de pago pero no
+tiene cupo. Las gratuitas quedaron abajo, de red de seguridad: si
+DeepSeek falla o se le acaba el saldo, Hermes **no se cae** — baja
+solito a Gemini y sigue trabajando.
+
+**Cuánto le cuesta.** Le hice la cuenta con sus números reales, no con
+suposiciones:
+
+| Lo que usa al día | Al mes |
+|---|---|
+| Mañana (alarma, buenos días, pendientes) | $1.00 |
+| Escuela | $1.20 |
+| Gym (rutina, calorías) | $1.00 |
+| Peso y medidas | $0.40 |
+| YouTube | $0.60 |
+| Lo suelto del día | $1.80 |
+| **Todo junto** | **~$8 MXN** |
+
+Usted ya tiene $10.80 cargados de antes. **Le alcanzan como mes y medio
+sin poner un peso.** Deje correr eso y vea el número real antes de
+decidir nada.
+
+**El hallazgo que más importa, y no es el dinero.** Revisé todo julio:
+de cada $100 que Hermes habría gastado, **$97.50 se fueron en 5
+conversaciones donde algo se atoró en un bucle** — no en usted usándolo.
+Una sola de esas habría costado $155. La causa: Hermes tenía permiso de
+dar **90 vueltas por cada mensaje suyo**. Usted en realidad necesita 1.8.
+Ese 90 venía de fábrica, de los programadores originales; nadie lo
+eligió para usted. Ya está en 25, y además encendí un freno de emergencia
+que **ya existía y estaba apagado**.
+
+**Algo que quiero que sepa porque le toca a usted.** Usted dijo que
+pagaría $300 al mes "sin problema", y yo lo anoté como si fuera un
+presupuesto aprobado. Usted me corrigió: eso es lo que *podría* pagar, no
+lo que dijo que iba a pagar. Tenía razón y ya quedó corregido en el
+código y en mi memoria. **No hay ningún gasto nuevo autorizado.**
+
+**También me equivoqué dos veces hoy y las dos las cacharon las
+pruebas.** Una: dije que cierto nombre solo aparecía en comentarios y era
+mentira — de haberlo dejado así, habría roto una función suya en
+silencio. Dos: dije que había logrado bajar el gasto 95% cuando en
+realidad era 45%; lo había medido con **una sola llamada**, y una llamada
+no es una medición. Se lo cuento porque la parte de "Hermes dice que sí y
+no hizo nada" es justo lo que lo ha hartado, y aplica igual para mí.
+
+**Pruébelo usted mismo.** Mande esto a Hermes:
+
+> Buenos días Hermes, ¿cómo vas?
+
+Debe contestarle rápido y en español. Si le contesta en inglés, o se
+queda a medias, avíseme — eso sería una falla nueva y quiero saberla.
+
+Y si quiere ver el freno trabajando:
+
+> Hermes, ¿cuántas vueltas máximo puedes dar por cada mensaje mío?
+
+**Lo que sigue.** Las mañanas de 6:30 sin que usted escriba nada. Ya
+estaba escrito en el plan del proyecto desde antes (Fase 5), nada más
+faltaba que Hermes fuera confiable para montarlo encima. Ya lo es.
+
 ## 30 Jul 2026 (3:35 pm) — Por qué se le acababan las APIs con tareas sencillas: Hermes gastaba 65 mil tokens por vuelta
 
 Usted preguntó si estaba exigiendo mucho. **No.** Estaba exigiendo poco y

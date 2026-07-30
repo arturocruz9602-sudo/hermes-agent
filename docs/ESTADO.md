@@ -2,6 +2,53 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
+## ARRANCAR AQUÍ (30 jul, 17:10) — Bloque AN cerrado: DeepSeek de llave principal, con freno
+
+Sesión larga con Arturo presente, sobre la pregunta "¿cuánto me va a
+costar Hermes de verdad y cómo lo hago eficiente para mí?".
+
+**Respuesta con números medidos:** su uso diario completo cuesta **~$8
+MXN/mes**. El presupuesto no es el problema — **el 97.5% del costo
+histórico vino de 5 sesiones desbocadas por bugs**, no de él escribiendo.
+Detalle completo en `BLOQUES.md` (Bloque AN).
+
+**Desplegado y verificado hoy:**
+- `chat-primary` → DeepSeek v4-flash. Se acaban los 429 a media respuesta.
+- `chat-gratis` (alias nuevo) → Gemini. Todo lo automático apunta ahí; la
+  regla de "nunca DeepSeek automático" queda intacta.
+- `agent.max_turns: 25` (era 90 heredado del upstream) — verificado en el
+  log: `17:07:04 Agent budget: max_iterations=25`.
+- `tool_loop_guardrails.hard_stop_enabled: true` (existía, estaba apagado).
+- `reasoning_effort: none` en chat-primary (~45% menos razonamiento).
+- 194 pruebas en verde. Pruebas de hoy: $0.02 MXN.
+
+**Dos errores propios corregidos en la misma sesión, ambos por medir mal:**
+1. Reporté `chat-fallback2` como "solo en comentarios" — era falso,
+   `gateway/run.py:9607` lo usa vivo. Habría roto Tarea D en silencio.
+2. Reporté "95% menos razonamiento" desde **una sola llamada**. Con 6
+   muestras la mejora real es ~45%. **Lección: una llamada no es una
+   medición**; este modelo tiene varianza alta entre corridas idénticas.
+
+**Corrección de Arturo, importante:** los "$300 mensuales" son su
+**capacidad de pago, no un presupuesto autorizado**. No hay autorización
+de gasto nueva. Corre sobre el saldo ya cargado ($0.60 USD ≈ $10.80 MXN,
+~mes y medio a $8/mes).
+
+**Pendiente inmediato (lo que Arturo más quiere):** las mañanas de 6:30
+sin que él escriba nada. Ya está especificado en el HAS, Fase 5 Bloque
+4.1 (*"Job 6:30am: genera la lista (kanban del día + horario + metas)"*).
+Ahora corre sobre piso estable.
+
+**Pendiente para Arturo (decisión suya, canal de diseño):** el HAS dice
+"presupuesto de $100 MXN/mes" — línea desactualizada respecto a la
+realidad. No la toco yo.
+
+**Deuda anotada:** el router de modelos existe pero **disperso**
+(`agent/image_routing.py`, `complexity_detector.py` escalando a
+`chat-reasoning`, `turn_finalizer.py:978`). No hay que crearlo, hay que
+centralizarlo. Observación correcta de la revisión externa que trajo
+Arturo.
+
 ## ARRANCAR AQUÍ (30 jul, 15:35) — jornada de rendimiento: peaje por vuelta de ~65,000 → ~19,100 tokens (71% menos)
 
 Sesión larga con Arturo presente. Él llevaba semanas viendo a Hermes
