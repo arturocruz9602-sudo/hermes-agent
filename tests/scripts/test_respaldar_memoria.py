@@ -140,3 +140,21 @@ def test_main_cli_reports_missing_db(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "[FAIL]" in out
     assert "RESPALDO CON PROBLEMAS" in out
+
+
+def test_main_cli_no_timestamp_usa_dest_dir_tal_cual(tmp_path):
+    """--no-timestamp es lo que usa restaurar_hermes.sh para coordinar un
+    solo timestamp entre memoria, skills y systemd en la misma corrida."""
+    src = tmp_path / "state.db"
+    _make_wal_db(src, n_rows=2)
+    dest_dir = tmp_path / "corrida_coordinada"
+
+    exit_code = rm.main(
+        ["--dest-dir", str(dest_dir), "--db", str(src), "--no-timestamp"]
+    )
+
+    assert exit_code == 0
+    assert (dest_dir / "state.db").is_file()
+    # Sin --no-timestamp habría un subdirectorio extra de timestamp --
+    # aquí NO debe haber nada más que el archivo mismo.
+    assert list(dest_dir.iterdir()) == [dest_dir / "state.db"]

@@ -89,11 +89,23 @@ Resumen para este registro:
   Bloque 2 va 3/5 -- faltan paso 4 (ensamblar `restaurar_hermes.sh`) y
   paso 5 (prueba de restauración real).
 
+- **Bloque 2, paso 4/5 -- CERRADO.** `scripts/restaurar_hermes.sh`
+  orquesta los 3 pasos anteriores con un solo timestamp compartido
+  (`respaldar` implementado y probado en vivo; `restaurar` sale con
+  "SIN IMPLEMENTAR" a propósito, en vez de fingir). `docs/
+  RECUPERACION.md` -- runbook humano completo, honesto sobre que hoy
+  son pasos manuales. 33 pruebas en `tests/scripts/`, todas pasan.
+  Corrida real completa contra producción (sin tocar `.env`): memoria +
+  skills + systemd, un solo directorio, exit 0. Bloque 2 va 4/5 -- falta
+  la prueba de restauración real en máquina limpia (necesita sudo/VM,
+  queda para sesión con Arturo presente).
+
 **Commits:** ver `git log` de esta fecha en `arturo/prod` (docs +
 `has_progress.py` vive fuera del repo, respaldo en
 `~/.hermes/backups/scripts/`; `scripts/respaldar_memoria.py`,
-`scripts/bovedar_secretos.py`, `scripts/respaldar_skills_y_sistema.py`
-y sus pruebas sí viven dentro del repo).
+`scripts/bovedar_secretos.py`, `scripts/respaldar_skills_y_sistema.py`,
+`scripts/restaurar_hermes.sh`, `docs/RECUPERACION.md` y las pruebas sí
+viven dentro del repo).
 
 ## Triaje de propuestas externas de arquitectura (HAS v1.6), CERRADO (29 Jul 2026, noche)
 

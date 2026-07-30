@@ -168,6 +168,15 @@ def main(argv: list[str] | None = None) -> int:
             "state.db + memoria_semantica.db de HERMES_HOME"
         ),
     )
+    parser.add_argument(
+        "--no-timestamp",
+        action="store_true",
+        help=(
+            "usa --dest-dir tal cual, sin agregarle un subdirectorio de "
+            "timestamp -- para cuando un orquestador (restaurar_hermes.sh) "
+            "ya calculó un timestamp compartido con otros pasos del respaldo"
+        ),
+    )
     args = parser.parse_args(argv)
 
     dbs = (
@@ -175,8 +184,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.dbs
         else [HERMES_HOME / n for n in DEFAULT_DB_NAMES]
     )
-    stamp = time.strftime("%Y%m%d_%H%M%S")
-    dest_dir = args.dest_dir / stamp
+    if args.no_timestamp:
+        dest_dir = args.dest_dir
+    else:
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        dest_dir = args.dest_dir / stamp
 
     resultado_general = True
     for src in dbs:

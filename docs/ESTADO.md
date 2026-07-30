@@ -218,9 +218,57 @@ ambas son respaldos reales y válidos, deliberadamente sin consolidar
 todavía; eso es justo lo que hace el paso 4 (`restaurar_hermes.sh`
 ensamblado, una sola corrida coordinada con un solo timestamp).
 
-**Bloque 2 va 3/5.** Quedan: paso 4 (ensamblar `restaurar_hermes.sh`
-completo + `docs/RECUPERACION.md`) y paso 5 (prueba de restauración
-real en máquina limpia, NUNCA sobre producción).
+**Bloque 2, paso 4/5 -- CERRADO (orquestador `restaurar_hermes.sh` +
+`docs/RECUPERACION.md`).** `scripts/restaurar_hermes.sh` coordina los 3
+pasos anteriores en UNA sola corrida con UN solo timestamp compartido
+(antes cada script generaba el suyo por separado). Subcomando
+`respaldar` -- implementado y probado en vivo. Subcomando `restaurar`
+-- **deliberadamente sin implementar**, sale con un mensaje explícito
+("SIN IMPLEMENTAR", exit 1) en vez de fingir que reconstruye algo;
+mejor un comando honesto que falla claro que uno a medio construir.
+
+Para que el orquestador pudiera coordinar el timestamp, se agregó
+`--no-timestamp` a `respaldar_memoria.py` y
+`respaldar_skills_y_sistema.py` (antes cada uno se auto-timestampeaba
+sin poder desactivarlo), y `HERMES_SYSTEMD_USER_DIR` (variable de
+entorno, mismo patrón que `HERMES_HOME`) para poder probar el
+orquestador sin leer `~/.config/systemd/user/` real. 6 pruebas nuevas
+más 5 agregadas a los scripts existentes (`--no-timestamp` en ambos) --
+`tests/scripts/` completo: **33 pruebas, todas pasan.**
+
+`--con-credenciales` cifra el `.env` real de forma interactiva (pide la
+passphrase, nunca la toca este script) y guarda la copia más reciente
+en `HERMES_HOME/boveda_recuperacion/env.age` (DISTINTO de
+`~/.hermes/boveda/`, que es `tools/vault_tool.py`) -- corridas
+posteriores SIN esa bandera copian la más reciente hacia adelante sin
+volver a pedir la passphrase, porque el `.env` no cambia cada noche.
+
+**Verificado en vivo contra producción, SIN `--con-credenciales`** (no
+se tocó el `.env` real esta noche, a propósito):
+```
+$ bash scripts/restaurar_hermes.sh respaldar
+=== restaurar_hermes.sh respaldar -- /mnt/seagate/hermes_backups/20260730_013338 ===
+--- 1/3 memoria ---     [OK] state.db + memoria_semantica.db, todas las tablas OK
+--- 2/3 skills + systemd --- [OK] 1431/1431 archivos, 14 unidades/overrides
+--- 3/3 credenciales ---  [SKIP] no hay bóveda todavía -- correcto, nadie tecleó passphrase
+=== RESPALDO COMPLETO: /mnt/seagate/hermes_backups/20260730_013338 ===
+```
+exit code 0. Primera corrida que de verdad junta las 3 piezas en un
+solo lugar con un solo timestamp.
+
+`docs/RECUPERACION.md` -- el runbook humano (HAS §E13-c): pasos
+manuales completos para reconstruir Hermes hoy (clonar, `setup-hermes.sh`,
+restaurar memoria/skills/systemd, descifrar credenciales, verificar de
+verdad por Telegram) -- honesto sobre que hoy son pasos manuales, no un
+comando único, y sobre que la prueba real en máquina limpia (paso 5)
+sigue sin hacerse.
+
+**Bloque 2 va 4/5.** Falta el paso 5: la prueba de restauración real en
+una máquina/usuario Linux limpio -- NUNCA sobre este equipo en
+producción (HAS §E13-b). Requiere crear un usuario Linux nuevo (sudo,
+regla dura) o una VM/contenedor -- fuera de lo que se puede resolver
+solo a la 1am sin decírselo antes a Arturo. Queda como el primer punto
+para la siguiente sesión CON Arturo presente.
 
 **Hallazgo chico real, sin arreglar (falso positivo del guard):**
 `~/.claude/hooks/hermes-guard.sh` (regla 3, DROP/DELETE SQL directo)

@@ -136,6 +136,45 @@ recuperación en una máquina limpia -- esa es la que de verdad cuenta.
 
 ---
 
+## 30 Jul 2026 (madrugada) — Ya existe `restaurar_hermes.sh` -- un solo comando junta todo el respaldo
+
+Terminé de unir las 3 piezas de las últimas horas en un solo comando.
+Ahora, en vez de correr 3 scripts por separado, con esto haces todo el
+respaldo de un jalón:
+
+```
+scripts/restaurar_hermes.sh respaldar --con-credenciales
+```
+
+(la bandera `--con-credenciales` es opcional -- te pide tu passphrase
+una vez para cifrar tu `.env`; si la omites, usa la última copia
+cifrada que ya tengas guardada, sin volver a preguntarte nada).
+
+**Lo probé de punta a punta contra tus datos reales** (sin tocar tu
+`.env` real, a propósito -- eso requiere que tú estés presente): todo
+quedó en una sola carpeta con un solo timestamp, en vez de las 3
+carpetas sueltas de antes. 33 pruebas automatizadas nuevas, todas
+pasan.
+
+**Lo que NO hice, honesto:** el otro lado (reconstruir Hermes DESDE un
+respaldo, en una máquina nueva) todavía no está automatizado -- si hoy
+corres `scripts/restaurar_hermes.sh restaurar`, te va a decir
+claramente "no implementado" en vez de fingir que funciona. Sí escribí
+el manual paso a paso (`docs/RECUPERACION.md`) para que, si algo pasa
+HOY, puedas reconstruir Hermes a mano siguiendo esos pasos sin
+necesitar a Claude Code.
+
+**Lo que de verdad falta para cerrar esto del todo:** la prueba real --
+correrlo en una máquina o usuario Linux limpio y ver si Hermes vuelve a
+responderte por Telegram. Eso necesita que tú estés presente (requiere
+`sudo` para un usuario nuevo, o levantar una máquina virtual), así que
+queda como lo primero que hagamos juntos la próxima vez.
+
+**Notas de Arturo:**
+
+
+---
+
 ## 29 Jul 2026 (noche) — Los 3 documentos que me pasaste: qué se queda, y el pendiente real que encontramos
 
 Revisamos juntos 3 análisis externos de Hermes. La mayoría de las ideas ya

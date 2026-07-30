@@ -45,7 +45,9 @@ from pathlib import Path
 
 HERMES_HOME = Path(os.getenv("HERMES_HOME", str(Path.home() / ".hermes")))
 DEFAULT_DEST = Path("/mnt/seagate/hermes_backups")
-SYSTEMD_USER_DIR = Path.home() / ".config" / "systemd" / "user"
+SYSTEMD_USER_DIR = Path(
+    os.getenv("HERMES_SYSTEMD_USER_DIR", str(Path.home() / ".config" / "systemd" / "user"))
+)
 
 # Coincide con lo que ya vive en ~/.config/systemd/user/ en esta HP
 # (verificado con `ls` antes de escribir esta lista -- son exactamente
@@ -126,18 +128,42 @@ def respaldar_systemd_units(dest_dir: Path, units_src: "Path | None" = None) -> 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dest-dir", type=Path, default=DEFAULT_DEST)
+    parser.add_argument(
+        "--no-timestamp",
+        action="store_true",
+        help=(
+            "usa --dest-dir tal cual, sin agregarle un subdirectorio de "
+            "timestamp -- para cuando un orquestador (restaurar_hermes.sh) "
+            "ya calculó un timestamp compartido con otros pasos del respaldo"
+        ),
+    )
+    parser.add_argument(
+        "--skills-src",
+        type=Path,
+        default=None,
+        help="override de dónde vienen las skills (default: HERMES_HOME/skills)",
+    )
+    parser.add_argument(
+        "--units-src",
+        type=Path,
+        default=None,
+        help="override de dónde viven las unidades systemd de usuario",
+    )
     args = parser.parse_args(argv)
 
-    stamp = time.strftime("%Y%m%d_%H%M%S")
-    dest_dir = args.dest_dir / stamp
+    if args.no_timestamp:
+        dest_dir = args.dest_dir
+    else:
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        dest_dir = args.dest_dir / stamp
 
     resultado_general = True
 
-    ok_skills, detalle_skills = respaldar_skills(dest_dir)
+    ok_skills, detalle_skills = respaldar_skills(dest_dir, skills_src=args.skills_src)
     print(f"[{'OK' if ok_skills else 'FAIL'}] skills: {detalle_skills}")
     resultado_general = resultado_general and ok_skills
 
-    ok_systemd, detalles_systemd = respaldar_systemd_units(dest_dir)
+    ok_systemd, detalles_systemd = respaldar_systemd_units(dest_dir, units_src=args.units_src)
     estado_systemd = "OK" if ok_systemd else "FAIL"
     print(f"[{estado_systemd}] systemd:")
     for d in detalles_systemd:

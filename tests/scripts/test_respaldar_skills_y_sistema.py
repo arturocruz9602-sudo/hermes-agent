@@ -100,3 +100,22 @@ def test_main_cli_reporta_ambos_pasos(tmp_path, capsys, monkeypatch):
     unit_files = list(dest_dir.glob("*/systemd/hermes-gateway.service"))
     assert len(skill_files) == 1
     assert len(unit_files) == 1
+
+
+def test_main_cli_no_timestamp_usa_dest_dir_tal_cual(tmp_path, monkeypatch):
+    """--no-timestamp es lo que usa restaurar_hermes.sh para coordinar un
+    solo timestamp entre memoria, skills y systemd en la misma corrida."""
+    _make_fake_skills(tmp_path / "origen")
+    monkeypatch.setattr(rs, "HERMES_HOME", tmp_path / "origen")
+
+    units_src = tmp_path / "systemd_user"
+    units_src.mkdir()
+    (units_src / "hermes-gateway.service").write_text("[Unit]\n")
+    monkeypatch.setattr(rs, "SYSTEMD_USER_DIR", units_src)
+
+    dest_dir = tmp_path / "corrida_coordinada"
+    exit_code = rs.main(["--dest-dir", str(dest_dir), "--no-timestamp"])
+
+    assert exit_code == 0
+    assert (dest_dir / "skills" / "ejemplo-skill" / "SKILL.md").is_file()
+    assert (dest_dir / "systemd" / "hermes-gateway.service").is_file()
