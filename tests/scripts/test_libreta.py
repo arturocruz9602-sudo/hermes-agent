@@ -288,7 +288,76 @@ def test_migrar_dos_veces_no_duplica_nada(entorno):
                  "PATH": "/usr/bin:/bin"},
         )
         assert r.returncode == 0, r.stderr
+    import libreta_migrar
     with libreta_mod.Libreta("simulacion") as lib:
         n = lib.con.execute(
             "SELECT COUNT(*) FROM libreta_migraciones").fetchone()[0]
-    assert n == 1
+    assert n == len(libreta_migrar.MIGRACIONES)
+
+
+# ── negocio (reventa de refrescos) ───────────────────────────────────────
+
+def test_margen_del_negocio_cruza_compras_y_ventas(entorno):
+    with libreta_mod.Libreta("simulacion") as lib:
+        lib.registrar_compra_negocio(328, fecha="2026-08-01")
+        lib.registrar_venta_negocio(unidades=10, precio_unitario=20, fecha="2026-08-02")
+        lib.registrar_venta_negocio(unidades=8, precio_unitario=20, fecha="2026-08-03")
+        m = lib.margen_negocio(desde="2026-08-01", hasta="2026-08-31")
+    assert m["invertido"] == 328
+    assert m["ingreso"] == 360        # 18 piezas x 20
+    assert m["unidades_vendidas"] == 18
+    assert m["ganancia"] == 32
+
+
+def test_margen_negocio_sin_datos_no_revienta(entorno):
+    with libreta_mod.Libreta("simulacion") as lib:
+        m = lib.margen_negocio(desde="2026-01-01", hasta="2026-01-31")
+    assert m["invertido"] == 0 and m["ingreso"] == 0 and m["ganancia"] == 0
+
+
+@pytest.mark.parametrize("costo", [0, -50])
+def test_compra_de_negocio_invalida_se_rechaza(entorno, costo):
+    with libreta_mod.Libreta("simulacion") as lib:
+        with pytest.raises(sqlite3.IntegrityError):
+            lib.registrar_compra_negocio(costo)
+
+
+# ── pagos recurrentes con frecuencia real ────────────────────────────────
+
+def test_pago_cuatrimestral_no_se_confunde_con_mensual(entorno, monkeypatch):
+    """La colegiatura real de Arturo es cada 4 meses, no cada mes."""
+    with libreta_mod.Libreta("simulacion") as lib:
+        lib.registrar_pago_recurrente("colegiatura", 1100, frecuencia_meses=4)
+        lib.registrar_pago_hecho("colegiatura", fecha="2026-08-01")
+
+    # a los 2 meses todavia NO deberia salir como por vencer
+    monkeypatch.setenv("HERMES_FECHA_SIMULADA", "2026-10-01T08:00")
+    with libreta_mod.Libreta("simulacion") as lib:
+        nombres = [r["nombre"] for r in lib.pagos_recurrentes_por_vencer(dentro_de_dias=7)]
+    assert "colegiatura" not in nombres
+
+    # a los 4 meses (su ciclo real) si
+    monkeypatch.setenv("HERMES_FECHA_SIMULADA", "2026-11-29T08:00")
+    with libreta_mod.Libreta("simulacion") as lib:
+        nombres = [r["nombre"] for r in lib.pagos_recurrentes_por_vencer(dentro_de_dias=7)]
+    assert "colegiatura" in nombres
+
+
+def test_pago_sin_historial_siempre_se_reporta(entorno):
+    """Uno recien creado, sin ultimo_pago, no tiene desde donde contar el
+    ciclo -- debe salir siempre hasta que Arturo confirme la primera fecha."""
+    with libreta_mod.Libreta("simulacion") as lib:
+        lib.registrar_pago_recurrente("gym", 400, frecuencia_meses=1)
+        nombres = [r["nombre"] for r in lib.pagos_recurrentes_por_vencer()]
+    assert "gym" in nombres
+
+
+def test_registrar_pago_recurrente_no_duplica_por_nombre(entorno):
+    with libreta_mod.Libreta("simulacion") as lib:
+        lib.registrar_pago_recurrente("internet", 200)
+        lib.registrar_pago_recurrente("internet", 230)  # el monto se corrigio
+        n = lib.con.execute("SELECT COUNT(*) FROM pagos_recurrentes").fetchone()[0]
+        monto = lib.con.execute(
+            "SELECT monto_mxn FROM pagos_recurrentes WHERE nombre='internet'"
+        ).fetchone()[0]
+    assert n == 1 and monto == 230

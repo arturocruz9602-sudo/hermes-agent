@@ -209,6 +209,93 @@ class Libreta:
             "SELECT * FROM ahorro_metas WHERE nombre = ?", (nombre,)
         ).fetchone()
 
+    def registrar_pago_recurrente(self, nombre, monto, frecuencia_meses=1,
+                                  dia_del_mes=None, nota=None) -> int:
+        cur = self.con.execute(
+            "INSERT INTO pagos_recurrentes (nombre, monto_mxn, frecuencia_meses, "
+            "dia_del_mes, nota) VALUES (?,?,?,?,?) "
+            "ON CONFLICT(nombre) DO UPDATE SET monto_mxn=excluded.monto_mxn, "
+            "frecuencia_meses=excluded.frecuencia_meses, "
+            "dia_del_mes=COALESCE(excluded.dia_del_mes, dia_del_mes), "
+            "nota=COALESCE(excluded.nota, nota)",
+            (nombre, float(monto), int(frecuencia_meses), dia_del_mes, nota),
+        )
+        return self.con.execute(
+            "SELECT id FROM pagos_recurrentes WHERE nombre = ?", (nombre,)
+        ).fetchone()["id"]
+
+    def registrar_pago_hecho(self, nombre, fecha=None) -> None:
+        """Marca cuando se pago un recurrente, para calcular el proximo ciclo."""
+        self.con.execute(
+            "UPDATE pagos_recurrentes SET ultimo_pago = ? WHERE nombre = ?",
+            (fecha or self.hoy(), nombre),
+        )
+
+    def pagos_recurrentes_por_vencer(self, dentro_de_dias=7) -> list[sqlite3.Row]:
+        """Recurrentes cuyo ultimo_pago + frecuencia cae dentro de la ventana.
+
+        Uno sin ultimo_pago registrado se reporta siempre (no hay desde donde
+        contar el ciclo) para que Arturo lo confirme una vez y ya quede fijo.
+        """
+        hoy = self.hoy()
+        return self.con.execute(
+            "SELECT *, "
+            "  CASE WHEN ultimo_pago IS NULL THEN NULL "
+            "       ELSE date(ultimo_pago, '+' || frecuencia_meses || ' months') "
+            "  END AS proximo_pago "
+            "FROM pagos_recurrentes WHERE activo = 1 AND ("
+            "  ultimo_pago IS NULL"
+            "  OR date(ultimo_pago, '+' || frecuencia_meses || ' months') "
+            "     <= date(?, '+' || ? || ' days')"
+            ") ORDER BY proximo_pago IS NULL DESC, proximo_pago",
+            (hoy, int(dentro_de_dias)),
+        ).fetchall()
+
+    # ── el negocio de reventa (taqueria) ────────────────────────────────
+    def registrar_compra_negocio(self, costo, producto="refresco", unidad="reja",
+                                 fecha=None, nota=None) -> int:
+        cur = self.con.execute(
+            "INSERT INTO negocio_compras (fecha, producto, unidad, costo_mxn, nota) "
+            "VALUES (?,?,?,?,?)",
+            (fecha or self.hoy(), producto, unidad, float(costo), nota),
+        )
+        return cur.lastrowid
+
+    def registrar_venta_negocio(self, unidades, precio_unitario=20, producto="refresco",
+                                fecha=None, nota=None) -> int:
+        cur = self.con.execute(
+            "INSERT INTO negocio_ventas (fecha, producto, unidades, "
+            "precio_unitario_mxn, nota) VALUES (?,?,?,?,?)",
+            (fecha or self.hoy(), producto, int(unidades), float(precio_unitario), nota),
+        )
+        return cur.lastrowid
+
+    def margen_negocio(self, producto="refresco", desde=None, hasta=None) -> dict:
+        """Cuanto se gasto en comprar vs. cuanto entro por vender, en el rango.
+
+        No asume piezas por reja: el patron sale de cruzar compras y ventas
+        reales en el tiempo, no de una cifra fija de entrada.
+        """
+        desde = desde or self.ahora().strftime("%Y-%m-01")
+        hasta = hasta or self.hoy()
+        gastado = self.con.execute(
+            "SELECT COALESCE(SUM(costo_mxn),0), COUNT(*) FROM negocio_compras "
+            "WHERE producto = ? AND fecha BETWEEN ? AND ?",
+            (producto, desde, hasta),
+        ).fetchone()
+        vendido = self.con.execute(
+            "SELECT COALESCE(SUM(unidades*precio_unitario_mxn),0), "
+            "COALESCE(SUM(unidades),0) FROM negocio_ventas "
+            "WHERE producto = ? AND fecha BETWEEN ? AND ?",
+            (producto, desde, hasta),
+        ).fetchone()
+        return {
+            "desde": desde, "hasta": hasta, "producto": producto,
+            "invertido": gastado[0], "rejas_compradas": gastado[1],
+            "ingreso": vendido[0], "unidades_vendidas": vendido[1],
+            "ganancia": vendido[0] - gastado[0],
+        }
+
     def abonar_meta(self, nombre, monto) -> sqlite3.Row:
         self.con.execute(
             "UPDATE ahorro_metas SET acumulado_mxn = acumulado_mxn + ? WHERE nombre = ?",

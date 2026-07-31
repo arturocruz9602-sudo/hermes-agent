@@ -181,6 +181,54 @@ MIGRACIONES = [
             """,
         ],
     ),
+    (
+        2,
+        "Frecuencia real de pagos + el negocio de refrescos (31 jul 2026)",
+        [
+            # pagos_recurrentes asumia mensual (dia_del_mes). La colegiatura
+            # real de Arturo es CUATRIMESTRAL y el servicio de la moto
+            # BIMESTRAL -- forzarlos a "mensual" habria hecho que Hermes le
+            # avisara de pagos que no tocaban. frecuencia_meses reemplaza el
+            # supuesto: 1=mensual, 2=bimestral, 4=cuatrimestral, etc.
+            # ultimo_pago ancla desde cuando se cuenta el ciclo.
+            """
+            ALTER TABLE pagos_recurrentes
+                ADD COLUMN frecuencia_meses INTEGER NOT NULL DEFAULT 1
+                    CHECK (frecuencia_meses > 0)
+            """,
+            "ALTER TABLE pagos_recurrentes ADD COLUMN ultimo_pago TEXT",
+            # El negocio de reventa dentro de la taqueria (compra rejas de
+            # refresco a $328, vende por pieza a $20). Arturo NO sabe cuantas
+            # piezas trae cada reja -- a proposito no se hardcodea esa cifra:
+            # se registra cada compra y cada venta por separado y el margen se
+            # calcula cruzando ambas, para que el patron salga solo con el
+            # tiempo en vez de asumirlo de entrada.
+            """
+            CREATE TABLE IF NOT EXISTS negocio_compras (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                fecha     TEXT    NOT NULL,
+                producto  TEXT    NOT NULL,
+                unidad    TEXT    NOT NULL DEFAULT 'reja',
+                costo_mxn REAL    NOT NULL CHECK (costo_mxn > 0),
+                nota      TEXT,
+                creado_en TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_negocio_compras_fecha ON negocio_compras(fecha)",
+            """
+            CREATE TABLE IF NOT EXISTS negocio_ventas (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                fecha               TEXT    NOT NULL,
+                producto            TEXT    NOT NULL,
+                unidades            INTEGER NOT NULL CHECK (unidades > 0),
+                precio_unitario_mxn REAL    NOT NULL CHECK (precio_unitario_mxn > 0),
+                nota                TEXT,
+                creado_en           TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_negocio_ventas_fecha ON negocio_ventas(fecha)",
+        ],
+    ),
 ]
 
 
