@@ -8,7 +8,7 @@ Va en la raíz del repo del fork. Versión 1.1 · 23-jul-2026.
 
 Al abrir sesión — incluso si Arturo solo dice "hola" o "¿estás ahí?" — ejecuta este arranque sin que te lo pidan:
 
-1. Lee `docs/MANDATO_ARTURO.md` (el contrato de trabajo: rol, ventana al 16 ago, presupuestos, autonomía nocturna, causa raíz), `docs/ESTADO.md` y `docs/BLOQUES.md`.
+1. Lee `docs/MANDATO_ARTURO.md` (el contrato de trabajo), `docs/VIDA_DE_ARTURO.md` (los 5 frentes de su vida que el HAS no cubría + su semana real), `docs/ESTADO.md` y `docs/BLOQUES.md`.
 2. Verifica que ambos estén versionados: `git ls-files docs/ESTADO.md docs/BLOQUES.md`. Si faltan, corrígelo antes de nada (falla L11).
 3. `git status` y `git log --oneline -5` — ¿quedó algo a medias en la sesión anterior?
 4. `grep -rn "TEMP-DIAG"` — ¿quedaron diagnósticos temporales? Si sí, quítalos o justifícalos (falla L4).
