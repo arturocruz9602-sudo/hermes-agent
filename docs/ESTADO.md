@@ -1,6 +1,118 @@
-# Estado de Hermes — actualizado 30 Jul 2026, tarde
+# Estado de Hermes — actualizado 31 Jul 2026, madrugada
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
+
+## ⚑ ARRANCAR AQUÍ (31 jul, 03:10) — sesión de arquitectura: 3 hallazgos de Arturo cambiaron el plan
+
+Sesión larga, con Arturo presente todo el tiempo. **No se escribió código
+nuevo a propósito**: los tres hallazgos que salieron obligaban a rediseñar
+antes de construir. Los tres los cachó él, no yo.
+
+### Documentos nuevos, permanentes (se leen en TODO arranque)
+- **`docs/MANDATO_ARTURO.md`** — el contrato de trabajo: rol de arquitecto,
+  ventana de suscripción **16 jul → 16 ago 2026**, administrar mi propia cuota
+  (reset dom 12:00), pruebas autónomas nocturnas, causa raíz obligatoria.
+- **`docs/VIDA_DE_ARTURO.md`** — los 5 frentes que el HAS NO cubría + su semana
+  real + el encuadre que manda: **Hermes es su sistema operativo personal**,
+  Obsidian = base de conocimiento, Notion = centro operativo.
+- Ambos enganchados al paso 1 de `CLAUDE.md`. Sobreviven a `/clear`.
+
+### Avance real del HAS (el número honesto)
+Fases 0, 0.5, 1, 2, 3, 4 ✅ cerradas · Fase 5 🔄 ~50% · Fases 6-11 ⬜ sin iniciar.
+**~36% del HAS completo · ~41% de lo alcanzable sin Mac Mini · ~69% de la ruta
+crítica** (solo faltan Fase 5 y 6).
+
+⚠️ **`has_progress.py` da "90%" y es ENGAÑOSO** — mide 10 checks del 20 jul, no
+el avance del proyecto, y trae datos viejos (compara contra un arranque del
+servicio del 20 jul). **Pendiente: arreglarlo o retirarlo.** No usarlo como
+termómetro.
+
+### HALLAZGO 1 — "manuales sin libreta" (el cuello de botella real)
+Hermes YA tiene `skills/finanzas/`, `skills/salud/entrenamiento/`,
+`skills/youtube/`, `skills/educacion/google-classroom/`. Pero en las **27 tablas
+de `state.db` no existe NI UNA** de `gastos`, `ingresos`, `peso`,
+`entrenamientos`, `horario`, `citas`, `guiones`.
+**Sabe cómo hacerlo, no tiene dónde anotarlo.** Por eso todo se le olvida.
+→ El arreglo es memoria estructurada, NO skills nuevas. **Esto es lo siguiente.**
+
+### HALLAZGO 2 — fuga de privacidad evitada (lo cachó Arturo)
+Preguntó: *"¿las APIs gratis no filtran información mía si leen esos correos?"*
+**Verificado con búsqueda real: el tier gratuito de Gemini SÍ usa el contenido
+para entrenar, y revisores humanos pueden verlo.** Solo el de pago no.
+→ **REGLA NUEVA, va al HAS:** ningún dato personal de Arturo sale a una API
+gratuita. O lo procesa un modelo local, o un proveedor con términos verificados
+de no-entrenamiento.
+→ **Pendiente sin verificar: términos de DeepSeek, Groq y OpenRouter.** No
+mandar ni un correo suyo hasta confirmarlos.
+
+### HALLAZGO 3 — Ollama existía y nadie lo sabía + el límite del hardware
+`ollama` instalado **26 jun**, servicio `active`+`enabled`, escuchando en
+`127.0.0.1:11434`, con `gemma:2b`. **No aparece en `CHANGELOG_SISTEMA.md` ni en
+`HISTORIAL.md`** — segunda cosa del día que existía sin documentar.
+
+**Prueba real de clasificación de un correo de Classroom: REPROBÓ.**
+Dijo `TIPO: aviso` cuando era una TAREA, y confundió "1000 palabras" con la
+fecha de entrega. 23 segundos por correo. **No declarar esto resuelto.**
+
+**Medición del hardware (Arturo preguntó por el desgaste, con razón):**
+```
+RAM     7,1 GB total · 2,1 GB en reposo · 5,0 GB disponibles
+        gemma:2b se come 1,87 GB y los retiene 5 min (keep_alive)
+CPU     i3 · 2 núcleos · 2,3 GHz · SIN GPU · 47-48°C en reposo
+Discos  SSD ADATA 112 GB (sistema, aquí vive el swap) + HDD 1 TB (datos)
+Swap    20 GB, usa 1,4 GB
+```
+**El riesgo no es la RAM, es el calor.** Sin GPU, cada clasificación pone la CPU
+al 100%. La laptop ya corre 24/7. → Ollama en la HP sirve para **lotes
+nocturnos**, no para tiempo real.
+
+**Propuesta de arquitectura (verificada: `macbook-air-de-arturo` está EN LÍNEA
+por Tailscale, `100.73.37.75`):** HP = coordinador 24/7 (gateway + BD);
+**M1 = músculo de IA local** (5-10x más rápido, sin calentarse, sigue siendo
+hardware suyo → privacidad intacta); si la M1 está apagada, se encola a la noche.
+
+### Correo: desbloqueado y verificado, PERO APAGADO
+- **Contraseña de aplicación funciona.** Evidencia real:
+  `imap.gmail.com:993 → CONECTA. Bandeja: 4223 correos, 4044 sin leer.`
+  (Google acepta la contraseña con espacios; mi sospecha de que fallaría, falsa.)
+- Variables en `.env`: `EMAIL_ADDRESS/PASSWORD/IMAP_HOST/IMAP_PORT/SMTP_HOST/SMTP_PORT`.
+- **Existe adaptador nativo:** `plugins/platforms/email/adapter.py` (50 KB) — no
+  hay que construir nada. **🔴 SIGUE APAGADO A PROPÓSITO.**
+- ⚠️ **Es un adaptador de PLATAFORMA, no un lector.** Tal cual, Hermes podría
+  *responder* correos — podría contestarle a un maestro. **Antes de encenderlo:**
+  leer el código, restringir con `EMAIL_ALLOWED_USERS` solo a Arturo, y dejarlo
+  **solo lectura** primero.
+- **NUNCA procesar la bandeja histórica** (4,223 correos = derroche absurdo).
+  Solo correo nuevo desde el encendido.
+- **Decisión de Arturo: se cancela la API de Google Classroom.** Los avisos ya
+  llegan al correo. Un permiso menos, mismo resultado.
+- **Idea suya, mejor que la mía:** reenviar el correo institucional → personal
+  (Configuración → Reenvío y POP/IMAP). Razones: la universidad tiene
+  deshabilitadas las contraseñas de aplicación por política; sobrevive a la
+  graduación; y baja de 2 accesos a 1.
+
+### Pendientes de Arturo (ninguno bloquea la libreta)
+1. `sudo apt install -y docker.io && sudo usermod -aG docker $USER`
+2. **Fecha real de la colegiatura** — dijo "27 de abril" Y "faltan 6 días" con
+   fecha 31 jul. **No agendar nada hasta confirmarla.**
+3. Configurar el reenvío institucional → personal.
+4. Compartir en Notion: Finanzas, Escuela y las biografías (**son de YouTube, NO
+   de TikTok** — corregido por él).
+
+### Presupuesto (actualizado por él)
+Saldo DeepSeek **verificado por API: $5.60 USD** (~$101 MXN, recargó $5) → ~12
+meses a $8 MXN/mes. **Techo operativo nuevo: $20 MXN/mes** ("que eso no sea un
+límite"). Y el encuadre: *"el presupuesto existe para construir un sistema
+robusto, no para limitar el desarrollo"* → el criterio de un gasto deliberado ya
+no es "¿es barato?" sino **"¿qué beneficio permanente deja?"**. Cortacircuitos
+anti-bug intactos. `WebFetch` autorizado y aplicado.
+
+### LO SIGUIENTE, SIN AMBIGÜEDAD
+**Construir la libreta**: esquema de datos de su vida (`ingresos` por fuente,
+`gastos` + pagos recurrentes, `ahorro_metas` para Mac Mini y los $60,000, `peso`,
+`entrenamientos`, `habitos`, `horario`, `citas`, `guiones`), con respaldo previo
+de `state.db`. No depende de ningún permiso de Arturo. Desbloquea Fases 6, 7,
+12, 13 y 14.
 
 ## INVENTARIO DE APIs (30 jul, 17:40) — qué paga Arturo y qué está encendido
 

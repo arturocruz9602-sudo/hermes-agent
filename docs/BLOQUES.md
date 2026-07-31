@@ -2523,6 +2523,66 @@ completo en este archivo (fuera de alcance de O.8):
 - Bloque N: contexto no disponible en esta sesión (ver SUPUESTOS en
   `~/.hermes/reporte_bloque_o_22jul.md`).
 
+## Bloque AO — sesión de arquitectura: 3 hallazgos de Arturo cambiaron el plan (31 Jul 2026, madrugada) — CERRADO
+
+**Sin código nuevo, a propósito.** Los tres hallazgos obligaban a rediseñar antes
+de construir. Los tres los cachó Arturo, no yo — y los tres habrían costado
+trabajo tirado.
+
+**1. "Manuales sin libreta".** Hermes tiene `skills/finanzas/`,
+`skills/salud/entrenamiento/`, `skills/youtube/`, `skills/educacion/`, pero
+`state.db` no tiene NI UNA de las 27 tablas para `gastos`, `ingresos`, `peso`,
+`horario`, `citas` ni `guiones`. Sabe cómo hacerlo, no tiene dónde anotarlo. El
+arreglo es memoria estructurada, no skills nuevas.
+
+**2. Fuga de privacidad evitada.** Arturo preguntó si las APIs gratis filtran su
+información. Verificado con búsqueda: **el tier gratuito de Gemini SÍ usa el
+contenido para entrenar y hay revisores humanos.** Yo iba a mandarle los correos
+ahí. Regla nueva: ningún dato personal sale a una API gratuita. Términos de
+DeepSeek/Groq/OpenRouter **sin verificar todavía** — no mandar nada hasta
+confirmarlos.
+
+**3. Ollama existía desde el 26 jun y no estaba documentado** (ni en
+`CHANGELOG_SISTEMA.md` ni en `HISTORIAL.md`). Segunda cosa del día que existía
+sin que nadie lo supiera — la primera fueron las skills sin tablas.
+
+**La prueba real reprobó, y ese es el valor:** `gemma:2b` clasificó un correo de
+Classroom como `TIPO: aviso` cuando era una TAREA, y confundió "1000 palabras"
+con la fecha de entrega. 23 s por correo. No se declara resuelto.
+
+**Medición del hardware** (Arturo preguntó por el desgaste a largo plazo, con
+razón): 7,1 GB de RAM (no 8), i3 de 2 núcleos **sin GPU**, 47-48°C en reposo,
+swap en el SSD. `gemma:2b` retiene 1,87 GB durante 5 min por `keep_alive`.
+**El riesgo no es la RAM, es el calor** — sin GPU cada clasificación deja la CPU
+al 100%, y la laptop ya corre 24/7. Ollama en la HP: solo lotes nocturnos.
+
+**Arquitectura propuesta:** la MacBook M1 está EN LÍNEA por Tailscale
+(`100.73.37.75`). HP = coordinador 24/7; M1 = músculo de IA local (5-10x más
+rápido, sin calentarse, sigue siendo hardware de Arturo → privacidad intacta).
+
+**Correo desbloqueado y verificado:** contraseña de aplicación conecta contra
+`imap.gmail.com:993` (4223 correos, 4044 sin leer). Existe adaptador nativo de
+50 KB — no hay que construir nada. **Sigue APAGADO**: es adaptador de
+*plataforma*, podría responderle a un maestro. Antes de encenderlo: leer el
+código, restringir a Arturo, dejarlo solo-lectura.
+
+**Decisiones de Arturo:** se cancela la API de Classroom (los avisos llegan al
+correo); reenvío institucional → personal (idea suya, mejor: la universidad tiene
+bloqueadas las contraseñas de aplicación, y sobrevive a la graduación); las
+biografías de Notion son de **YouTube, no de TikTok**; techo operativo $20
+MXN/mes; el presupuesto es herramienta, no límite.
+
+**Documentos permanentes creados:** `docs/MANDATO_ARTURO.md` y
+`docs/VIDA_DE_ARTURO.md`, enganchados al paso 1 de `CLAUDE.md`.
+
+**Corrección propia:** reporté que la contraseña de 19 caracteres iba a fallar
+por los espacios. Falso — Google los ignora. Medido, no supuesto.
+
+**Deuda nueva:** `has_progress.py` reporta "90%" que NO es el avance del proyecto
+(son 10 checks del 20 jul con datos viejos). Arreglarlo o retirarlo.
+
+**Lo siguiente:** construir la libreta. No depende de ningún permiso de Arturo.
+
 ## Bloques AI/AJ/AK/AL/AM — jornada de rendimiento (30 Jul 2026) — **CERRADOS**
 
 Peaje fijo por vuelta del agente: **~65,000 → ~19,100 tokens (71% menos)**.

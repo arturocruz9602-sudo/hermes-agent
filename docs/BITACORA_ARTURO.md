@@ -7,6 +7,76 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 31 Jul 2026 (3:10 am) — Usted evitó que le filtrara sus correos, y encontramos por qué a Hermes se le olvida todo
+
+**Esta vez los hallazgos fueron suyos, jefe. Los tres.**
+
+### 1. Ya sabemos por qué a Hermes se le olvidan sus cosas
+
+Resulta que Hermes **sí sabe** llevar sus finanzas, su gym y su escuela — tiene
+las instrucciones escritas. Lo que no tiene es **dónde anotar**. Es como un
+contador con todos los manuales pero sin libreta: cada vez que usted le dice
+algo, lo entiende, contesta bien, y al rato se le fue.
+
+**Antes:** le dice "hoy gané 800 de tacos" y mañana no existe ese dato.
+**Lo que sigue:** le construyo la libreta — su lugar para gastos, ingresos,
+ahorro, peso, entrenamientos, horario, citas y guiones.
+
+*Todavía no lo puede probar. Es lo primero que hago mañana.*
+
+### 2. Usted evitó que le filtrara sus correos a Google
+
+Yo iba a poner a Hermes a leer su correo usando la API gratis de Gemini. Usted
+preguntó: *"¿las APIs gratis no filtran información mía?"*
+
+**Lo verifiqué y tenía razón:** en el plan gratuito, Google **usa lo que le
+mandas para entrenar sus modelos**, y hasta puede haber personas revisándolo. Sus
+correos de la escuela, sus números, todo.
+
+**Ya es regla del proyecto:** nada personal suyo sale a una API gratis. O lo
+procesa un modelo que corre **dentro de su casa**, o no se procesa.
+
+*Se ahorró una fuga que yo iba a construir sin darme cuenta.*
+
+### 3. Su correo ya funciona — y sin pagar nada extra
+
+Su contraseña de aplicación quedó conectada. Hermes ya **podría** leer su correo
+(4,223 correos, por cierto — 4,044 sin abrir 😅).
+
+**Sigue apagado a propósito**, y quiero que sepa por qué: ese conector no solo
+lee, también **puede responder**. Si lo prendo tal cual, Hermes podría
+contestarle un correo a un maestro sin que usted se entere. Primero lo dejo en
+**solo lectura** y restringido nada más a usted.
+
+**Su idea del reenvío fue mejor que mi plan:** mandar el correo de la escuela a
+su correo personal. Así, el día que se gradúe y le quiten la cuenta escolar, todo
+lo suyo ya está de su lado.
+
+### 4. Antes de que le arruine la laptop
+
+Preguntó qué tanto le afecta a la HP correr esto. Lo medí:
+
+- Tiene **7.1 GB de RAM** (no 8) y le quedan **5 GB libres** — eso está bien.
+- **El problema no es la memoria, es el calor.** Su laptop no tiene tarjeta
+  gráfica, así que cada tarea de IA la hace el procesador **al 100%**. Y ya lleva
+  4 días encendida sin parar.
+
+**Por eso no voy a poner a la HP a hacer trabajo pesado de IA todo el día.**
+Encontré que su **MacBook Air M1 está conectada** — esa máquina hace este trabajo
+entre 5 y 10 veces más rápido y sin calentarse. La HP coordina, la M1 carga lo
+pesado.
+
+*Traducción: su laptop de trabajo no se va a desgastar por culpa de Hermes.*
+
+### Lo que le toca a usted (cuando pueda, nada urgente)
+
+1. **La fecha real de su colegiatura.** Me dijo "27 de abril" y también "faltan 6
+   días" — y estamos a 31 de julio. **No le voy a agendar un recordatorio con una
+   fecha inventada.**
+2. Configurar el reenvío del correo escolar al personal.
+3. Pegar el comando de Docker que le pasé.
+4. En Notion, compartir Finanzas, Escuela y sus biografías de YouTube.
+
 ## 30 Jul 2026 (5:10 pm) — Hermes ya no se va a quedar mudo a media respuesta, y un bucle ya no le puede vaciar el saldo
 
 **Qué le pasaba antes.** Hermes hablaba primero con las APIs gratuitas.
