@@ -1857,3 +1857,58 @@ juntos -- ninguna aplicada todavía, tal como pediste.
 
 
 ---
+
+## 31 jul 2026 — Hermes ya ve tus tareas de la escuela sin que abras nada
+
+**Lo que cambió en tu día a día.** Tus tareas, fechas de entrega y
+calificaciones llegan a tu correo institucional -- ese que casi nunca
+abres. Llevaban meses ahí. Ahora Hermes lo vigila solo y te avisa por
+Telegram cuando llega algo que importa.
+
+**Antes:** te enterabas de una tarea cuando abrías el correo de la
+universidad, o cuando ya era tarde.
+
+**Ahora:** cada 15 minutos Hermes revisa ese buzón. Si una maestra sube
+una tarea, pone fecha de entrega o publica una calificación, te llega un
+mensaje al teléfono. La publicidad (Canva y compañía) la ignora: de tus
+202 correos, avisaría de la mitad y se callaría con la otra mitad -- unos
+12 avisos al mes.
+
+**Se ve así:**
+
+```
+📧 Correo de la escuela
+
+De: Diana Hernandez Orozco (Classroom)
+Asunto: Nueva tarea: "TAREA 4:BD_AGENCIA"
+Recibido: 10 jul 00:00
+
+(te aviso porque dice 'tarea')
+```
+
+**Para probarlo tú mismo**, mándale por Telegram:
+
+> Hermes, ¿qué correos de la escuela me han llegado últimamente?
+
+**Dos cosas que encontré y que te afectan directo:**
+
+1. **Tu correo institucional NO está bloqueado, solo es lento.** Durante
+   un rato te dije lo contrario y te sugerí reportarlo con sistemas de la
+   universidad. **Me equivoqué, no vayas.** Tus correos sí llegan, pero
+   pueden tardar entre 10 y 50 minutos. Tenlo en cuenta si mandas algo con
+   prisa desde esa cuenta.
+
+2. **Un bug que te habría dejado sin avisos justo cuando más importan.**
+   Al mandar el primer aviso real descubrí que Hermes perdía cualquier
+   mensaje cuyo texto llevara un guion bajo -- y el nombre de tus tareas
+   es literalmente `TAREA 4:BD_AGENCIA`. Peor: el sistema decía "enviado"
+   aunque el mensaje nunca hubiera salido. Ya está arreglado y verificado.
+
+**Depende de una cosa:** Thunderbird tiene que quedarse abierto en la HP.
+Se abre solo cuando prendes la laptop, así que no tienes que acordarte --
+pero si algún día lo cierras, Hermes deja de ver ese correo.
+
+**Notas de Arturo:**
+
+
+---

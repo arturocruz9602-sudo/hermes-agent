@@ -2,44 +2,43 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
-## ⚑ ARRANCAR AQUÍ (31 jul, 13:30) — el correo institucional NO puede salir del dominio; la vía es leerlo, no reenviarlo
+## ⚑ ARRANCAR AQUÍ (31 jul, 14:00) — Hermes ya lee el buzón institucional; el correo NO estaba bloqueado, solo es lento
 
 Sesión con Arturo presente. Se intentó cerrar el pendiente "configurar el
-reenvío institucional → personal". **No se puede, y la causa raíz cambia el
-plan completo.**
+reenvío institucional → personal". El reenvío no quedó, pero se llegó a algo
+**mejor**: Hermes leyendo el buzón institucional directo.
 
-### HALLAZGO — la cuenta de alumno no entrega correo fuera del dominio
+### ⚠️ DIAGNÓSTICO ERRÓNEO PROPIO, CORREGIDO EN LA MISMA SESIÓN
 
-Arturo configuró el reenvío en `5725111428@utrng.edu.mx`. Gmail lo guardó y
-mostró el banner de "estás reenviando tu correo a…" (aviso normal de la
-primera semana, **no** un error). Pero nada llega.
+Durante ~1 hora sostuve que **la cuenta de alumno no podía enviar correo fuera
+del dominio**. **Era falso.** Llegué a esa conclusión con una sonda de solo
+6 minutos y la traté como definitiva.
 
-**Evidencia real, leída por IMAP de su Gmail personal:**
+**Lo que realmente pasa: el correo saliente tarda ~10-50 min, pero llega.**
+Evidencia (IMAP del Gmail personal, 14:00):
 ```
-Su prueba   12:39:27 -> 5725111428@utrng.edu.mx  : sale de Enviados, nunca llega
-Mi prueba   12:43:01 -> 5725111428@utrng.edu.mx  : sale, nunca llega
-Sonda 6 min (1 revisión/min, INBOX + Spam)       : "6 MINUTOS SIN REENVIO"
-Rebotes / Mail Delivery Subsystem                : NINGUNO
-Papelera                                          : 0
-Correos históricos DESDE @utrng                   : 1 (22 abr, de un maestro)
+Fri, 31 Jul 2026 12:49:25 -0600 | ARTURO DE LA CRUZ ROMAN <5725111428@utrng.edu.mx>
+Fri, 31 Jul 2026 13:30:11 -0600 | ARTURO DE LA CRUZ ROMAN <5725111428@utrng.edu.mx>
 ```
-Arturo confirmó además que mandó un correo **manual** desde el institucional al
-personal y tampoco llegó, y que **sí aparece en Enviados**.
+Y la entrada también funciona: mi prueba `PRUEBA-REENVIO-HERMES 12:42:55`
+**sí aparece** en el buzón institucional — no la vi antes porque Thunderbird
+todavía estaba sincronizando.
 
-**Causa raíz única, y explica todo:** la cuenta de alumno no entrega correo a
-direcciones externas, **en silencio y sin rebote**. Por eso el reenvío nunca
-funcionó: Gmail no reenvía a una dirección sin verificar, y el código de
-verificación tenía que **salir** de esa cuenta. Nunca pudo.
+**Peor que el error técnico:** con ese diagnóstico falso le dije a Arturo que
+sus correos a externos se perdían y que lo reportara con sistemas de la
+universidad. **Retractado con él en vivo.** Lección repetida (L5/F8): una
+ventana de 6 minutos no es una medición, igual que una sola llamada no lo es
+(mandato §5). Nunca convertir una medición corta en una advertencia accionable
+para Arturo.
 
-⚠️ **Esto le afecta más allá de Hermes:** cualquier correo que Arturo mande a
-un externo desde su cuenta institucional se pierde sin avisarle. **Pendiente
-suyo: confirmarlo con sistemas de la universidad.**
+**Por qué el reenvío no quedó, entonces:** sin confirmar. La hipótesis del
+código de verificación bloqueado ya no aplica. **Da igual: no hace falta** —
+la vía de abajo es mejor y ya funciona.
 
-### La vía que SÍ queda: leer, no reenviar
+### La vía que quedó, y es mejor que el reenvío: leer directo
 
-**La entrada no está bloqueada, solo la salida.** Confirmado por Arturo: su
-correo institucional **ya funciona en la app Mail de su MacBook** junto al
-personal. Es decir, el administrador **no** bloquea el acceso IMAP externo.
+Confirmado por Arturo: su correo institucional **ya funcionaba en la app Mail
+de su MacBook**. El administrador **no** bloquea el acceso IMAP externo.
 
 Descartado el atajo por SSH (documentación de Google verificada): leer Gmail
 exige crear un OAuth Client ID propio, y una app en modo prueba **caduca el
@@ -78,12 +77,92 @@ y su home intactos, servicios activos, nada perdido.
 → Guardado como memoria permanente `feedback_nunca_dar_comandos_con_bang`.
 **Nunca dar a Arturo comandos con `!`.**
 
+### ✅ HECHO: Thunderbird sincronizando el buzón institucional en la HP
+
+Login OAuth completado por Arturo. Verificado en disco, no reportado:
+```
+mail.server.server2.hostname   = imap.gmail.com
+mail.server.server2.userName   = 5725111428@utrng.edu.mx
+mail.server.server2.authMethod = 10        (OAuth2 — el permiso quedó guardado)
+mail.smtpserver.smtp1          = smtp.gmail.com:465, OAuth2
+ImapMail/imap.gmail.com/INBOX  = 31 MB, 202 correos
+```
+Prueba de que sincroniza **en vivo**: la "Alerta de seguridad" que Google
+generó por ese mismo login (31 jul 19:45 GMT) ya estaba en el mbox local
+5 minutos después.
+
+Ruta del buzón (la necesita cualquier cosa que lea correo de aquí en adelante):
+`~/snap/thunderbird/common/.thunderbird/afaz2mse.default/ImapMail/imap.gmail.com/INBOX`
+
+Autoarranque en `~/.config/autostart/thunderbird-hermes.desktop` (delay 20s) —
+si Thunderbird se cierra, Hermes se queda ciego.
+
+### 🔑 HALLAZGO DE VALOR: las tareas de Arturo viven en ese buzón
+
+Al clasificar los 202 correos aparecieron sus **tareas, fechas de entrega y
+calificaciones reales**, de sus maestras con nombre y apellido:
+```
+2026-06-29 | Dulce Liliana Estrada Bahena   | Nueva tarea: "Documento (caso de estudio)"
+2026-07-03 | Diana Hernandez Orozco         | Nueva tarea: "TAREA 2: BD CALIFICACIONES"
+2026-07-03 | Paulina Xitlali Reyna Corrales | Fecha de entrega mañana: "Análisis del entorno"
+2026-07-06 | Dulce Liliana Estrada Bahena   | Calificación de: "Documento (caso de estudio)"
+```
+Llegan vía Google Classroom **al correo**. Confirma que la decisión de Arturo de
+**cancelar la API de Classroom fue correcta**: mismo contenido, un permiso menos.
+Y explica el cuello de botella real: **esto llevaba meses llegando a un buzón que
+él no abre.**
+
+### Vigilante construido (opción B, elegida por Arturo)
+
+`~/.hermes/scripts/vigilar_correo_escuela.py` — lee el mbox, clasifica **local
+por reglas** (cero API: regla de privacidad del 30 jul), avisa por Telegram
+reutilizando `enviar.py`. Solo lectura. Loggea éxito Y fallo (L6/L14). Primera
+corrida marca todo como visto para no inundar con el histórico.
+
+Probado contra los 202 correos reales (`--probar`): **avisa de 101, calla 101**
+(~12 avisos/mes). Calla Canva, boletines y alertas rutinarias; avisa de tareas,
+entregas y calificaciones.
+
+### 🔴 DOS BUGS DE `enviar.py` ENCONTRADOS AL PROBAR (no al leer) — ARREGLADOS
+
+Salieron al mandar el primer aviso real. Afectan a **todo Hermes**, no solo al
+vigilante. Respaldo previo en `/mnt/seagate/hermes_backups/scripts_manual/`.
+
+**Bug 1 — Markdown rompe los mensajes que más importan.** `enviar_mensaje()`
+mandaba con `parse_mode: "Markdown"` fijo. Telegram devuelve **400** si el
+Markdown queda mal formado, y eso pasa con contenido normal: un guion bajo
+suelto, un asterisco, un corchete. El asunto real de una tarea de Arturo es
+`TAREA 4:BD_AGENCIA` → **el aviso se perdía entero.** El vigilante habría
+fallado justo con las tareas, que es todo su propósito.
+→ Ahora reintenta en texto plano si Markdown es rechazado, y loggea cuál fue.
+
+**Bug 2 — fallaba y reportaba éxito.** El modo `--mensaje` terminaba en
+`enviar_mensaje(...); sys.exit(0)`: **código 0 aunque el envío fallara.**
+Cualquiera que llame a este script no podía distinguir enviado de perdido.
+Es L6/L14 en producción otra vez.
+→ `sys.exit(0 if enviar_mensaje(...) else 1)`.
+
+**Verificado con prueba de mutación real** (y corrigiendo de paso un error de
+mi propia prueba: el primer intento medía el `$?` de `tail`, no del script):
+```
+destino INVALIDO -> codigo 1   ✅
+destino VALIDO   -> codigo 0   ✅
+mensaje con "TAREA_4:BD_AGENCIA [corchetes]" -> enviado en texto plano ✅
+```
+
+### Escritorio remoto: al final no se usó
+
+Arturo prefirió caminar a la HP ("qué hueva, está en inglés" — el cliente RDP de
+Microsoft solo viene en inglés). **Queda instalado y funcionando** para la
+próxima vez que haga falta algo gráfico sin estar presente.
+
 ### Lo siguiente
-1. Arturo corre las 2 reglas de `ufw` y entra por RDP.
-2. Login de la cuenta institucional en Thunderbird.
-3. Localizar el buzón local del snap y conectar a Hermes (solo lectura).
-4. **Luego, la libreta** — sigue siendo el cuello de botella real y no depende
-   de nada de esto.
+1. Activar el timer del vigilante y mandarle a Arturo un aviso real de muestra.
+2. **La libreta** — sigue siendo el cuello de botella real y no depende de nada
+   de esto. Ahora con más razón: si Hermes ya ve las tareas, necesita **dónde
+   anotarlas** (tabla `tareas_escuela` / `citas`).
+3. Pendiente sin resolver: por qué el reenvío no llegó a activarse. Baja
+   prioridad, ya no hace falta.
 
 ## ⚑ ARRANCAR AQUÍ (31 jul, 03:10) — sesión de arquitectura: 3 hallazgos de Arturo cambiaron el plan
 
