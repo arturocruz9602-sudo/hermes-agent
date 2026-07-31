@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 import time
@@ -197,6 +198,52 @@ def respaldar_scripts_y_config(
     return ok, detalles
 
 
+def respaldar_libreta(dest_dir: Path, libreta_src: "Path | None" = None) -> tuple[bool, list[str]]:
+    """Copia ``HERMES_HOME/libreta.db`` -- la libreta de la vida de Arturo.
+
+    Agregado el 31 jul 2026 al crear la libreta (gastos, ingresos, peso,
+    entrenamientos, horario, citas, tareas de la escuela...). Es el unico
+    lugar donde viven datos que Arturo no puede regenerar: un mensaje
+    perdido se vuelve a mandar, un gasto de hace tres meses no.
+
+    Se usa la API ``backup`` de sqlite3 y no ``shutil.copy2`` a proposito:
+    copiar el archivo de una BD con WAL activo mientras alguien escribe
+    produce un respaldo corrupto justo cuando mas se necesita.
+    """
+    if libreta_src is None:
+        libreta_src = HERMES_HOME / "libreta.db"
+    detalles: list[str] = []
+
+    if not libreta_src.is_file():
+        # Un origen ausente es FAIL, no un silencio: la leccion de L6/L14 y
+        # del hueco de config.yaml del 30 jul.
+        return False, [f"libreta: no existe {libreta_src}"]
+
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    destino = dest_dir / "libreta.db"
+    try:
+        src = sqlite3.connect(f"file:{libreta_src}?mode=ro", uri=True)
+        dst = sqlite3.connect(destino)
+        with dst:
+            src.backup(dst)
+        filas = sum(
+            dst.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+            for (t,) in dst.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name NOT LIKE 'sqlite_%'"
+            )
+        )
+        dst.close()
+        src.close()
+    except Exception as exc:
+        return False, [f"libreta: fallo el respaldo de {libreta_src}: {exc}"]
+
+    detalles.append(
+        f"libreta: {destino.stat().st_size} bytes, {filas} fila(s) -> {destino}"
+    )
+    return True, detalles
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dest-dir", type=Path, default=DEFAULT_DEST)
@@ -226,6 +273,12 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=None,
         help="override de dónde vienen los scripts (default: HERMES_HOME/scripts)",
+    )
+    parser.add_argument(
+        "--libreta-src",
+        type=Path,
+        default=None,
+        help="override de dónde viene la libreta (default: HERMES_HOME/libreta.db)",
     )
     parser.add_argument(
         "--config-src",
@@ -261,6 +314,12 @@ def main(argv: list[str] | None = None) -> int:
     for d in detalles_sc:
         print(f"        {d}")
     resultado_general = resultado_general and ok_sc
+
+    ok_lib, detalles_lib = respaldar_libreta(dest_dir, libreta_src=args.libreta_src)
+    print(f"[{'OK' if ok_lib else 'FAIL'}] libreta:")
+    for d in detalles_lib:
+        print(f"        {d}")
+    resultado_general = resultado_general and ok_lib
 
     estado_final = "COMPLETO" if resultado_general else "CON PROBLEMAS"
     print(f"\n=== RESPALDO {estado_final}: {dest_dir} ===")

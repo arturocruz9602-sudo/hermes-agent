@@ -48,6 +48,14 @@ def _make_fake_hermes_home(base: Path) -> Path:
     (home / "config.yaml").write_text("model:\n  default: chat-primary\n")
     (home / "config.yaml.known-good").write_text("model:\n  default: chat-primary\n")
 
+    # libreta.db entro al respaldo el 31 jul 2026: es el unico lugar con datos
+    # que Arturo no puede regenerar (un gasto de hace tres meses no se vuelve
+    # a mandar). Mismo criterio: si falta, el respaldo reporta FAIL.
+    con = sqlite3.connect(home / "libreta.db")
+    con.execute("CREATE TABLE IF NOT EXISTS gastos (id INTEGER PRIMARY KEY, monto_mxn REAL)")
+    con.commit()
+    con.close()
+
     return home
 
 

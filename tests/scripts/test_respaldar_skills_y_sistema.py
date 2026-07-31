@@ -6,6 +6,7 @@ todas formas se verifica cuenta de archivos y contenido, no solo que
 from __future__ import annotations
 
 import shutil
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -80,10 +81,11 @@ def test_respaldar_systemd_units_falla_si_no_existe(tmp_path):
 
 
 def _add_scripts_y_config(base: Path) -> None:
-    """Completa un HERMES_HOME de prueba con scripts/ y config.yaml.
+    """Completa un HERMES_HOME de prueba con scripts/, config.yaml y libreta.db.
 
-    Desde el 30 jul 2026 main() tambien los respalda y reporta FAIL si
-    faltan (Bloque AH), asi que un origen de prueba sin ellos ya no
+    Desde el 30 jul 2026 main() tambien respalda scripts/ y config.yaml y
+    reporta FAIL si faltan (Bloque AH); desde el 31 jul, tambien libreta.db
+    -- la libreta de la vida de Arturo. Un origen de prueba sin ellos ya no
     representa una instalacion valida.
     """
     scripts = base / "scripts"
@@ -91,6 +93,10 @@ def _add_scripts_y_config(base: Path) -> None:
     (scripts / "watchdog.sh").write_text("#!/bin/bash\necho check\n")
     (base / "config.yaml").write_text("model:\n  default: chat-primary\n")
     (base / "config.yaml.known-good").write_text("model:\n  default: chat-primary\n")
+    con = sqlite3.connect(base / "libreta.db")
+    con.execute("CREATE TABLE IF NOT EXISTS gastos (id INTEGER PRIMARY KEY, monto_mxn REAL)")
+    con.commit()
+    con.close()
 
 
 def test_main_cli_reporta_ambos_pasos(tmp_path, capsys, monkeypatch):
