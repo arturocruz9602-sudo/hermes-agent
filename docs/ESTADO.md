@@ -156,6 +156,24 @@ Arturo prefirió caminar a la HP ("qué hueva, está en inglés" — el cliente 
 Microsoft solo viene en inglés). **Queda instalado y funcionando** para la
 próxima vez que haga falta algo gráfico sin estar presente.
 
+### 📌 PEDIDOS DE ARTURO AL CERRAR (31 jul, 14:20) — anotados, NO ejecutados
+
+Los dio explícitamente como pendientes ("no quiero que ahorita lo hagas, pero
+para que quede pendiente"):
+
+1. **El aviso debe ofrecer agendar, no solo informar.** Observación suya, y es
+   la más importante de las tres: *"mandaste la prueba pero Hermes no dijo si
+   quiero que la realice, para añadirla como cosas por hacer del resto del
+   día"*. Un aviso que solo informa le deja el trabajo a él. Debe cerrar con
+   algo accionable (*"¿la agendo para hoy?"*) y, si dice que sí, **anotarla**.
+   → **Depende de la libreta**: sin tabla donde escribir, no hay dónde agendar.
+   Confirma que la libreta es lo siguiente y no un capricho de arquitectura.
+2. **Notificación con identidad propia en el iPhone:** sonido propio y aspecto
+   visual distinto en Telegram para los correos de la escuela, para que se
+   distingan de un mensaje normal de Hermes.
+3. **Autorización nueva: ya puede verse también su correo personal**
+   (`arturocruz9602@gmail.com`), no solo el institucional.
+
 ### Lo siguiente
 1. Activar el timer del vigilante y mandarle a Arturo un aviso real de muestra.
 2. **La libreta** — sigue siendo el cuello de botella real y no depende de nada
