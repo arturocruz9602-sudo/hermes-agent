@@ -28,23 +28,35 @@ import libreta as libreta_mod  # noqa: E402
 
 @pytest.fixture
 def entorno(tmp_path, monkeypatch):
-    """Un par de libretas (real y simulacion) recien migradas, en tmp."""
-    rutas = {"real": tmp_path / "libreta.db",
-             "simulacion": tmp_path / "sim" / "libreta_sim.db"}
-    monkeypatch.setattr(libreta_mod, "RUTAS", rutas)
-    for ent, ruta in rutas.items():
-        ruta.parent.mkdir(parents=True, exist_ok=True)
+    """Un par de libretas (real y simulacion) recien migradas, en tmp.
+
+    Las dos rutas se redirigen por variables de entorno y NO tocando RUTAS a
+    mano: el migrador corre en un subproceso que reimporta el modulo, asi que
+    un monkeypatch del diccionario no le llegaria y las pruebas escribirian en
+    el disco de verdad.
+    """
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("HERMES_DISCO_PRUEBAS", str(tmp_path / "externo"))
+    monkeypatch.delenv("HERMES_FECHA_SIMULADA", raising=False)
+    monkeypatch.delenv("HERMES_ENTORNO", raising=False)
+    (tmp_path / "externo").mkdir(parents=True, exist_ok=True)
+    importlib.reload(libreta_mod)
+    # El disco de pruebas simulado no es un punto de montaje real; en las
+    # pruebas esa comprobacion no aplica.
+    monkeypatch.setattr(libreta_mod, "_verificar_disco_de_pruebas", lambda: None)
+
+    entorno_hijo = {"HOME": str(tmp_path), "HERMES_HOME": str(tmp_path),
+                    "HERMES_DISCO_PRUEBAS": str(tmp_path / "externo"),
+                    "PATH": "/usr/bin:/bin"}
+    for ent in ("real", "simulacion"):
         r = subprocess.run(
             [sys.executable, str(RAIZ / "scripts" / "libreta_migrar.py"),
              "--entorno", ent],
-            capture_output=True, text=True,
-            env={"HOME": str(tmp_path), "HERMES_HOME": str(tmp_path),
-                 "PATH": "/usr/bin:/bin"},
+            capture_output=True, text=True, env=entorno_hijo,
         )
         assert r.returncode == 0, r.stderr
-    monkeypatch.delenv("HERMES_FECHA_SIMULADA", raising=False)
-    monkeypatch.delenv("HERMES_ENTORNO", raising=False)
-    return rutas
+    yield dict(libreta_mod.RUTAS)
+    importlib.reload(libreta_mod)
 
 
 # ── lo que Arturo no puede permitirse que falle ──────────────────────────
@@ -265,18 +277,17 @@ def test_solo_lectura_no_deja_escribir(entorno):
 
 def test_migrar_dos_veces_no_duplica_nada(entorno):
     """El migrador se puede correr sin miedo."""
-    antes = None
+    home = entorno["real"].parent
     for _ in range(2):
         r = subprocess.run(
             [sys.executable, str(RAIZ / "scripts" / "libreta_migrar.py"),
-             "--entorno", "simulacion", "--estado"],
+             "--entorno", "simulacion"],
             capture_output=True, text=True,
-            env={"HOME": str(entorno["real"].parent),
-                 "HERMES_HOME": str(entorno["real"].parent), "PATH": "/usr/bin:/bin"},
+            env={"HOME": str(home), "HERMES_HOME": str(home),
+                 "HERMES_DISCO_PRUEBAS": str(home / "externo"),
+                 "PATH": "/usr/bin:/bin"},
         )
-        assert r.returncode == 0
-        if antes is None:
-            antes = r.stdout
+        assert r.returncode == 0, r.stderr
     with libreta_mod.Libreta("simulacion") as lib:
         n = lib.con.execute(
             "SELECT COUNT(*) FROM libreta_migraciones").fetchone()[0]
