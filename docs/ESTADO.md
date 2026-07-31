@@ -2,6 +2,95 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
+## ⚑ ARRANCAR AQUÍ (31 jul, noche) — memoria reiniciada a cero (orden explícita de Arturo, irreversible), 2 bugs reales corregidos, investigación de tokens cerrada
+
+### RESET DE MEMORIA — orden directa de Arturo, ejecutada con respaldo
+Arturo, textual: *"hay que eliminar toda la memoria que tiene Hermes de mí, vamos
+a iniciar de cero... las llaves e información importante ya está en la bóveda."*
+Motivo verificado, no solo su sospecha: `USER.md` tenía la meta de ahorro vieja
+("Mac mini 24GB ~26-28k") cuando hoy mismo la meta real ya cambió a $60,000 con
+posible Mac Studio + moto — prueba concreta de que la memoria tenía deriva real,
+no solo percibida.
+
+**Respaldo completo ANTES de tocar nada** (regla dura de CLAUDE.md), en
+`/mnt/seagate/hermes_backups/scripts_manual/`:
+```
+MEMORY.md.pre-wipe-20260731-173429              (102,584 bytes, 175 entradas)
+USER.md.pre-wipe-20260731-173429                 (22,157 bytes, 81 entradas)
+memoria_semantica.db.pre-wipe-20260731-173429    (8.2 MB, 503 fragmentos indexados)
+```
+
+**Vía usada: `memory_tool.py` con `apply_batch` (remove de cada entrada real,
+extraída del propio archivo -- nunca texto adivinado), NUNCA edición directa del
+.md.** Verificado en disco tras la operación: los dos archivos quedaron en 0
+bytes reales (no solo la función lo reportó, se leyó el archivo).
+
+**El índice semántico también se limpió** (`scripts/memoria_indexador.py`, el
+mismo que ya corre en el timer nocturno): reconstruye `chunks` borrando primero
+todo lo de `source='memory_md'` y reindexando desde los archivos reales. Probado
+con una búsqueda real de "laptop windows lenovo almendra" -- 0 resultados de esa
+fuente, confirmado que no queda nada buscable de lo borrado.
+
+**Se dejó UN solo apunte nuevo** en la memoria (vía `memory_tool` `add`,
+no a mano): explica que hubo un reinicio el 31 jul, por qué, y dónde está el
+respaldo -- para que ni Hermes ni Arturo lo confundan con una falla después.
+
+**Lo que NO se tocó:** las skills (siguen instaladas, "solo faltan
+robustecerse" según Arturo), la bóveda de credenciales, `memoria_estructurada`
+en state.db (1 sola fila y era un dato de PRUEBA de QA, no algo real -- se
+dejó igual, no era parte del pedido).
+
+### Bug real: Telegram sonaba a log técnico -- corregido
+Arturo lo vio en vivo ("horroroso"): cada búsqueda web, llamada a terminal y
+guardado en Obsidian aparecía como mensaje suelto. Causa real: `config.yaml`
+tenía `display.tool_progress=all` y `busy_ack_detail=true` GLOBALES, que le
+ganan al default silencioso que Telegram ya trae por diseño en
+`gateway/display_config.py`. Corregido con `display.platforms.telegram`,
+sin tocar el global (sirve para la CLI). `interim_assistant_messages` y
+`long_running_notifications` se dejaron intactos a propósito -- sin eso, una
+tarea larga se ve congelada.
+
+**Bug propio cazado antes de desplegar:** escribí `tool_progress: off` sin
+comillas -- YAML 1.1 lo convierte en booleano `False`, no en el string `"off"`
+que el código espera (`val if val in {"off",...} else "all"` -- cualquier otra
+cosa cae de vuelta al modo RUIDOSO, en silencio). Corregido a `"off"` con
+comillas, verificado contra `resolve_display_setting()` real, no solo el YAML.
+`tests/gateway/test_display_config.py` 57/57. Gateway reiniciado, un solo
+arranque limpio.
+
+### Investigación cerrada: por qué una llamada pidió 69,242 tokens
+Arturo lo pidió explícito, con una buena analogía ("como llevar apuntes de
+más a un examen para una sola pregunta"). **Causa real, con tiempos exactos:**
+el prompt de sistema se construye UNA vez por sesión y se cachea en RAM
+(`agent._cached_system_prompt`) -- pero un reinicio del proceso borra ese
+caché. Reinicié el gateway a las 16:41:05 (para el fix de `obsidian_note`);
+la conversación de CETES de Arturo llegó a las 16:49:28, y la llamada cara fue
+la primera de esa sesión tras el reinicio (16:50:11). Confirmado con un
+volcado real de la misma sesión: el mensaje `system` solo pesa 158,374
+caracteres (~39,593 tokens) y las 45 herramientas de esa corrida ~22,104
+tokens más -- suma casi exacta a los 69,242 reales. Las llamadas siguientes de
+la misma conversación crecieron poco a poco (72,487 → 73,194 → ...), nunca
+volvieron a saltar a 40 mil -- prueba de que el caché sí funciona una vez
+construido; solo pagó de más por caer justo tras el reinicio.
+
+**Hallazgo aparte, confirmado correcto:** ese volcado también mostraba
+`computer_use` y `delegate_task` como herramientas activas -- verificado
+contra `config.yaml` de HOY: esas dos NO están en el toolset de Telegram
+(se quitaron el 30 jul, Bloque AL). El volcado analizado era de las 14:55 del
+30 jul, ANTES de ese arreglo -- no representa el estado actual, solo sirvió
+para medir la estructura.
+
+**Pendiente real, distinto de "por qué esta llamada salió cara":** el prompt
+de sistema en sí pesa ~40,000 tokens como costo fijo de una vez por sesión --
+grande incluso cacheado. Vale la pena seguir recortándolo, tarea aparte.
+
+### Costo real verificado de la investigación de CETES + guardado en Obsidian
+`$0.0147 USD ≈ $0.27 MXN` -- 8 llamadas reales, medidas contra
+`litellm/cost_ledger/2026-07.jsonl` filtrado a la ventana exacta de la
+conversación (16:49–16:53), no contra la tabla agregada del día completo.
+
+---
+
 ## ⚑ ARRANCAR AQUÍ (31 jul, noche) — frente nuevo: YouTube/redes + DaVinci Resolve, todo en fase de diseño, NADA construido todavía
 
 Arturo dedicó un tramo largo de la sesión (vía cuestionario suyo, "para ver

@@ -186,7 +186,21 @@ OBSIDIAN_NOTE_SCHEMA = {
         "check the 'notion_synced'/'notion_numero' fields in the result). When "
         "notion_synced is true, mention the note number to Arturo naturally "
         "(e.g. 'la guardé como nota número 89 en Notion') so he can look it up "
-        "there or you can reference it later when something connects to it."
+        "there or you can reference it later when something connects to it.\n\n"
+        "JUDGMENT, not a fixed rule (31 jul 2026, Arturo explicit: he wants "
+        "growing judgment, not a caged agent following blind gates it can't "
+        "explain) -- decide per case whether to show him the conclusion BEFORE "
+        "saving, or save directly and just tell him the note number after:\n"
+        "  - Show him first when the idea involves a real financial decision, "
+        "numbers he might want to correct, or anything he could reasonably "
+        "want to adjust before it's written down as settled (e.g. an "
+        "investment strategy with real pesos behind it).\n"
+        "  - Save directly when it's a simple idea with no real consequence if "
+        "imperfect, or when he already gave clear authorization to research "
+        "and save in the same request.\n"
+        "The point isn't a checklist -- it's the same judgment a competent "
+        "assistant uses: pause when being wrong would cost him something real, "
+        "don't pause when it wouldn't."
     ),
     "parameters": {
         "type": "object",
