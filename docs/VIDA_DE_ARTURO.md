@@ -162,6 +162,123 @@ El mandato del 30 jul autoriza corregir `docs/HAS.md` desde aquí.
 
 ---
 
+## EL ENCUADRE QUE MANDA SOBRE TODO (31 jul, segundo mensaje)
+
+> *"Hermes no debe convertirse únicamente en un asistente para responder mensajes
+> o automatizar tareas aisladas. Su objetivo es convertirse en **mi sistema
+> operativo personal**, capaz de administrar progresivamente todos los aspectos de
+> mi vida personal, académica, profesional y financiera."*
+
+Y el horizonte: *"capaz de acompañarme durante muchos años, reduciendo
+progresivamente mi carga de trabajo y aumentando su capacidad para tomar
+iniciativa de manera responsable."*
+
+**Criterio de diseño que se deriva:** ante dos caminos, gana el que le quite
+trabajo a Arturo de forma permanente, no el que resuelva el caso de hoy.
+
+### Arquitectura de información — decidida por él
+
+| Pieza | Rol | Implicación |
+|---|---|---|
+| **Obsidian** | **Base principal de conocimiento** | El Segundo Cerebro. Todo lo que Hermes sabe del mundo de Arturo se busca aquí primero. Vault local: `/mnt/seagate/obsidian` |
+| **Notion** | **Centro operativo / tablero ejecutivo** | Lo que Arturo *ve*: proyectos, ingresos, gastos, ahorro, metas, inversiones, trading, presupuesto, pagos recurrentes — con paneles, gráficas y métricas automáticas |
+
+**Regla que sale de aquí:** *"reutilizando el conocimiento ya almacenado y
+evitando comenzar desde cero en cada proyecto."* Antes de generar cualquier cosa,
+Hermes consulta Obsidian. Empezar de cero es el desperdicio a evitar.
+
+### Proactividad — el punto más exigente del mandato
+
+Hermes debe avisar **aunque Arturo no le haya pedido recordarlo**:
+
+> *"…registrar eventos importantes, recordar pagos futuros, detectar oportunidades
+> de ahorro, identificar gastos innecesarios, sugerir optimizaciones financieras y
+> avisarme con anticipación cuando se acerquen compromisos importantes, **incluso
+> cuando yo no le haya pedido explícitamente recordar esa información**, siempre
+> que considere razonablemente que puede ser relevante para mí."*
+
+Y en agenda: *"Si en el futuro cambian mis horarios universitarios, laborales o
+personales, Hermes deberá ser capaz de **reorganizar automáticamente** mi agenda,
+redistribuir actividades, detectar espacios libres y proponer una nueva
+planificación **sin esperar a que yo se lo solicite**."*
+
+⚠️ **Tensión de diseño que hay que resolver con cuidado, no ignorar:** la captura
+espontánea es justo lo que produjo el dato de la colegiatura — y ese dato salió
+con una fecha inconsistente. **Proactivo sí; inventar fechas no.** Todo dato
+capturado sin orden explícita se confirma antes de convertirse en recordatorio.
+
+### Enrutamiento de modelos — evaluación continua, no una sola vez
+
+> *"Evalúa continuamente cómo distribuir el trabajo entre DeepSeek, Gemini, Groq,
+> OpenRouter y cualquier otra herramienta integrada para reducir costos sin
+> disminuir la calidad."*
+
+Reservar los modelos caros **solo** para razonamiento complejo real. Las tareas
+repetitivas (clasificar correos, resumir, extraer datos de un ticket, ordenar
+archivos) van a las APIs gratuitas. Esto conecta con la **deuda ya anotada**: el
+router existe pero disperso en `agent/image_routing.py`,
+`complexity_detector.py` y `turn_finalizer.py:978` — **hay que centralizarlo, no
+crearlo de nuevo.**
+
+### Presupuesto: herramienta, no límite
+
+> *"El presupuesto destinado a las APIs existe para ayudarte a construir un
+> sistema robusto, **no para limitar el desarrollo**. Si durante las pruebas el
+> costo mensual aumenta porque estás obteniendo información valiosa y mejorando
+> significativamente Hermes, no será un problema **siempre que cada gasto tenga
+> una justificación técnica y genere un beneficio permanente**."*
+
+> *"La prioridad absoluta no es gastar lo menos posible, sino construir un Hermes
+> estable, inteligente, autónomo, eficiente."*
+
+**Cómo se aplica:** los cortacircuitos anti-bug siguen intactos (un bucle con bug
+no se come el mes). Lo que cambia es el criterio de un gasto *deliberado*: la
+pregunta ya no es "¿es barato?" sino **"¿qué beneficio permanente deja?"**. Cada
+gasto se documenta con su justificación técnica.
+
+### Pruebas: semanas completas, cinco roles
+
+> *"Deja de limitar las pruebas a funciones individuales. **Actúa como si fueras
+> yo. Simula semanas completas de uso real.**"*
+
+Los cinco roles que debo encarnar: **estudiante universitario · creador de
+contenido · trabajador · inversionista · usuario cotidiano.**
+
+Carga a simular: decenas de correos, documentos, imágenes, tareas escolares,
+pagos, gastos, recordatorios, **eventos inesperados**, sesiones de trading,
+generación de contenido, **cambios de horario**.
+
+Ejemplos que él dio textualmente: salir al cine · ser influencer · irse a
+trabajar y dejar a Hermes en trading · llegar y reportar *"hoy gané esto pero
+gasté 300 pesos"*.
+
+> *"No busco únicamente comprobar que una función responde correctamente; quiero
+> comprobar que **Hermes sea capaz de administrar mi vida cuando reciba una carga
+> de trabajo real y continua**."*
+
+### Sobre las imágenes y diagramas que comparte
+
+> *"No quiero que se interpreten únicamente como documentos estáticos; quiero que
+> sirvan para mejorar continuamente la arquitectura y adaptar Hermes a mi forma
+> real de trabajar."*
+
+Los mockups son **especificación de producto**, no adorno. El dashboard que
+diseñó y el "Plan de Batalla Romano" definen qué espera ver.
+
+### Petición pendiente: reevaluación completa de la hoja de ruta
+
+Pidió explícitamente, antes de seguir con fases nuevas:
+1. Qué módulos **ya existen**, cuáles están **parcialmente** implementados, y
+   cuáles **no se han considerado**.
+2. Determinar si la arquitectura actual **cubre sus necesidades de los próximos
+   años** — no solo si faltan fases del HAS.
+3. Proponer las áreas faltantes **con justificación** de por qué deben entrar.
+
+*(Primer avance ya hecho el 31 jul: el hallazgo de "manuales sin libreta" y las
+Fases 12-14 propuestas arriba. Falta la evaluación de arquitectura a varios años.)*
+
+---
+
 ## DECISIONES Y CORRECCIONES DE ARTURO (31 jul 2026)
 
 1. **Google Classroom: se cancela la ruta de la API.** Su razonamiento, y es
