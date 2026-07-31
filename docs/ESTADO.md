@@ -1,6 +1,89 @@
-# Estado de Hermes — actualizado 31 Jul 2026, madrugada
+# Estado de Hermes — actualizado 31 Jul 2026, tarde
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
+
+## ⚑ ARRANCAR AQUÍ (31 jul, 13:30) — el correo institucional NO puede salir del dominio; la vía es leerlo, no reenviarlo
+
+Sesión con Arturo presente. Se intentó cerrar el pendiente "configurar el
+reenvío institucional → personal". **No se puede, y la causa raíz cambia el
+plan completo.**
+
+### HALLAZGO — la cuenta de alumno no entrega correo fuera del dominio
+
+Arturo configuró el reenvío en `5725111428@utrng.edu.mx`. Gmail lo guardó y
+mostró el banner de "estás reenviando tu correo a…" (aviso normal de la
+primera semana, **no** un error). Pero nada llega.
+
+**Evidencia real, leída por IMAP de su Gmail personal:**
+```
+Su prueba   12:39:27 -> 5725111428@utrng.edu.mx  : sale de Enviados, nunca llega
+Mi prueba   12:43:01 -> 5725111428@utrng.edu.mx  : sale, nunca llega
+Sonda 6 min (1 revisión/min, INBOX + Spam)       : "6 MINUTOS SIN REENVIO"
+Rebotes / Mail Delivery Subsystem                : NINGUNO
+Papelera                                          : 0
+Correos históricos DESDE @utrng                   : 1 (22 abr, de un maestro)
+```
+Arturo confirmó además que mandó un correo **manual** desde el institucional al
+personal y tampoco llegó, y que **sí aparece en Enviados**.
+
+**Causa raíz única, y explica todo:** la cuenta de alumno no entrega correo a
+direcciones externas, **en silencio y sin rebote**. Por eso el reenvío nunca
+funcionó: Gmail no reenvía a una dirección sin verificar, y el código de
+verificación tenía que **salir** de esa cuenta. Nunca pudo.
+
+⚠️ **Esto le afecta más allá de Hermes:** cualquier correo que Arturo mande a
+un externo desde su cuenta institucional se pierde sin avisarle. **Pendiente
+suyo: confirmarlo con sistemas de la universidad.**
+
+### La vía que SÍ queda: leer, no reenviar
+
+**La entrada no está bloqueada, solo la salida.** Confirmado por Arturo: su
+correo institucional **ya funciona en la app Mail de su MacBook** junto al
+personal. Es decir, el administrador **no** bloquea el acceso IMAP externo.
+
+Descartado el atajo por SSH (documentación de Google verificada): leer Gmail
+exige crear un OAuth Client ID propio, y una app en modo prueba **caduca el
+permiso cada 7 días** — dejaría a Hermes ciego cada semana. No es viable.
+
+**Plan vigente:** Thunderbird en la HP (que es la que corre 24/7), cuenta
+institucional por OAuth. Thunderbird renueva el token solo y deja los correos
+como archivos locales → Hermes lee de disco, sin navegador abierto, sin
+depender del HTML de Gmail. Instalado y verificado: `Mozilla Thunderbird 153.0`
+(snap). **Falta el login de Google, que exige pantalla gráfica.**
+
+### Escritorio remoto habilitado en la HP (para no depender de estar presente)
+
+Arturo trabaja desde la MacBook por SSH. Para el login gráfico se habilitó
+escritorio remoto, **autorizado por él**:
+- GNOME 50.1 sobre Wayland → **solo RDP, VNC fue retirado**. Requiere "Windows
+  App" (gratis) en la Mac; se le avisó.
+- Certificado TLS propio en `~/.local/share/gnome-remote-desktop/`, 10 años.
+- `gnome-remote-desktop.service` activo, escuchando en `*:3389`, PID 649721.
+- Usuario `arturo`, contraseña generada al azar (no es la de Ubuntu).
+- **Pendiente: las 2 reglas de `ufw`** que lo encierran en `tailscale0` — las
+  corre Arturo, el hook bloquea `sudo` (correctamente).
+- Tailscale HP: `100.101.21.60`.
+
+**Sirve más allá de hoy:** cualquier configuración gráfica futura de la HP ya
+no depende de que Arturo se acerque físicamente.
+
+### ⚠️ ERROR PROPIO, con dientes — comandos con `!`
+
+Se le pasó a Arturo `!sudo apt install -y thunderbird`. El `!` es sintaxis del
+chat de Claude Code; **él pega en su terminal bash, donde `!sudo` expande al
+último comando con `sudo` del historial** — era `sudo userdel -r hermes_test`.
+Se ejecutó `sudo userdel -r hermes_test apt install -y thunderbird`. **Solo
+falló porque `userdel` no acepta `-y`.** Verificado después: usuario `arturo`
+y su home intactos, servicios activos, nada perdido.
+→ Guardado como memoria permanente `feedback_nunca_dar_comandos_con_bang`.
+**Nunca dar a Arturo comandos con `!`.**
+
+### Lo siguiente
+1. Arturo corre las 2 reglas de `ufw` y entra por RDP.
+2. Login de la cuenta institucional en Thunderbird.
+3. Localizar el buzón local del snap y conectar a Hermes (solo lectura).
+4. **Luego, la libreta** — sigue siendo el cuello de botella real y no depende
+   de nada de esto.
 
 ## ⚑ ARRANCAR AQUÍ (31 jul, 03:10) — sesión de arquitectura: 3 hallazgos de Arturo cambiaron el plan
 
