@@ -270,6 +270,52 @@ class Libreta:
         )
         return cur.lastrowid
 
+    def registrar_gasto_ia_del_mes(self, año=None, mes=None) -> int | None:
+        """Suma el gasto REAL del mes en litellm/cost_ledger y lo anota como
+        gasto de la categoria 'inversion_ia'.
+
+        Arturo lo pidio explicito el 31 jul 2026: "yo los considero como una
+        inversion para ayudarle a optimizar mi vida, esto no es juego" -- asi
+        que NO se excluyen de su libreta personal como se penso al inicio.
+        No inventa el monto: lee el ledger real que ya lleva
+        deepseek_cost_ledger.py (litellm/cost_ledger/YYYY-MM.jsonl), que suma
+        todo lo que paso por el proxy ese mes (Gemini, Groq, DeepSeek...).
+        """
+        import importlib.util
+        # deepseek_cost_ledger.py vive en ~/.hermes/scripts/, NO junto a este
+        # archivo: libreta.py esta versionado en el repo (scripts/libreta.py)
+        # y enlazado por symlink a ~/.hermes/scripts/libreta.py, asi que
+        # Path(__file__).parent resuelve al repo, no a HERMES_HOME/scripts.
+        ruta = HERMES_HOME / "scripts" / "deepseek_cost_ledger.py"
+        spec = importlib.util.spec_from_file_location("deepseek_cost_ledger", ruta)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+
+        hoy = self.ahora()
+        año = año or hoy.year
+        mes = mes or hoy.month
+        usd = mod.read_month_total(year=año, month=mes)
+        if usd <= 0:
+            return None
+        # Tipo de cambio aproximado; suficiente para un renglon de gasto, no
+        # para contabilidad fiscal.
+        mxn = round(usd * 18, 2)
+        fecha = f"{año:04d}-{mes:02d}-{hoy.day:02d}" if (año, mes) == (hoy.year, hoy.month) \
+            else f"{año:04d}-{mes:02d}-01"
+        ya = self.con.execute(
+            "SELECT id FROM gastos WHERE categoria='inversion_ia' "
+            "AND fecha LIKE ? ", (f"{año:04d}-{mes:02d}-%",)
+        ).fetchone()
+        if ya:
+            self.con.execute(
+                "UPDATE gastos SET monto_mxn=?, descripcion=? WHERE id=?",
+                (mxn, f"gasto real de IA del mes (ledger): ${usd:.4f} USD", ya["id"]))
+            return ya["id"]
+        cur = self.con.execute(
+            "INSERT INTO gastos (fecha, monto_mxn, categoria, descripcion) VALUES (?,?,?,?)",
+            (fecha, mxn, "inversion_ia", f"gasto real de IA del mes (ledger): ${usd:.4f} USD"))
+        return cur.lastrowid
+
     def margen_negocio(self, producto="refresco", desde=None, hasta=None) -> dict:
         """Cuanto se gasto en comprar vs. cuanto entro por vender, en el rango.
 
