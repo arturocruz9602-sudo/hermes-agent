@@ -40,14 +40,46 @@ from pathlib import Path
 
 HERMES_HOME = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
 
+# El disco externo de 1 TB. Pedido de Arturo el 31 jul 2026: *"si crees que es
+# mejor ocupar el disco externo para las pruebas mejor, porque la memoria de la
+# HP es ya muy poca"*. Tiene razon -- al SSD del sistema le quedan ~46 GB y las
+# corridas de prueba crecen sin control; al externo le sobran ~860 GB.
+# Lo REAL se queda en el SSD: es chico, se consulta a diario y no debe depender
+# de que el disco externo este conectado.
+DISCO_EXTERNO = Path(os.environ.get("HERMES_DISCO_PRUEBAS", "/mnt/seagate"))
+
+# Cuelga de hermes_backups/ y no de la raiz del disco porque /mnt/seagate
+# pertenece a root (drwxr-xr-x root:root) y crear ahi exigiria pedirle a Arturo
+# otro sudo. hermes_backups/ ya es suyo. Si algun dia la raiz se abre, mover.
+DIR_PRUEBAS = DISCO_EXTERNO / "hermes_backups" / "pruebas"
+
 RUTAS = {
     "real": HERMES_HOME / "libreta.db",
-    "simulacion": HERMES_HOME / "sim" / "libreta_sim.db",
+    "simulacion": DIR_PRUEBAS / "libreta_sim.db",
 }
 
 
 class EntornoInvalido(ValueError):
     pass
+
+
+class DiscoDePruebasAusente(RuntimeError):
+    pass
+
+
+def _verificar_disco_de_pruebas() -> None:
+    """El externo esta en fstab con 'nofail': si falla, /mnt/seagate existe
+    pero vacio y escribir ahi llenaria el SSD sin que nadie se entere. Mejor
+    parar en seco que degradarse en silencio (HAS L6/L14).
+    """
+    if not DISCO_EXTERNO.is_dir():
+        raise DiscoDePruebasAusente(
+            f"{DISCO_EXTERNO} no existe — el disco externo no esta conectado")
+    if not os.path.ismount(str(DISCO_EXTERNO)):
+        raise DiscoDePruebasAusente(
+            f"{DISCO_EXTERNO} existe pero NO esta montado: escribir ahi llenaria "
+            f"el disco del sistema. Conecta el disco externo o define "
+            f"HERMES_DISCO_PRUEBAS a otra ruta.")
 
 
 def entorno_activo(explicito: str | None = None) -> str:
@@ -94,6 +126,8 @@ class Libreta:
 
     # ── ciclo de vida ────────────────────────────────────────────────
     def __enter__(self) -> "Libreta":
+        if self.entorno == "simulacion" and str(self.ruta).startswith(str(DISCO_EXTERNO)):
+            _verificar_disco_de_pruebas()
         if not self.ruta.exists():
             raise FileNotFoundError(
                 f"no existe {self.ruta} — corre: python3 libreta_migrar.py "
@@ -196,10 +230,16 @@ class Libreta:
 
         Usa el reloj del entorno: en simulacion, el reloj virtual.
         """
+        # Los dos lados pasan por datetime() a proposito. SQLite devuelve
+        # '2026-08-03 21:00:00' (con espacio) y un ISO trae '2026-08-03T08:00'
+        # (con T): comparados como texto, el espacio (0x20) siempre pierde
+        # contra la T (0x54), asi que TODA cita del dia siguiente disparaba su
+        # aviso hoy, a cualquier hora. Normalizar ambos lados lo arregla.
         ahora_iso = self.ahora().isoformat(timespec="minutes")
         return self.con.execute(
             "SELECT * FROM citas WHERE avisado = 0 "
-            "AND datetime(fecha_hora, '-' || recordar_min_antes || ' minutes') <= ? "
+            "AND datetime(fecha_hora, '-' || recordar_min_antes || ' minutes') "
+            "    <= datetime(?) "
             "ORDER BY fecha_hora",
             (ahora_iso,),
         ).fetchall()
