@@ -1,0 +1,242 @@
+#!/usr/bin/env python3
+"""
+libreta.py — La puerta de entrada a la libreta de Arturo.
+
+Todo lo que escriba o lea datos de su vida pasa por aqui. Dos razones:
+
+1. **Separar simulacion de realidad.** Arturo autorizo el 31 jul 2026 inventar
+   datos de prueba y adelantar el reloj, con un limite textual: *"Nunca deben
+   contaminar mi informacion real, mi calendario real ni mi memoria
+   permanente."* Eso no se cumple con buena voluntad, se cumple con
+   arquitectura: son DOS archivos distintos y el entorno decide cual se abre.
+
+2. **Reloj virtual.** Para probar un recordatorio de diciembre no hay que
+   esperar a diciembre.
+
+ENTORNOS
+    HERMES_ENTORNO=real       -> ~/.hermes/libreta.db      (default)
+    HERMES_ENTORNO=simulacion -> ~/.hermes/sim/libreta_sim.db
+
+RELOJ
+    HERMES_FECHA_SIMULADA=2026-12-03T08:00  -> hoy() devuelve esa fecha.
+    Solo se respeta en el entorno de simulacion: en real se ignora a
+    proposito, para que un olvido de variable no escriba fechas falsas en
+    los datos de verdad.
+
+USO
+    from libreta import Libreta
+    with Libreta() as lib:                    # real
+        lib.registrar_gasto(185.50, "comida", "tacos")
+    with Libreta("simulacion") as lib:        # pruebas
+        ...
+"""
+
+from __future__ import annotations
+
+import os
+import sqlite3
+from datetime import datetime
+from pathlib import Path
+
+HERMES_HOME = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
+
+RUTAS = {
+    "real": HERMES_HOME / "libreta.db",
+    "simulacion": HERMES_HOME / "sim" / "libreta_sim.db",
+}
+
+
+class EntornoInvalido(ValueError):
+    pass
+
+
+def entorno_activo(explicito: str | None = None) -> str:
+    ent = (explicito or os.environ.get("HERMES_ENTORNO") or "real").strip().lower()
+    if ent not in RUTAS:
+        raise EntornoInvalido(
+            f"entorno '{ent}' no existe; use uno de: {', '.join(sorted(RUTAS))}"
+        )
+    return ent
+
+
+def ahora(entorno: str | None = None) -> datetime:
+    """La hora actual, o la simulada si estamos en pruebas.
+
+    En 'real' se ignora HERMES_FECHA_SIMULADA a proposito: un olvido de
+    variable de entorno no debe poder escribir fechas falsas en datos reales.
+    """
+    ent = entorno_activo(entorno)
+    if ent == "simulacion":
+        crudo = os.environ.get("HERMES_FECHA_SIMULADA")
+        if crudo:
+            try:
+                return datetime.fromisoformat(crudo.strip())
+            except ValueError as exc:
+                raise ValueError(
+                    f"HERMES_FECHA_SIMULADA='{crudo}' no es ISO 8601 "
+                    f"(ej. 2026-12-03 o 2026-12-03T08:00): {exc}"
+                ) from exc
+    return datetime.now()
+
+
+def hoy(entorno: str | None = None) -> str:
+    return ahora(entorno).strftime("%Y-%m-%d")
+
+
+class Libreta:
+    """Acceso a la libreta del entorno indicado."""
+
+    def __init__(self, entorno: str | None = None, *, solo_lectura: bool = False):
+        self.entorno = entorno_activo(entorno)
+        self.ruta = RUTAS[self.entorno]
+        self.solo_lectura = solo_lectura
+        self._con: sqlite3.Connection | None = None
+
+    # ── ciclo de vida ────────────────────────────────────────────────
+    def __enter__(self) -> "Libreta":
+        if not self.ruta.exists():
+            raise FileNotFoundError(
+                f"no existe {self.ruta} — corre: python3 libreta_migrar.py "
+                f"--entorno {self.entorno}"
+            )
+        uri = f"file:{self.ruta}" + ("?mode=ro" if self.solo_lectura else "")
+        self._con = sqlite3.connect(uri, uri=True)
+        self._con.row_factory = sqlite3.Row
+        self._con.execute("PRAGMA foreign_keys = ON")
+        return self
+
+    def __exit__(self, *exc) -> None:
+        if self._con is not None:
+            if exc[0] is None and not self.solo_lectura:
+                self._con.commit()
+            self._con.close()
+            self._con = None
+
+    @property
+    def con(self) -> sqlite3.Connection:
+        if self._con is None:
+            raise RuntimeError("usa la libreta dentro de un 'with'")
+        return self._con
+
+    def ahora(self) -> datetime:
+        return ahora(self.entorno)
+
+    def hoy(self) -> str:
+        return hoy(self.entorno)
+
+    # ── dinero ───────────────────────────────────────────────────────
+    def registrar_gasto(self, monto, categoria, descripcion=None, fecha=None) -> int:
+        cur = self.con.execute(
+            "INSERT INTO gastos (fecha, monto_mxn, categoria, descripcion) VALUES (?,?,?,?)",
+            (fecha or self.hoy(), float(monto), categoria, descripcion),
+        )
+        return cur.lastrowid
+
+    def registrar_ingreso(self, monto, fuente, nota=None, fecha=None) -> int:
+        cur = self.con.execute(
+            "INSERT INTO ingresos (fecha, monto_mxn, fuente, nota) VALUES (?,?,?,?)",
+            (fecha or self.hoy(), float(monto), fuente, nota),
+        )
+        return cur.lastrowid
+
+    def balance(self, desde=None, hasta=None) -> dict:
+        desde = desde or self.ahora().strftime("%Y-%m-01")
+        hasta = hasta or self.hoy()
+        ing = self.con.execute(
+            "SELECT COALESCE(SUM(monto_mxn),0) FROM ingresos WHERE fecha BETWEEN ? AND ?",
+            (desde, hasta),
+        ).fetchone()[0]
+        gas = self.con.execute(
+            "SELECT COALESCE(SUM(monto_mxn),0) FROM gastos WHERE fecha BETWEEN ? AND ?",
+            (desde, hasta),
+        ).fetchone()[0]
+        return {"desde": desde, "hasta": hasta, "ingresos": ing,
+                "gastos": gas, "saldo": ing - gas}
+
+    def gastos_por_categoria(self, desde=None, hasta=None) -> list[sqlite3.Row]:
+        desde = desde or self.ahora().strftime("%Y-%m-01")
+        hasta = hasta or self.hoy()
+        return self.con.execute(
+            "SELECT categoria, SUM(monto_mxn) AS total, COUNT(*) AS n FROM gastos "
+            "WHERE fecha BETWEEN ? AND ? GROUP BY categoria ORDER BY total DESC",
+            (desde, hasta),
+        ).fetchall()
+
+    def meta_ahorro(self, nombre, objetivo=None, fecha_limite=None) -> sqlite3.Row:
+        if objetivo is not None:
+            self.con.execute(
+                "INSERT INTO ahorro_metas (nombre, objetivo_mxn, fecha_limite) VALUES (?,?,?) "
+                "ON CONFLICT(nombre) DO UPDATE SET objetivo_mxn=excluded.objetivo_mxn, "
+                "fecha_limite=COALESCE(excluded.fecha_limite, fecha_limite)",
+                (nombre, float(objetivo), fecha_limite),
+            )
+        return self.con.execute(
+            "SELECT * FROM ahorro_metas WHERE nombre = ?", (nombre,)
+        ).fetchone()
+
+    def abonar_meta(self, nombre, monto) -> sqlite3.Row:
+        self.con.execute(
+            "UPDATE ahorro_metas SET acumulado_mxn = acumulado_mxn + ? WHERE nombre = ?",
+            (float(monto), nombre),
+        )
+        return self.meta_ahorro(nombre)
+
+    # ── tiempo ───────────────────────────────────────────────────────
+    def agendar_cita(self, fecha_hora, titulo, lugar=None, nota=None,
+                     recordar_min_antes=60) -> int:
+        cur = self.con.execute(
+            "INSERT INTO citas (fecha_hora, titulo, lugar, nota, recordar_min_antes) "
+            "VALUES (?,?,?,?,?)",
+            (fecha_hora, titulo, lugar, nota, recordar_min_antes),
+        )
+        return cur.lastrowid
+
+    def pendientes_de_avisar(self) -> list[sqlite3.Row]:
+        """Citas cuya hora de recordatorio ya llego y que no se han avisado.
+
+        Usa el reloj del entorno: en simulacion, el reloj virtual.
+        """
+        ahora_iso = self.ahora().isoformat(timespec="minutes")
+        return self.con.execute(
+            "SELECT * FROM citas WHERE avisado = 0 "
+            "AND datetime(fecha_hora, '-' || recordar_min_antes || ' minutes') <= ? "
+            "ORDER BY fecha_hora",
+            (ahora_iso,),
+        ).fetchall()
+
+    def marcar_avisada(self, cita_id) -> None:
+        self.con.execute("UPDATE citas SET avisado = 1 WHERE id = ?", (cita_id,))
+
+    # ── escuela ──────────────────────────────────────────────────────
+    def registrar_tarea(self, titulo, materia=None, maestro=None, fecha_entrega=None,
+                        origen="arturo", correo_msgid=None, nota=None) -> int | None:
+        """Devuelve el id, o None si ese correo ya se habia registrado."""
+        try:
+            cur = self.con.execute(
+                "INSERT INTO tareas_escuela (titulo, materia, maestro, fecha_entrega, "
+                "origen, correo_msgid, nota) VALUES (?,?,?,?,?,?,?)",
+                (titulo, materia, maestro, fecha_entrega, origen, correo_msgid, nota),
+            )
+            return cur.lastrowid
+        except sqlite3.IntegrityError:
+            return None  # correo_msgid duplicado: ya estaba anotada
+
+    def tareas_pendientes(self, dentro_de_dias=None) -> list[sqlite3.Row]:
+        sql = ("SELECT * FROM tareas_escuela WHERE estado IN ('pendiente','en_curso')")
+        params: list = []
+        if dentro_de_dias is not None:
+            sql += (" AND fecha_entrega IS NOT NULL "
+                    "AND fecha_entrega <= date(?, '+' || ? || ' days')")
+            params += [self.hoy(), int(dentro_de_dias)]
+        sql += " ORDER BY fecha_entrega IS NULL, fecha_entrega"
+        return self.con.execute(sql, params).fetchall()
+
+    def marcar_vencidas(self) -> int:
+        """Las pendientes cuya fecha ya paso. Devuelve cuantas cambio."""
+        cur = self.con.execute(
+            "UPDATE tareas_escuela SET estado = 'vencida' "
+            "WHERE estado = 'pendiente' AND fecha_entrega IS NOT NULL "
+            "AND fecha_entrega < ?",
+            (self.hoy(),),
+        )
+        return cur.rowcount
