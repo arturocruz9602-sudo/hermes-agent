@@ -2,7 +2,22 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
-## ⚑ ARRANCAR AQUÍ (31 jul, 14:00) — Hermes ya lee el buzón institucional; el correo NO estaba bloqueado, solo es lento
+## ⚑ ARRANCAR AQUÍ (31 jul, 15:06) — sesión de tmux/Docker renovada, litellm sano, cierre de este tramo
+
+Arturo reinició tmux (sesión `hermes-work` recreada 15:05:56) e hizo los 3
+comandos pendientes. **Verificado con evidencia real, no supuesto:**
+```
+docker ps          -> FUNCIONA (grupo docker activo)
+docker compose      -> v2.40.3
+docker buildx        -> 0.30.1
+litellm.service     -> reiniciado 15:04:56, active
+vision / voice / chat-gratis -> los 3 responden 200 tras el reinicio
+```
+Docker completo y disponible para las corridas largas de prueba que vienen.
+`voice` quedó revertido y sano (ver hallazgo de la llave mas abajo);
+`vision` ya corre con `GEMINI_VISION_KEY_NEW`, su propia cuota.
+
+## ⚑ (31 jul, 14:00) — Hermes ya lee el buzón institucional; el correo NO estaba bloqueado, solo es lento
 
 Sesión con Arturo presente. Se intentó cerrar el pendiente "configurar el
 reenvío institucional → personal". El reenvío no quedó, pero se llegó a algo

@@ -14,8 +14,9 @@ Todo lo que escriba o lea datos de su vida pasa por aqui. Dos razones:
    esperar a diciembre.
 
 ENTORNOS
-    HERMES_ENTORNO=real       -> ~/.hermes/libreta.db      (default)
-    HERMES_ENTORNO=simulacion -> ~/.hermes/sim/libreta_sim.db
+    HERMES_ENTORNO=real       -> ~/.hermes/libreta.db  (default; SSD, chica, de uso diario)
+    HERMES_ENTORNO=simulacion -> /mnt/seagate/hermes_backups/pruebas/libreta_sim.db
+                                  (disco externo: al SSD le quedan ~46 GB)
 
 RELOJ
     HERMES_FECHA_SIMULADA=2026-12-03T08:00  -> hoy() devuelve esa fecha.
