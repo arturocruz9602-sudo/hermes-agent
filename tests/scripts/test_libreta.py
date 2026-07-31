@@ -361,3 +361,44 @@ def test_registrar_pago_recurrente_no_duplica_por_nombre(entorno):
             "SELECT monto_mxn FROM pagos_recurrentes WHERE nombre='internet'"
         ).fetchone()[0]
     assert n == 1 and monto == 230
+
+
+# ── banco de ideas ────────────────────────────────────────────────────────
+
+def test_capturar_idea_ejemplo_real_de_arturo(entorno):
+    """El caso que el mismo dio: una idea suelta hablando con Hermes."""
+    with libreta_mod.Libreta("simulacion") as lib:
+        idea_id = lib.capturar_idea(
+            "armar una carne asada y ahi hacer un podcast con mis amigos, "
+            "varias de tema", tema="podcast", formato="podcast",
+            origen="voz")
+        pendientes = lib.ideas_pendientes()
+    assert len(pendientes) == 1
+    assert pendientes[0]["id"] == idea_id
+    assert pendientes[0]["estado"] == "pendiente"
+
+
+def test_sugerir_fecha_cambia_estado_a_programada(entorno):
+    with libreta_mod.Libreta("simulacion") as lib:
+        idea_id = lib.capturar_idea("Pluton dejo de ser planeta -- explicarlo")
+        lib.sugerir_fecha_idea(idea_id, "2026-08-15",
+                               nota="fecha con mas busquedas del tema, segun tendencia")
+        fila = lib.con.execute(
+            "SELECT estado, fecha_sugerida FROM ideas_contenido WHERE id=?",
+            (idea_id,)).fetchone()
+    assert fila["estado"] == "programada"
+    assert fila["fecha_sugerida"] == "2026-08-15"
+
+
+def test_idea_programada_no_sale_en_pendientes(entorno):
+    with libreta_mod.Libreta("simulacion") as lib:
+        idea_id = lib.capturar_idea("idea ya programada")
+        lib.sugerir_fecha_idea(idea_id, "2026-09-01")
+    with libreta_mod.Libreta("simulacion") as lib:
+        assert lib.ideas_pendientes() == []
+
+
+def test_idea_sin_texto_se_rechaza(entorno):
+    with libreta_mod.Libreta("simulacion") as lib:
+        with pytest.raises(sqlite3.IntegrityError):
+            lib.con.execute("INSERT INTO ideas_contenido (texto) VALUES (NULL)")

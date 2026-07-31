@@ -229,6 +229,33 @@ MIGRACIONES = [
             "CREATE INDEX IF NOT EXISTS idx_negocio_ventas_fecha ON negocio_ventas(fecha)",
         ],
     ),
+    (
+        3,
+        "Banco de ideas de contenido -- rebotar ideas con Hermes, por voz o texto (31 jul 2026)",
+        [
+            # Distinto de memoria_estructurada (state.db): eso guarda HECHOS
+            # sobre Arturo; esto guarda IDEAS DE CONTENIDO con estado propio
+            # (pendiente/usada/descartada) y un hueco para que, con el tiempo,
+            # Hermes sugiera cuando conviene publicarla segun calendario --
+            # el ejemplo de Arturo: "hasta en la musica esperan temporada
+            # para saber cuando es buena idea subir una cancion".
+            """
+            CREATE TABLE IF NOT EXISTS ideas_contenido (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                texto           TEXT    NOT NULL,
+                tema            TEXT,
+                formato         TEXT,                       -- 'podcast','short','video-ensayo'...
+                origen          TEXT    NOT NULL DEFAULT 'conversacion',
+                estado          TEXT    NOT NULL DEFAULT 'pendiente'
+                                CHECK (estado IN ('pendiente','programada','usada','descartada')),
+                fecha_sugerida  TEXT,                        -- cuando Hermes cree que conviene publicarla
+                fecha_captura   TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+                nota            TEXT
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_ideas_estado ON ideas_contenido(estado)",
+        ],
+    ),
 ]
 
 

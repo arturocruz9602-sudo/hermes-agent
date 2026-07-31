@@ -414,3 +414,26 @@ class Libreta:
             (self.hoy(),),
         )
         return cur.rowcount
+
+    # ── banco de ideas (rebotar con Hermes por voz o texto) ──────────────
+    def capturar_idea(self, texto, tema=None, formato=None, origen="conversacion",
+                      nota=None) -> int:
+        cur = self.con.execute(
+            "INSERT INTO ideas_contenido (texto, tema, formato, origen, nota) "
+            "VALUES (?,?,?,?,?)",
+            (texto, tema, formato, origen, nota),
+        )
+        return cur.lastrowid
+
+    def ideas_pendientes(self) -> list[sqlite3.Row]:
+        return self.con.execute(
+            "SELECT * FROM ideas_contenido WHERE estado = 'pendiente' "
+            "ORDER BY fecha_captura DESC"
+        ).fetchall()
+
+    def sugerir_fecha_idea(self, idea_id, fecha_sugerida, nota=None) -> None:
+        self.con.execute(
+            "UPDATE ideas_contenido SET fecha_sugerida = ?, estado = 'programada', "
+            "nota = COALESCE(?, nota) WHERE id = ?",
+            (fecha_sugerida, nota, idea_id),
+        )
