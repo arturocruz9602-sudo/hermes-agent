@@ -1,8 +1,116 @@
-# Estado de Hermes — actualizado 31 Jul 2026, tarde
+# Estado de Hermes — actualizado 31 Jul 2026, noche
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
-## ⚑ ARRANCAR AQUÍ (31 jul, 15:06) — sesión de tmux/Docker renovada, litellm sano, cierre de este tramo
+## ⚑ ARRANCAR AQUÍ (31 jul, noche) — frente nuevo: YouTube/redes + DaVinci Resolve, todo en fase de diseño, NADA construido todavía
+
+Arturo dedicó un tramo largo de la sesión (vía cuestionario suyo, "para ver
+por qué camino vamos") a definir un frente que el HAS no cubre: crecer sus
+redes y automatizar su edición de video. **Se investigó todo con fuentes
+reales (WebSearch), no se construyó ni una línea de código de esto todavía.**
+Arturo pidió explícito no perder nada: "que no se nos vaya nada".
+
+### Dato real nuevo (dicho por él, no inventado)
+**120 suscriptores en YouTube hoy.** Contenido: podcasts, video-ensayos, y
+datos curiosos/shorts sacados de los mismos podcasts largos. Ya tiene algunos
+formatos de guion y usa teleprompter para leerlos.
+
+### Monetización — requisitos reales verificados (jul 2026)
+```
+Nivel 1 (membresías, Super Gracias): 500 subs + 3,000h vistas (12 meses)
+                                       o 3M vistas de Shorts (90 días)
+Nivel 2 (AdSense completo):          1,000 subs + 4,000h vistas
+                                       o 10M vistas de Shorts (90 días)
+```
+Con 120 hoy, faltan 380 para el primer escalón. **El millón es meta de años,
+no algo que Hermes pueda garantizar** — se le dijo así, sin vender humo.
+
+### Decisión de arquitectura: YouTube Analytics API por OAuth, conectada a HERMES (no a Claude Code)
+Arturo corrigió explícito: la conexión debe quedar con el Hermes que vive
+24/7, no conmigo. Mismo patrón que el correo institucional de hoy: login una
+vez, queda vivo. Da suscriptores, vistas, horas de vista y estado de
+monetización — sustituye por completo la idea inicial de una llave pública
+simple (esa ya no hace falta).
+⚠️ Investigado: el vencimiento silencioso de tokens es un problema documentado
+de 2026 en estas APIs — cuando se construya, debe avisar si el token muere,
+nunca fallar en silencio (misma regla L6/L14 de siempre).
+
+### Pendientes de Arturo para poder construir esto (nada bloquea el resto del trabajo)
+1. **Link o @handle de su canal de YouTube.**
+2. **Confirmar su horario real** (el de `docs/DISENO_INTERFACES.md` está marcado
+   "por confirmar", no es dato duro — o decir que se use tal cual).
+3. El "Permitir" del OAuth cuando le convenga.
+
+### Publicar en YouTube = nunca automático sin su aprobación
+Aunque `youtube.upload` permite subir videos por API, Arturo tiene su propia
+regla (CLAUDE.md: "nunca publicar en su nombre sin autorización") y aplica
+aquí sin excepción. El diseño acordado: Hermes prepara todo (título,
+descripción) y **él da el "sí, súbelo"** — nunca publicación silenciosa.
+
+### DaVinci Resolve Studio — SÍ tiene la puerta que hace falta (verificado)
+Arturo ya paga la versión Studio. Confirmado por investigación: el API de
+scripting es **exclusivo de Studio desde nov 2024** — la versión gratuita no
+lo tiene. O sea, tiene exactamente lo que se necesita, sin gasto extra.
+
+**Existen servidores MCP ya hechos** que conectan una IA a DaVinci Resolve:
+`samuelgursky/davinci-resolve-mcp`, `DigitalWorkflowCompany/resolve-mcp` (88
+herramientas: cortes, marcadores, detección de silencios, render, color),
+`wassermanproductions/unofficial-davinci-mcp`. No hay que inventar el puente,
+ya existe y está mantenido en 2026.
+
+**El principio que Arturo propuso, confirmado como correcto:** que DeepSeek
+razone la primera vez sobre su estilo de edición, y esa secuencia de acciones
+(vía MCP) se guarde como skill fija — dejando de necesitar razonamiento de IA
+en cada corrida. Es el mismo principio fundador del HAS (minimizar gasto de
+API reutilizando conocimiento ya aprendido), aplicado a video.
+
+**Por tipo de contenido suyo, lo que ya está resuelto en la industria:**
+- Podcast → quitar silencios es el patrón más maduro que hay (herramientas
+  comerciales lo hacen en segundos sobre horas de audio).
+- Shorts/datos curiosos de sus podcasts → esto es lo que ya intentaba cubrir
+  `skills/youtube/content-repurposer/SKILL.md` (existente desde antes) — no
+  estaba obsoleta, le faltaba el conector real (MCP) para ejecutarse sola.
+- Video-ensayos → dato verificado y accionable: mejor retención en guiones a
+  **~145 palabras/minuto**; arriba de 165 cae la retención después del min 8.
+  Hermes puede revisar esto ANTES de grabar, sin IA (solo contar palabras
+  contra duración objetivo).
+
+**Render automático de noche (para no calentar la MacBook en días de calor):
+confirmado como sólido y construible.** API real: `AddRenderJob` /
+`StartRendering` / `IsRenderingInProgress` / `GetRenderJobStatus`. Requiere
+que el script corra EN LA MACBOOK (ahí viven DaVinci y los videos) y que
+Hermes (en la HP) lo dispare remoto — necesita la conexión HP↔MacBook de
+abajo.
+
+**Distinción que Arturo aceptó, importante no perder:** render automático =
+sólido, se construye. Edición CREATIVA autónoma (que Hermes edite solo y
+amanezca listo) = NO se promete como si ya funcionara — la IA de edición de
+video hoy no es confiable para eso. Camino acordado: Arturo explica/muestra
+su proceso real de edición, para que la primera skill aprenda SU criterio,
+no uno genérico inventado.
+
+### Pieza de infraestructura que falta para casi todo esto: HP ↔ MacBook
+Ambas máquinas ya están en la misma red de Tailscale (`100.101.21.60` HP,
+`100.73.37.75` MacBook, verificado en línea hoy). Falta configurar el acceso
+remoto real (SSH) para que Hermes pueda disparar scripts en la MacBook sin
+que Arturo la toque. Pendiente de construir, no bloquea nada más.
+
+### Limpieza de paso
+`skills/youtube/youtube-analytics/SKILL.md` y `content-repurposer/SKILL.md`
+tenían "Tony" en el texto (residuo del bug corregido el 30 jul en memoria,
+pero seguía vivo aquí) — corregido a "Arturo", con respaldo previo en
+`/mnt/seagate/hermes_backups/scripts_manual/`.
+
+### Nada de esto se ha construido — es el mapa, no el territorio
+Todo lo de arriba es diseño e investigación verificada. Antes de escribir
+código: confirmar con Arturo el orden (probablemente: 1. horario real +
+recordatorios, 2. OAuth YouTube, 3. tabla de métricas en la libreta +
+dashboard en Notion, 4. HP↔MacBook, 5. MCP de DaVinci, en ese orden de menor
+a mayor esfuerzo).
+
+---
+
+## ⚑ (31 jul, 15:06) — sesión de tmux/Docker renovada, litellm sano, cierre de este tramo
 
 Arturo reinició tmux (sesión `hermes-work` recreada 15:05:56) e hizo los 3
 comandos pendientes. **Verificado con evidencia real, no supuesto:**
