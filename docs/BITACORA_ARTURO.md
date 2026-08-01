@@ -7,6 +7,44 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 01 Ago 2026 (5:00 pm) — Su libreta ya tiene sus números REALES (y por fin está respaldada)
+
+### Lo que pasaba antes
+
+Resulta que su "libreta" (donde Hermes anota su dinero, peso, agenda) **ya existía**, pero
+tenía datos viejos y unos mal puestos: el gym decía $400, el servicio de la moto $500, la
+recarga de teléfono estaba anotada como "internet", y la meta seguía siendo "Mac Mini +
+moto por 60 mil" — cuando usted ya me dijo que la meta real es **juntar $100,000** y que la
+Mac Mini quedó descartada. Además —y esto era lo más delicado— **esa libreta NO se estaba
+respaldando**: si la laptop moría, sus finanzas se perdían.
+
+### Lo que hay ahora
+
+Ya está todo corregido con lo que me dijo hoy, y **verificado con un antes/después**:
+
+| | Antes | Ahora |
+|---|---|---|
+| Gym | $400 | **$500** |
+| Servicio moto | $500 | **$550** (bimestral) |
+| Recarga tel. | "internet" | **recarga_telefono $230** |
+| Colegiatura | $1,100 | **$1,200** (inflada, como pidió) |
+| DeepSeek / gasolina | no estaban | **$100 / $200** |
+| Meta | Mac Mini + moto (60k) | **Capital $100,000 al 31-dic-2027** |
+| Peso | nada | **111.5 kg** anotado |
+
+Y su libreta **ya entra en el respaldo de cada noche** — sus finanzas ya no corren sin red.
+Antes de tocar nada hice un respaldo, y probé todo primero en una copia (sus datos nunca
+estuvieron en riesgo).
+
+### Cómo lo prueba usted
+
+Mándeme cualquiera de estos por Telegram:
+- *"Hermes, ¿cuánto pago al mes de gastos fijos?"*
+- *"Hermes, ¿cuánto llevo juntado para los 100 mil?"*
+- *"Hermes, apunta que hoy gasté 150 en comida"* → y luego *"¿cuánto he gastado esta semana?"*
+
+---
+
 ## 01 Ago 2026 (3:45 pm) — El taller ya se estrenó, y de paso comprobé que sus respaldos SÍ sirven
 
 ### Lo que pasaba antes

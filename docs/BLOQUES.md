@@ -30,7 +30,7 @@ AO | 31 jul | Sesión arquitectura: 3 hallazgos (libreta, privacidad, Ollama) | 
 AP | 31 jul | Separación de entornos: HAS §F11 + lab Docker | en curso 🔄 (docs ✅, lab nunca corrido; se cierra con AQ)
 — | 01 ago | Reestructura documental + cuestionario 123 respuestas integrado (ESTADO/DECISIONES/SEED) | cerrado ✅
 AQ | 01 ago | Primera corrida real del lab: imagen + restaurar respaldo 20260731 (integrity ok) + smoke + arnés 57/57 + gate térmico (pico 59°C) | cerrado ✅
-AR | — | La libreta: tablas de vida en state.db + carga de LIBRETA_SEED + reescritura HAS §E10 (v1.7) | pendiente ← SIGUIENTE (desbloqueada por AQ)
-AS | — | Brief 6:30 + cierre nocturno por voz (extracción de gastos/hábitos de audio) | pendiente (necesita AR)
+AR | 01 ago | La libreta RECONCILIADA: la libreta ya existia (libreta.db); migracion v4 (gastos/meta $100k/peso/habitos) validada en lab F11-e + aplicada a prod con respaldo; +libreta.db al respaldo; HAS §E10 v1.7 | cerrado ✅
+AS | — | Brief 6:30 + cierre nocturno por voz (extracción de gastos/hábitos de audio) | pendiente ← SIGUIENTE (desbloqueada por AR)
 AT | — | Trading testnet: conectar trading_entrenador.py, corridas diarias autónomas | pendiente (necesita AQ)
 AU | — | Motor de guiones desde Obsidian + pipeline de clips + OAuth YouTube | pendiente

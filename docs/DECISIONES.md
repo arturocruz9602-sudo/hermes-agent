@@ -138,3 +138,16 @@ promesa** (guardrail vigente: Hermes reporta números reales, jamás promete; la
 los resultados del laboratorio). Primero entrenar el modelo; incluye **investigar en la web las mejores
 estrategias** (parte de AT). Freno **-3% diario**: sigue SIN confirmación explícita — coexiste con la
 estrategia (protege el capital, no la contradice).
+
+**01 ago · La libreta vive en `libreta.db`, no en state.db (Bloque AR).** Hallazgo: la libreta YA existía
+(17 tablas, clase `Libreta` con separación real/simulación + reloj virtual, sistema de migraciones propio).
+Corrige el SEED/ESTADO que decían "state.db". Migración **v4** reconció los datos con el cuestionario del
+01 ago (gym 500, moto 550, recarga_telefono 230, +deepseek/+gasolina, **meta capital $100k** 31-dic-2027 Mac
+Mini descartada, colegiatura $1,200 inflada como colchón por Arturo, peso 111.5, 6 hábitos). Validada en copia
+aislada + contenedor F11-e, aplicada a producción con respaldo previo y aprobación de Arturo (F7.2). Impacto:
+toda captura de vida de Arturo pasa por la clase `Libreta`; `state.db` no se toca.
+
+**01 ago · `libreta.db` entra al respaldo (Bloque AR, bug de data-safety).** El respaldo nocturno solo cubría
+state.db + memoria_semantica.db; la libreta (finanzas, peso, agenda de Arturo) corría sin red. Agregada a
+`respaldar_memoria.py::DEFAULT_DB_NAMES`. Impacto: los datos de vida de Arturo ya se respaldan y verifican
+(integrity + conteo) cada corrida.

@@ -1,7 +1,11 @@
 # LIBRETA_SEED — datos reales de Arturo, estructurados por tabla
-**Fuente: CUESTIONARIO_MAESTRO respondido (01 ago 2026). Regla: esto se carga a `state.db` en el Bloque AR,
-DESPUÉS de validar la migración en el laboratorio. Campo sin dato = NULL documentado, no se inventa.
+**Fuente: CUESTIONARIO_MAESTRO respondido (01 ago 2026). Campo sin dato = NULL documentado, no se inventa.
 Referencia (r.N) = número de respuesta del cuestionario.**
+
+**⚠️ CORRECCIÓN (Bloque AR, 01 ago): la libreta vive en `libreta.db` (NO `state.db` — ese es del proyecto
+original). La reconciliación de estos datos se aplicó como migración v4 (`scripts/libreta_migrar.py`),
+validada en laboratorio y aplicada a producción con respaldo previo. Los datos ya NO son "por cargar":
+gastos/meta/peso/hábitos ya viven en `libreta.db`. Lo que resta es captura continua vía la clase `Libreta`.**
 
 ## tabla: ingresos_fuentes
 | fuente | monto | frecuencia | notas |

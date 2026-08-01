@@ -1,8 +1,8 @@
-# ESTADO — actualizado: 01 ago 2026 (AQ cerrado: laboratorio Docker validado; siguiente AR)
+# ESTADO — actualizado: 01 ago 2026 (AR cerrado: libreta reconciliada en producción; siguiente AS)
 **Se SOBREESCRIBE cada sesión, máx 80 líneas (gate). Histórico: `docs/archivo/`. Voz de Arturo: `CUESTIONARIO_MAESTRO.md` = misma jerarquía que MANDATO.**
 
 ## Fases HAS
-F0-F4 ✅ | F5 🔄 ~50% | F6-F14 ⬜ | **F11 laboratorio VALIDADO (AQ)**. E10 INVALIDADO por r.28 (meta: capital $100,000, Mac Mini descartada) — se corrige en AR.
+F0-F4 ✅ | F5 🔄 ~50% | F6-F14 ⬜ | **F11 laboratorio VALIDADO (AQ)**. **E10 → v1.7** (meta capital $100k/31-dic-2027, Mac Mini descartada; corregido en AR).
 
 ## REGLA QUE CAMBIA TODO (r.20, permanente — ya en CLAUDE.md, regla 6)
 Todo dato de fechas/pagos/citas mencionado en pruebas = **SIMULADO** salvo que Arturo marque "dato real". La colegiatura del 31 jul queda ANULADA. Inventar escenarios y adelantar el reloj: SOLO en el laboratorio Docker. Producción jamás.
@@ -10,15 +10,16 @@ Todo dato de fechas/pagos/citas mencionado en pruebas = **SIMULADO** salvo que A
 ## ✅ AQ CERRADO (01 ago) — primera corrida real del laboratorio, con evidencia
 Imagen `hermes-agent:latest` construida (966 MB) + respaldo `20260731_040925` restaurado en volumen aislado `hermes-lab-data` (nunca `~/.hermes`) → `integrity_check` de state.db y memoria_semantica.db = **ok** (27 tablas, 2919 msgs, 273 sesiones) + smoke del código real de Hermes leyendo la DB + arnés host 57/57. Pico térmico **59°C** (umbral 85, nunca disparó). `down -v` hecho. **Primera prueba real de que los respaldos de Arturo SÍ restauran.** Detalle: BLOQUES/DECISIONES.
 
-## OBJETIVO ACTUAL (bloqueado hasta cerrarse)
-**Bloque AR: la libreta — RECONCILIAR, no construir.** HALLAZGO 01 ago: la libreta YA existe en `libreta.db` (NO state.db — corregir SEED/doc): 17 tablas, 3 migraciones, clase `Libreta` con separación real/simulación + reloj virtual (`scripts/libreta.py`, `libreta_migrar.py`). AR = **migración v4 de reconciliación** con los 123 datos del cuestionario: arreglar 5 discrepancias (meta→capital $100k/31-dic-2027 Mac Mini descartada; gym 400→500; moto 500→550; "internet"→recarga_telefono; +deepseek 100/+gasolina; colegiatura $1,100 = r.20 la anuló, DECISIÓN de Arturo pendiente) + sembrar peso 111.5 (r.68) y hábitos + reescritura HAS §E10 (v1.7). Secuencia F11-e: v4 → probar en lab sobre COPIA de libreta.db + meses simulados → integrity_check + skills leyendo/escribiendo → SOLO entonces producción con respaldo y tu aprobación (F7.2). Gate térmico r.103 vigente.
-🔴 **BUG data-safety:** `libreta.db` NO está en el respaldo del 31 jul (AQ solo trajo state.db+memoria). Sus finanzas hoy sin respaldo — meter libreta.db a `respaldar_memoria.py` es parte de AR.
+## ✅ AR CERRADO (01 ago) — la libreta reconciliada, aplicada a PRODUCCIÓN con respaldo y aprobación (F7.2)
+HALLAZGO: la libreta YA existía (`libreta.db`, 17 tablas, clase `Libreta` real/simulación — NO state.db, SEED corregido). AR = **migración v4**: gym→500, moto→550 bimestral, internet→recarga_telefono 230, +deepseek 100/+gasolina 200, **meta capital $100k/31-dic-2027 (Mac Mini descartada)**, colegiatura $1,200 (colchón, Arturo), peso 111.5, 6 hábitos. Validada en copia aislada + **contenedor F11-e** (integrity ok, v4, clase Libreta lee/escribe) → aplicada a producción con respaldo previo `20260801_165400`. ✅ **libreta.db ya en `respaldar_memoria.py`** (bug data-safety cerrado). HAS §E10→v1.7.
 
-## COLA DE AGOSTO (tras AR; orden r.97: dinero → YouTube/redes → Hermes completo)
-1. **AS — Brief 6:30 + cierre nocturno por VOZ** (r.73/86/90): brief clima×agenda + noticias trading + plan; cierre por nota de voz, Hermes extrae gastos/hábitos/peso. Necesita AR.
-2. **AT — Trading testnet (OT-10)**: `trading_entrenador.py` a testnet Binance; simular capital hasta **5,000 MXN, ciclos SEMANALES**; estrategia news-driven (caída + noticias que apuntan a alza = arriesgar); **investigar mejores estrategias en la web**. Meta 2,000/sem = objetivo de ENTRENAMIENTO, no promesa (r.36-43). Primero entrenar el modelo.
-3. **AU — Motor de guiones desde Obsidian + pipeline de clips** (r.45-48): guion gancho/cierre/retención; TODOS los clips ≤2 min programados en mejores horarios; OAuth YouTube (r.59).
-4. Transversal: **presupuesto de contexto** — prueba permanente del arnés (techo 19.1k/vuelta, ≥3 muestras).
+## OBJETIVO ACTUAL (bloqueado hasta cerrarse)
+**Bloque AS — Brief 6:30 + cierre nocturno por VOZ** (r.73/86/90): brief matutino con clima cruzado vs agenda + noticias de trading + plan del día; cierre nocturno donde Arturo manda nota de voz y Hermes extrae gastos/hábitos/peso a la libreta. Ya desbloqueado (AR listo). ⚠️ Hueco a atacar aquí/AT: la clase `Libreta` no conoce el entorno `laboratorio` (solo real/simulación); el compose del lab pone `HERMES_ENTORNO=laboratorio` y hoy se sortea usando `real` dentro del contenedor.
+
+## COLA DE AGOSTO (tras AS; orden r.97: dinero → YouTube/redes → Hermes completo)
+1. **AT — Trading testnet (OT-10)**: `trading_entrenador.py` a testnet Binance; simular capital hasta **5,000 MXN, ciclos SEMANALES**; estrategia news-driven (caída + noticias que apuntan a alza = arriesgar); **investigar mejores estrategias en la web**. Meta 2,000/sem = objetivo de ENTRENAMIENTO, no promesa (r.36-43). Primero entrenar el modelo.
+2. **AU — Motor de guiones desde Obsidian + pipeline de clips** (r.45-48): guion gancho/cierre/retención; TODOS los clips ≤2 min programados en mejores horarios; OAuth YouTube (r.59).
+3. Transversal: **presupuesto de contexto** — prueba permanente del arnés (techo 19.1k/vuelta, ≥3 muestras).
 
 ## EFICIENCIA — 3 preocupaciones de Arturo (01 ago)
 - **P1 variantes:** matriz = GUION_PRUEBAS × 5 roles (F11-d) × escenarios simulados (r.20); cada corrida nocturna agrega escenarios.
@@ -41,4 +42,4 @@ Imagen `hermes-agent:latest` construida (966 MB) + respaldo `20260731_040925` re
 ESTADO ≤80 sobreescrito · BLOQUES 1 línea · DECISIONES si hubo · commit+push · TEMP-DIAG=0 · temperatura HP normal.
 
 ## Último contexto
-01 ago: reestructura documental + cuestionario 123 integrado + CLAUDE.md v1.3 (4 parches) + **AQ cerrado (laboratorio Docker validado, respaldos que restauran probados por primera vez)**. Siguiente: AR (la libreta).
+01 ago: reestructura documental + cuestionario 123 + CLAUDE.md v1.3 + **AQ cerrado** (lab validado) + **AR cerrado** (libreta reconciliada en producción: gastos/meta/peso/hábitos reales, libreta ya respaldada). Siguiente: **AS** (brief 6:30 + cierre nocturno por voz).

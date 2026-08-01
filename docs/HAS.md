@@ -1039,14 +1039,15 @@ Regla codificada: cualquier objetivo fuera de la lista de equipos propios exige 
 7. **Modelo de suscripción (v1.1 — el plan real de Arturo):** Claude Pro se paga **un mes cada ~4 meses**, como ventana de mantenimiento; entre ventanas, Hermes debe ser autosuficiente con sus modelos gratuitos. Implicaciones de diseño obligatorias: (a) **la ruta crítica (Fases 0-6) se cierra en la ventana actual**, mientras hay Claude — no se raciona; (b) Hermes acumula entre ventanas una **cola de mantenimiento con evidencia** (bugs con logs, skills stale, propuestas del barrido semanal) para que la sesión de mantenimiento llegue con el diagnóstico hecho y gaste tokens en arreglar, no en investigar; (c) al abrir cada ventana, la primera sesión corre `has_progress.py` + `skills audit` + los smoke tests para saber el estado real antes de tocar nada; (d) Max solo se considera dentro de una ventana si en ella pierdes ≥3 días de trabajo planificado por límites — fuera de ventanas la pregunta no existe. (Límites exactos de cada plan: verifica en https://support.claude.com al decidir.)
 8. **Contexto de Proyectos de claude.ai:** como usa RAG, es el lugar correcto para este documento en tus chats de diseño — no lo pegues completo en conversaciones; deja que el proyecto lo recupere por fragmentos.
 
-## E10. Plan financiero personal — los rieles (v1.1)
+## E10. Plan financiero personal — los rieles (v1.7 — 01 ago 2026)
 
-Estos números son **hechos aprobados** que Hermes debe conocer (se cargan en `memoria_estructurada` en la Fase 4) y la base del reporte mensual de rieles.
+Estos números son **hechos aprobados** que Hermes debe conocer. **La fuente VIVA de estos datos es `libreta.db` (Bloque AR, migración v4), no `memoria_estructurada`.** Base del **reporte SEMANAL** de rieles (r.18, domingo por la mañana).
 
-**Punto de partida (jul-2026):**
-- Ingreso: $200/día, lunes a domingo con martes de descanso → ~26 días → **~$5,200/mes** (trabajo informal; sin comprobantes de nómina — irrelevante para CETES, ver abajo).
-- Gastos fijos declarados: gym $500 + servicio de moto ~$100 ($300/trimestre) + recargas $200 + gasolina $200 + presupuesto IA/DeepSeek $100 = **~$1,100/mes**.
-- Margen teórico ~$4,100/mes. **SUPUESTO marcado:** comida y vivienda cubiertas fuera de este flujo; si no, Arturo lo corrige y Hermes recalcula todo.
+**Punto de partida (01 ago 2026, confirmado por el cuestionario):**
+- Ingreso base taquería: **$200/día trabajado** (día trabajado, día pagado; r.13). **Días variables — NO asumir 26/mes** (r.14); martes descanso; sin propinas (r.15).
+- Fuente extra: **reventa de refrescos** dentro del negocio (caja $328/24 pzas, venta $20/pza; patrón desconocido que Hermes mide y reporta, r.16).
+- Gastos fijos (libreta v4, r.19): recarga_telefono $230 + gym $500 + deepseek $100 + gasolina ~$200 (variable) = **~$1,030/mes recurrente mensual**; además colegiatura **$1,200 cuatrimestral** (inflada como colchón) + servicio_moto **$550 bimestral**.
+- **SUPUESTO confirmado (r.21):** comida y vivienda cubiertas fuera de este flujo. Sin deudas (r.34).
 
 **Los tres rieles de ingreso (vista mensual obligatoria en Notion):**
 1. **Trabajo + ahorro directo** — el riel que garantiza. Meta de depósito mensual configurable (inicial: $3,500).
@@ -1055,9 +1056,9 @@ Estos números son **hechos aprobados** que Hermes debe conocer (se cargan en `m
 
 Cuarto riel a futuro (post-graduación): proyecto propio / empresa de servicios tecnológicos / empleo formal — se agrega por migración F7 cuando exista.
 
-**Metas ancladas con números:**
-- **Mac Mini (~$27,000):** para el 31-dic se requieren ~$5,100/mes de ahorro — **no alcanza solo con el riel 1**; para mediados de febrero, ~$3,860/mes — posible pero al límite del margen. Fecha base realista: **febrero-marzo por ahorro**, y los rieles 2 y 3 existen para adelantarla. Hermes reporta cada mes: "fondo Mac Mini: $X (riel 1) + $Y (riel 2) + $Z (riel 3); fecha estimada al ritmo actual: ___".
-- **Mac Studio 64GB (~$55,000–65,000, meta de segundo horizonte):** con $3,500/mes en CETES al ~5.5% neto → **~16-17 meses** después de arrancar ese fondo (los intereses aportan ~$2,000; el motor es el depósito). Se arranca DESPUÉS de liquidar la Mac Mini, no en paralelo.
+**Meta anclada con números (r.28-35, 01 ago — INVALIDA la meta Mac Mini de v1.1):**
+- **Capital principal: $100,000 MXN (piso $90,000) para el 31 de Diciembre 2027.** Saldo hoy: **$0** (no hay dinero guardado aún). El **capital ES el fondo de emergencia** — no hay fondo separado (r.35). Depósito objetivo provisional **$3,500/mes** (r.29); Hermes recalcula con los datos reales del primer mes. Reporte semanal: "capital: $X; al ritmo actual llega a $100k en ___".
+- **Mac Mini DESCARTADA (r.30).** La **Mac Studio** (~$55,000–65,000) se compra **DESDE el capital** cuando Arturo decida; Hermes **rastrea precio/promos** y avisa oportunidades (r.35). La **moto nueva** es futuro sin monto (r.31) — "prefiero que el enfoque siga siendo el dinero".
 
 **CETES (el colchón del riel 1):**
 - Requisitos de cetesdirecto: **CURP, RFC, INE, correo y CLABE bancaria — nada más; NO pide comprobar ingresos** (es inversión, no crédito; el trabajo informal no es barrera). Desde $100.
