@@ -1,6 +1,6 @@
 # CLAUDE.md — arranque automático de toda sesión
 **Este archivo lo lee Claude Code SOLO, cada vez que abre el repo. Arturo no tiene que recordárselo nunca.**
-Va en la raíz del repo del fork. Versión 1.2 · 01-ago-2026 (reestructura documental: lectura de arranque ligera + tarea única + DECISIONES).
+Va en la raíz del repo del fork. Versión 1.3 · 01-ago-2026 (reestructura documental + 4 parches de Arturo: has_progress engañoso fuera, regla de simulación, gate térmico, versionado extendido).
 
 ---
 
@@ -9,10 +9,10 @@ Va en la raíz del repo del fork. Versión 1.2 · 01-ago-2026 (reestructura docu
 Al abrir sesión — incluso si Arturo solo dice "hola" o "¿estás ahí?" — ejecuta este arranque sin que te lo pidan:
 
 1. **Lectura fija de arranque, en este orden y NADA más por default:** `CLAUDE.md` (este) + `docs/MANDATO_ARTURO.md` + `docs/ESTADO.md`. **Fin de la lectura fija.** (`CUESTIONARIO_MAESTRO.md` es la voz directa de Arturo, misma jerarquía que MANDATO; se lee cuando la tarea lo pida.)
-2. **`docs/ESTADO.md` dice qué documentos adicionales leer** para la tarea activa — lee SOLO esos. Leer `HAS`/`PROTOCOLO`/`VIDA_DE_ARTURO`/`docs/archivo/` completos requiere escribir 1 línea de motivo antes. Y **antes de proponer cualquier cambio de arquitectura, consulta `docs/DECISIONES.md`**: reabrir una decisión cerrada sin evidencia nueva = falla de protocolo. Verifica de paso que ESTADO/BLOQUES sigan versionados: `git ls-files docs/ESTADO.md docs/BLOQUES.md` (falla L11).
+2. **`docs/ESTADO.md` dice qué documentos adicionales leer** para la tarea activa — lee SOLO esos. Leer `HAS`/`PROTOCOLO`/`VIDA_DE_ARTURO`/`docs/archivo/` completos requiere escribir 1 línea de motivo antes. Y **antes de proponer cualquier cambio de arquitectura, consulta `docs/DECISIONES.md`**: reabrir una decisión cerrada sin evidencia nueva = falla de protocolo. Verifica de paso que los archivos del sistema nuevo sigan versionados: `git ls-files docs/ESTADO.md docs/BLOQUES.md docs/DECISIONES.md docs/CUESTIONARIO_MAESTRO.md` (falla L11 — detecta si alguno se cae del repo).
 3. `git status` y `git log --oneline -5` — ¿quedó algo a medias en la sesión anterior?
 4. `grep -rn "TEMP-DIAG"` — ¿quedaron diagnósticos temporales? Si sí, quítalos o justifícalos (falla L4).
-5. Salud, en silencio: `systemctl is-active hermes-gateway litellm` y, si existe, `python ~/.hermes/scripts/has_progress.py --quiet`.
+5. Salud, en silencio: `systemctl is-active hermes-gateway litellm`. (`has_progress.py` NO se usa: reporta datos engañosos — bug abierto en ESTADO. El avance real lo dice ESTADO.md, no el script.)
 6. **¿Hubo un reinicio que nadie esperaba?** `uptime` — si el tiempo activo es sospechosamente corto, revisa `/var/run/reboot-required` (¿queda otro pendiente?) y vuelve a confirmar la tapa (ver punto 8). Un reinicio de sistema tumba tmux, procesos en segundo plano y todo lo que viva en `/tmp` — si acaba de pasar, dilo en el saludo antes de que Arturo pregunte.
 7. **¿Esta sesión vive dentro de tmux?** Verifica con `echo $TMUX` (o revisa si el proceso padre es una shell de tmux). Si NO estás dentro de tmux y el trabajo que sigue es real (no solo una pregunta rápida), dilo explícitamente y propone crear/entrar una sesión de tmux antes de seguir — nunca trabajo real fuera de tmux, es la causa raíz de la mayoría de las sesiones perdidas de julio 2026.
 8. **La tapa se revisa por partida doble, siempre juntas:** `grep HandleLidSwitch /etc/systemd/logind.conf` (debe decir `ignore`) Y `gsettings get org.gnome.settings-daemon.plugins.power lid-close-ac-action` / `lid-close-battery-action` (deben decir `nothing`) — confirmado el 26 jul 2026 que pueden contradecirse entre sí (logind bien, GNOME diciendo `suspend`), y solo revisar una de las dos da una falsa sensación de seguridad.
@@ -55,7 +55,7 @@ Antes de terminar, o si Arturo va a dar `/clear`, o cada 30 minutos de trabajo c
 2. **`docs/ESTADO.md` se SOBREESCRIBE** (nunca append) con el formato vigente, **≤80 líneas — gate duro `wc -l docs/ESTADO.md`**. Incluye la primera línea de versiones vigentes. Si se pasa de 80: poda o manda lo viejo a `docs/archivo/`.
 3. **Bloque cerrado → 1 línea en `docs/BLOQUES.md`** (es solo el índice); la narrativa larga, si amerita, va a `docs/archivo/`. **Decisión de arquitectura nueva → `docs/DECISIONES.md`** (append-only).
 4. Si hubo algo visible para Arturo, actualiza `docs/BITACORA_ARTURO.md` con el cambio traducido a su día a día + un mensaje de ejemplo que él pueda mandar literal.
-5. `grep -rn "TEMP-DIAG"` = 0.
+5. `grep -rn "TEMP-DIAG"` = 0 y temperatura HP normal.
 6. `git push fork HEAD:arturo/prod` — **NO** `git push fork main`: la
    rama `main` del fork solo espeja el upstream de NousResearch (miles
    de commits ajenos, diverge sin relación con el trabajo real). El
@@ -66,13 +66,14 @@ Antes de terminar, o si Arturo va a dar `/clear`, o cada 30 minutos de trabajo c
 
 No pasa nada: relee este archivo, `ESTADO.md`, `git status` y `git diff`, y retoma. Nunca vuelvas a empezar de cero ni le preguntes a él qué se estaba haciendo.
 
-## LAS 5 REGLAS QUE NO SE ROMPEN NUNCA
+## LAS 6 REGLAS QUE NO SE ROMPEN NUNCA
 
 1. **Nada de auto-reportes.** Verifica en disco, en logs reales o con una llamada real. "Se ve bien" no es verificación. Si dices "verificado", pega la evidencia (HAS §F8). Un log citado sin su línea textual no existe (L5).
 2. **Nunca declares cerrado lo que no probaste.** Contabilidad caso por caso: cuántos pasaron limpios, cuántos no se probaron, cuántos fallaron. Corregir un reporte previo es mérito, no falla.
 3. **El silencio nunca es un estado válido de fallo.** Todo mecanismo loggea éxito Y fallo (HAS §F9-L6/L14).
 4. **Arturo aprueba solo 4 cosas:** gastos fuera de presupuesto, acciones irreversibles, seguridad, y decisiones que le agrupaste. Todo lo demás lo resuelves tú (PROTOCOLO §9).
 5. **Diagnósticos temporales se marcan `# TEMP-DIAG` y se retiran antes de cerrar.**
+6. **Regla de simulación (r.20):** todo dato de fechas/pagos/citas/eventos mencionado en pruebas es SIMULADO salvo que Arturo marque "dato real". Autorizado inventar escenarios y adelantar el reloj — **SOLO en el laboratorio Docker**. Nada simulado toca producción, calendario real ni memoria permanente. En producción, captura espontánea = preguntar **"¿lo agendo?"** antes de crear nada (r.89). (Permanente: no puede vivir solo en ESTADO.md, que se sobreescribe cada sesión.)
 
 Además, permanentes: memoria solo vía `memory_tool.py` (jamás editar los .md a mano); subagentes solo para lectura y **se verifica el artefacto en disco antes de leer su resumen** (L10); español siempre hacia Arturo; los permisos que pida Hermes van en 3 líneas máximo — qué hace, qué cuesta, sí/no.
 
@@ -123,6 +124,12 @@ BLOQUES.md). Divide en fragmentos de ~300 con `timeout` por fragmento
 revisa `df -h /tmp` antes de una corrida grande si ha pasado tiempo
 desde la última limpieza. Pedido explícito de Arturo (26 jul 2026)
 tras confirmar que esta práctica evitó que se repitiera el problema.
+
+Además: **revisa la temperatura de la HP antes y durante corridas
+largas; si sube del umbral, PAUSA hasta que baje** — pedido explícito de
+Arturo (r.103). (Hoy sin `lm-sensors`: leer `/sys/class/thermal/*/temp`,
+no requiere `sudo`. Base medida ~47°C; en el build de AQ el pico fue
+59°C con umbral 85°C.)
 
 ## MAPA DEL PROYECTO (para no re-descubrirlo cada sesión)
 
