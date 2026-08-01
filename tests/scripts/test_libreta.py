@@ -158,7 +158,8 @@ def test_meta_de_ahorro_acumula_y_no_se_duplica(entorno):
         lib.abonar_meta("Mac Mini", 5000)
         lib.abonar_meta("Mac Mini", 2500)
         m = lib.meta_ahorro("Mac Mini")
-        n = lib.con.execute("SELECT COUNT(*) FROM ahorro_metas").fetchone()[0]
+        # cuenta solo la meta creada aqui: la libreta trae metas base tras la migracion v4
+        n = lib.con.execute("SELECT COUNT(*) FROM ahorro_metas WHERE nombre='Mac Mini'").fetchone()[0]
     assert n == 1 and m["objetivo_mxn"] == 17000 and m["acumulado_mxn"] == 7500
 
 
@@ -356,7 +357,8 @@ def test_registrar_pago_recurrente_no_duplica_por_nombre(entorno):
     with libreta_mod.Libreta("simulacion") as lib:
         lib.registrar_pago_recurrente("internet", 200)
         lib.registrar_pago_recurrente("internet", 230)  # el monto se corrigio
-        n = lib.con.execute("SELECT COUNT(*) FROM pagos_recurrentes").fetchone()[0]
+        # cuenta solo 'internet': la libreta trae pagos base tras la migracion v4
+        n = lib.con.execute("SELECT COUNT(*) FROM pagos_recurrentes WHERE nombre='internet'").fetchone()[0]
         monto = lib.con.execute(
             "SELECT monto_mxn FROM pagos_recurrentes WHERE nombre='internet'"
         ).fetchone()[0]

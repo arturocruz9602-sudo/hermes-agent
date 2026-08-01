@@ -151,3 +151,13 @@ toda captura de vida de Arturo pasa por la clase `Libreta`; `state.db` no se toc
 state.db + memoria_semantica.db; la libreta (finanzas, peso, agenda de Arturo) corría sin red. Agregada a
 `respaldar_memoria.py::DEFAULT_DB_NAMES`. Impacto: los datos de vida de Arturo ya se respaldan y verifican
 (integrity + conteo) cada corrida.
+
+**01 ago · Trading: freno de emergencia -3% diario CONFIRMADO (r.40).** Arturo, textual: "que quede así -3%".
+Si en un día el capital acumula -3% de pérdida, Hermes se detiene y avisa (con $2,000 reales = apagado al
+perder $60). Impacto: es el circuit-breaker duro del laboratorio testnet (AT) y de cualquier operación real
+futura; coexiste con la estrategia news-driven (esta busca ganar, el freno solo evita el día catastrófico).
+
+**01 ago · La migración v4 NO se edita tras aplicarse; los tests se hicieron precisos (Bloque AR, /loop).**
+v4 siembra datos base en toda BD migrada, lo que rompía 2 tests que contaban la tabla completa. En vez de
+editar una migración ya aplicada (prohibido por el runner), los tests ahora verifican solo la fila que crean
+(`WHERE nombre=...`) — que es exactamente lo que prueban ("no duplica por nombre"). 49/49 en verde.

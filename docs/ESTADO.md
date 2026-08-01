@@ -13,8 +13,8 @@ Imagen `hermes-agent:latest` construida (966 MB) + respaldo `20260731_040925` re
 ## ✅ AR CERRADO (01 ago) — la libreta reconciliada, aplicada a PRODUCCIÓN con respaldo y aprobación (F7.2)
 HALLAZGO: la libreta YA existía (`libreta.db`, 17 tablas, clase `Libreta` real/simulación — NO state.db, SEED corregido). AR = **migración v4**: gym→500, moto→550 bimestral, internet→recarga_telefono 230, +deepseek 100/+gasolina 200, **meta capital $100k/31-dic-2027 (Mac Mini descartada)**, colegiatura $1,200 (colchón, Arturo), peso 111.5, 6 hábitos. Validada en copia aislada + **contenedor F11-e** (integrity ok, v4, clase Libreta lee/escribe) → aplicada a producción con respaldo previo `20260801_165400`. ✅ **libreta.db ya en `respaldar_memoria.py`** (bug data-safety cerrado). HAS §E10→v1.7.
 
-## 🔴 BUG ABIERTO (AR, hallado en /loop autónomo 01 ago) — DECISIÓN de Arturo
-La migración **v4 siembra datos personales** (deepseek, gasolina, capital_principal, peso, hábitos) en TODA base recién migrada → rompe 2 tests que asumen tablas vacías (`test_libreta.py`: pago_recurrente y meta_ahorro; 47/49 pasan). **Producción quedó correcta** (no afecta los datos reales de Arturo). Causa: v1-v3 eran solo esquema; v4 mezcló DATOS. Fix recomendado (con Arturo, NO autónomo porque implica editar una migración ya aplicada, prohibido por el runner): dejar en v4 solo los UPDATE de reconciliación y sembrar los datos personales vía la clase `Libreta` como paso aparte (el patrón del 31 jul). No tocado a la espera de tu visto bueno.
+## ✅ BUG RESUELTO (AR, hallado y corregido 01 ago) — sin tocar la migración aplicada
+La v4 siembra datos base en toda BD migrada, lo que rompía 2 tests que contaban toda la tabla (`test_libreta.py`). Fix elegido (respeta la regla "no editar migración ya aplicada"): las 2 pruebas ahora verifican SOLO la fila que crean (`WHERE nombre=...`), que es lo que de verdad prueban. **49/49 en verde.** Producción intacta.
 
 ## OBJETIVO ACTUAL (bloqueado hasta cerrarse)
 **Bloque AS — Brief 6:30 + cierre nocturno por VOZ** (r.73/86/90): brief matutino con clima cruzado vs agenda + noticias de trading + plan del día; cierre nocturno donde Arturo manda nota de voz y Hermes extrae gastos/hábitos/peso a la libreta. Ya desbloqueado (AR listo). ⚠️ Hueco a atacar aquí/AT: la clase `Libreta` no conoce el entorno `laboratorio` (solo real/simulación); el compose del lab pone `HERMES_ENTORNO=laboratorio` y hoy se sortea usando `real` dentro del contenedor.
@@ -29,10 +29,9 @@ La migración **v4 siembra datos personales** (deepseek, gasolina, capital_princ
 - **P2 exceso de contexto:** techo de tokens por tipo de llamada, medido en cada corrida del lab (≥3 muestras); exceder = suite en rojo. Base 30 jul: 19.1k/vuelta.
 - **P3 DeepSeek:** repetitivo → Gemini-extra/Groq/OpenRouter (r.91), DeepSeek solo comanda; ledger $/función semanal; recorte del prompt ~40k entra con AR.
 
-## Decisiones pendientes de ARTURO (sigue leyendo el cuestionario — 01 ago)
-1. Freno de emergencia de trading a **-3% diario, sí/no** (r.40) — coexiste con la estrategia agresiva, solo protege el capital.
-2. OAuth de YouTube (5 min) cuando arranque AU.
-(Resuelto 01 ago: **PRIVACIDAD confirmada** — montos/tickets SÍ a gratis; correos/contraseñas/nombres/salud/datos que vulneren su seguridad NO. **Horario** oficial lo manda él a Hermes; may-ago = simulación (`docs/HORARIO_SIMULACION.md`). **Correos** = trabajo F6, no decisión. Estándar de docs lo define Claude Code, MANDATO §8.)
+## Decisiones pendientes de ARTURO
+1. OAuth de YouTube (5 min) cuando arranque AU. (Único pendiente vivo.)
+(Resuelto 01 ago: **Trading -3% diario CONFIRMADO** (Arturo: "que quede así"). **PRIVACIDAD** — montos/tickets SÍ a gratis; correos/contraseñas/nombres/salud/datos que vulneren su seguridad NO. **Horario** oficial lo manda él a Hermes; may-ago = simulación. **Correos** = trabajo F6. Estándar de docs lo define Claude Code, MANDATO §8.)
 
 ## No tocar / reglas de equipo
 - **M1 PRESTADA (r.102):** config nocturna (caffeinate) se REVIERTE antes de 6:00 y se verifica revertida.
