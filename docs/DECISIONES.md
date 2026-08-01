@@ -114,3 +114,11 @@ nunca promete rendimientos. Apagado -3% diario: pendiente de confirmación tras 
 **01 ago · Pruebas masivas SOLO en Docker con la cuenta QA (r.119).** Producción y el Telegram real de
 Arturo no reciben tráfico de prueba. Impacto: el arnés apunta al contenedor; la cuenta QA vive dentro del
 flujo de laboratorio.
+
+**01 ago · Laboratorio Docker OPERATIVO y respaldos VERIFICADOS (Bloque AQ).** Imagen `hermes-agent:latest`
+construida; respaldo `20260731_040925` restaurado en volumen aislado con `integrity_check` = ok en state.db
+y memoria_semantica.db; smoke del código real + arnés host 57/57. Motivo: F11 exigía la primera corrida real
+(hasta hoy el lab nunca había corrido). Impacto: (1) toda migración de esquema de AR en adelante se prueba
+aquí antes de producción (F11-e); (2) queda probado por primera vez que los respaldos de Arturo restauran;
+(3) **gate térmico** se implementa leyendo `/sys/class/thermal/*/temp` (sin `sudo`; `lm-sensors` requeriría
+sudo), umbral 85°C — pico real del build 59°C.

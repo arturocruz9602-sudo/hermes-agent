@@ -29,8 +29,8 @@ AN | 30 jul | DeepSeek llave principal + frenos (max_turns 25) | cerrado ✅
 AO | 31 jul | Sesión arquitectura: 3 hallazgos (libreta, privacidad, Ollama) | cerrado ✅
 AP | 31 jul | Separación de entornos: HAS §F11 + lab Docker | en curso 🔄 (docs ✅, lab nunca corrido; se cierra con AQ)
 — | 01 ago | Reestructura documental + cuestionario 123 respuestas integrado (ESTADO/DECISIONES/SEED) | cerrado ✅
-AQ | 01 ago | Primera corrida real del laboratorio Docker + gate térmico HP | pendiente ← SIGUIENTE
-AR | — | La libreta: tablas de vida en state.db + carga de LIBRETA_SEED + reescritura HAS §E10 (v1.7) | pendiente (bloqueada por AQ)
+AQ | 01 ago | Primera corrida real del lab: imagen + restaurar respaldo 20260731 (integrity ok) + smoke + arnés 57/57 + gate térmico (pico 59°C) | cerrado ✅
+AR | — | La libreta: tablas de vida en state.db + carga de LIBRETA_SEED + reescritura HAS §E10 (v1.7) | pendiente ← SIGUIENTE (desbloqueada por AQ)
 AS | — | Brief 6:30 + cierre nocturno por voz (extracción de gastos/hábitos de audio) | pendiente (necesita AR)
 AT | — | Trading testnet: conectar trading_entrenador.py, corridas diarias autónomas | pendiente (necesita AQ)
 AU | — | Motor de guiones desde Obsidian + pipeline de clips + OAuth YouTube | pendiente

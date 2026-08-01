@@ -7,6 +7,36 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 01 Ago 2026 (3:45 pm) — El taller ya se estrenó, y de paso comprobé que sus respaldos SÍ sirven
+
+### Lo que pasaba antes
+
+El "taller aparte" (el laboratorio) estaba **escrito pero nunca encendido**: era un
+plano, no un taller de verdad. Y algo más delicado: teníamos respaldos de su Hermes
+guardándose cada noche… pero **nadie había comprobado nunca que esos respaldos de
+verdad se puedan restaurar.** Un respaldo que nunca se prueba es una promesa, no un
+seguro. Si un día la laptop moría, íbamos a descubrir en el peor momento si servían.
+
+### Lo que hay ahora
+
+Encendí el taller por primera vez y, dentro de él (sin tocar ni un dato suyo real),
+**tomé el respaldo de anoche y lo restauré completo**: sus 2,919 mensajes, sus 273
+conversaciones, su memoria — todo volvió intacto y verificado. En cristiano:
+
+**si mañana se muere la laptop, ya sé de cierto que su Hermes se puede reconstruir.**
+Antes era un "debería"; ahora es un "sí, probado".
+
+De papa: vigilé la temperatura de la HP todo el rato (usted lo pidió) — llegó a 59°C
+como mucho, muy lejos de calentarse. Ni sudó.
+
+### Cómo lo prueba usted
+
+Este es de los que **no tiene que probar** — es plomería de seguridad, pasa por
+detrás. Pero si quiere verlo con sus ojos, puede mandarme: *"Hermes, ¿mis respaldos
+de verdad se pueden restaurar?"* y le paso la evidencia de hoy.
+
+---
+
 ## 31 Jul 2026 (6:45 pm) — Su Hermes ya tiene "taller aparte": ahora puedo romper cosas sin romperle la vida
 
 ### Lo que pasaba antes
