@@ -31,6 +31,6 @@ AP | 31 jul | Separación de entornos: HAS §F11 + lab Docker | en curso 🔄 (d
 — | 01 ago | Reestructura documental + cuestionario 123 respuestas integrado (ESTADO/DECISIONES/SEED) | cerrado ✅
 AQ | 01 ago | Primera corrida real del lab: imagen + restaurar respaldo 20260731 (integrity ok) + smoke + arnés 57/57 + gate térmico (pico 59°C) | cerrado ✅
 AR | 01 ago | La libreta RECONCILIADA: la libreta ya existia (libreta.db); migracion v4 (gastos/meta $100k/peso/habitos) validada en lab F11-e + aplicada a prod con respaldo; +libreta.db al respaldo; HAS §E10 v1.7 | cerrado ✅
-AS | — | Brief 6:30 + cierre nocturno por voz (extracción de gastos/hábitos de audio) | pendiente ← SIGUIENTE (desbloqueada por AR)
+AS | 01 ago | Brief 6:30 DESPLEGADO (brief_matutino.py + timer, verificado en simulacion con reloj virtual); falta cierre nocturno en audio + verificar voz→libreta | en curso 🔄 ← SIGUIENTE
 AT | — | Trading testnet: conectar trading_entrenador.py, corridas diarias autónomas | pendiente (necesita AQ)
 AU | — | Motor de guiones desde Obsidian + pipeline de clips + OAuth YouTube | pendiente

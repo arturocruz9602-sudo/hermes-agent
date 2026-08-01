@@ -16,8 +16,12 @@ HALLAZGO: la libreta YA existía (`libreta.db`, 17 tablas, clase `Libreta` real/
 ## ✅ BUG RESUELTO (AR, hallado y corregido 01 ago) — sin tocar la migración aplicada
 La v4 siembra datos base en toda BD migrada, lo que rompía 2 tests que contaban toda la tabla (`test_libreta.py`). Fix elegido (respeta la regla "no editar migración ya aplicada"): las 2 pruebas ahora verifican SOLO la fila que crean (`WHERE nombre=...`), que es lo que de verdad prueban. **49/49 en verde.** Producción intacta.
 
-## OBJETIVO ACTUAL (bloqueado hasta cerrarse)
-**Bloque AS — Brief 6:30 + cierre nocturno por VOZ** (r.73/86/90): brief matutino con clima cruzado vs agenda + noticias de trading + plan del día; cierre nocturno donde Arturo manda nota de voz y Hermes extrae gastos/hábitos/peso a la libreta. Ya desbloqueado (AR listo). ⚠️ Hueco a atacar aquí/AT: la clase `Libreta` no conoce el entorno `laboratorio` (solo real/simulación); el compose del lab pone `HERMES_ENTORNO=laboratorio` y hoy se sortea usando `real` dentro del contenedor.
+## OBJETIVO ACTUAL — Bloque AS (EN CURSO)
+✅ **Brief 6:30 LISTO y desplegado:** `scripts/brief_matutino.py` (agenda horario+citas · clima Open-Meteo sin llave, cruzado con gym/trabajo · pagos realmente próximos · tareas · meta capital · trading Brave best-effort). Timer `hermes-brief-matutino.timer` armado (próx. dom 06:30). Verificado en SIMULACIÓN (lunes con reloj adelantado) + corre desde ruta de prod. Todo determinista/APIs gratis.
+Falta para cerrar AS:
+- **Cierre nocturno en AUDIO (r.90):** hoy `cierre_del_dia.py` (22:45) empuja la pregunta en TEXTO; falta el resumen del día en audio a la hora de dormir.
+- **Verificar voz→libreta punta a punta:** STT transcribe y el Hermes vivo extrae a la libreta — probarlo con una nota de voz real (cuenta QA o Arturo).
+⚠️ Hueco anotado (AT/simulación): la clase `Libreta` no conoce el entorno `laboratorio` (solo real/simulación); en el contenedor se sortea con `real`.
 
 ## COLA DE AGOSTO (tras AS; orden r.97: dinero → YouTube/redes → Hermes completo)
 1. **AT — Trading testnet (OT-10)**: `trading_entrenador.py` a testnet Binance; simular capital hasta **5,000 MXN, ciclos SEMANALES**; estrategia news-driven (caída + noticias que apuntan a alza = arriesgar); **investigar mejores estrategias en la web**. Meta 2,000/sem = objetivo de ENTRENAMIENTO, no promesa (r.36-43). Primero entrenar el modelo.

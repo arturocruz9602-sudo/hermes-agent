@@ -7,6 +7,40 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 01 Ago 2026 (6:00 pm) — Desde mañana le llega un "buenos días" con el panorama del día
+
+### Lo que hay ahora
+
+Puse en marcha su **brief de las 6:30** — eso que pidió como prioridad #1. **Mañana
+domingo a las 6:30 (y todos los días) le va a llegar solo por Telegram** un resumen
+como este:
+
+```
+☀️ Buenos días, jefe. Lunes 03/08.
+🌤️ Clima: 22–36°C
+🗓️ Tu día: escuela · gym · taquería · 10:00 Dentista
+💸 Pagos cerca: recarga_telefono $230
+📚 Escuela: Análisis del entorno — entrega mañana
+🎯 Capital: $3,500 / $100,000 (4%)
+```
+
+Cruza el **clima con su agenda** (si va a llover a la hora del gym, se lo digo),
+le recuerda **pagos que de verdad están cerca** (no le grito los que faltan
+meses), sus **tareas de la escuela** y **cuánto lleva** rumbo a los $100,000.
+Todo sale de su libreta y de datos gratis — no gasta ni un peso de API.
+
+Ojo: los **primeros días saldrá algo corto** (clima + meta), porque todavía no
+tiene cargada su agenda ni sus pagos con fecha. Se va llenando conforme use
+Hermes y cuando me pase su horario oficial de septiembre.
+
+### Cómo lo prueba usted
+
+Nomás **espere al de mañana 6:30**. Si lo quiere ver ya, mándeme: *"Hermes,
+mándame el brief de hoy"* y se lo disparo al momento. Si el formato no le lata,
+dígame qué cambiar.
+
+---
+
 ## 01 Ago 2026 (5:00 pm) — Su libreta ya tiene sus números REALES (y por fin está respaldada)
 
 ### Lo que pasaba antes
