@@ -38,7 +38,10 @@ from pathlib import Path
 
 HERMES_HOME = Path(os.getenv("HERMES_HOME", str(Path.home() / ".hermes")))
 DEFAULT_DEST = Path("/mnt/seagate/hermes_backups")
-DEFAULT_DB_NAMES = ("state.db", "memoria_semantica.db")
+# libreta.db agregada el 01 ago 2026 (Bloque AR): guarda la VIDA de Arturo
+# (finanzas, peso, agenda). Estaba fuera del respaldo -- sus datos personales
+# corrian sin red. Es plana (sin vec0), el mismo camino de backup la cubre.
+DEFAULT_DB_NAMES = ("state.db", "memoria_semantica.db", "libreta.db")
 
 # Copiar en trozos chicos (no todo en un solo `backup()` sin pausas) para
 # que la Backup API reintente sola si choca con un escritor activo

@@ -256,6 +256,36 @@ MIGRACIONES = [
             "CREATE INDEX IF NOT EXISTS idx_ideas_estado ON ideas_contenido(estado)",
         ],
     ),
+    (
+        4,
+        "Reconciliar con el cuestionario del 01 ago: metas, pagos corregidos, peso y habitos reales (r.19/28/68/72)",
+        [
+            # Nota: v4 corrige DATOS (no esquema). Asume el camino canonico
+            # (F11-e): se aplica sobre la libreta real o una copia restaurada.
+            # En BD nueva, los UPDATE son no-op y los INSERT OR IGNORE dejan el
+            # estado correcto de todos modos.
+            # ── PAGOS: valores confirmados por Arturo el 01 ago (r.19) ──
+            # 'internet' era en realidad la recarga de telefono ("el de ley").
+            "UPDATE pagos_recurrentes SET nombre='recarga_telefono', nota='recarga de telefono, el de ley (r.19)' WHERE nombre='internet'",
+            # gym 400 -> 500
+            "UPDATE pagos_recurrentes SET monto_mxn=500 WHERE nombre='gym'",
+            # servicio de moto 500 -> 550 (sigue bimestral)
+            "UPDATE pagos_recurrentes SET monto_mxn=550 WHERE nombre='servicio_moto'",
+            # colegiatura: real ~1100; Arturo pidio inflarla a 1200 como colchon
+            "UPDATE pagos_recurrentes SET monto_mxn=1200, nota='cuatrimestral; real ~1100, inflado a 1200 como colchon (Arturo 01 ago); dia del mes por confirmar' WHERE nombre='colegiatura'",
+            # deepseek: recarga fija mensual ~dia 28
+            "INSERT OR IGNORE INTO pagos_recurrentes (nombre, monto_mxn, dia_del_mes, frecuencia_meses, nota) VALUES ('deepseek', 100, 28, 1, 'recarga fija; Hermes observa el gasto real promedio (r.19)')",
+            # gasolina: variable ~200/mes, referencia de presupuesto (no es fijo)
+            "INSERT OR IGNORE INTO pagos_recurrentes (nombre, monto_mxn, dia_del_mes, frecuencia_meses, nota) VALUES ('gasolina', 200, NULL, 1, 'variable ~200/mes promedio (r.19); referencia, no fijo')",
+            # ── META NUEVA (r.28-31, 35): el capital, no la Mac ──
+            "UPDATE ahorro_metas SET nombre='capital_principal', objetivo_mxn=100000, fecha_limite='2027-12-31', activa=1, nota='piso 90,000 (r.28); saldo 0 hoy; el capital ES el fondo de emergencia (r.35); Mac Studio y moto se compran DESDE aqui -- Mac Mini descartada (r.30)' WHERE nombre='Mac Mini o Mac Studio + moto (60,000)'",
+            # robustez en BD nueva (si la fila vieja no existia)
+            "INSERT OR IGNORE INTO ahorro_metas (nombre, objetivo_mxn, acumulado_mxn, fecha_limite, activa, nota) VALUES ('capital_principal', 100000, 0, '2027-12-31', 1, 'piso 90,000; el capital ES el fondo; Mac Studio/moto desde aqui; Mac Mini descartada')",
+            # ── CUERPO: peso real (r.68) y habitos declarados (r.70-72) ──
+            "INSERT INTO peso (fecha, kg, nota) SELECT '2026-08-01', 111.5, 'dato real (r.68); meta y ritmo por definir' WHERE NOT EXISTS (SELECT 1 FROM peso WHERE fecha='2026-08-01' AND kg=111.5)",
+            "INSERT OR IGNORE INTO habitos (nombre, activo, nota) VALUES ('entrenar',1,'r.72'), ('estudiar',1,'r.72'), ('comer_limpio',1,'registro detallado de comidas (r.70)'), ('trabajo_profundo',1,'marco mental (r.78)'), ('cero_chelas',1,'regla principal; en riesgo explicar lo que se echa a perder + ventajas (r.71)'), ('descanso_estrategico',1,'r.72')",
+        ],
+    ),
 ]
 
 
