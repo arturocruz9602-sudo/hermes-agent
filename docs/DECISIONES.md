@@ -122,3 +122,19 @@ y memoria_semantica.db; smoke del código real + arnés host 57/57. Motivo: F11 
 aquí antes de producción (F11-e); (2) queda probado por primera vez que los respaldos de Arturo restauran;
 (3) **gate térmico** se implementa leyendo `/sys/class/thermal/*/temp` (sin `sudo`; `lm-sensors` requeriría
 sudo), umbral 85°C — pico real del build 59°C.
+
+**01 ago · Privacidad RESUELTA (r.91, confirmada por Arturo).** A APIs gratis (Gemini-extra/Groq/OpenRouter)
+SÍ pueden ir **montos y tickets** (números de dinero). **NUNCA a APIs gratis:** correos (contenido y
+direcciones), **contraseñas**, nombres, datos de salud, y cualquier dato que vulnere su seguridad en la red.
+Las contraseñas no se guardan en ningún lado (r.92). Impacto: cierra el matiz que quedó abierto el 31 jul; el
+router puede mandar montos/tickets a gratis, lo demás va a modelo local o proveedor de paga con términos
+verificados de no-entrenamiento.
+
+**01 ago · Trading — dirección de ENTRENAMIENTO (r.36-43, ampliada por Arturo).** Simulación en testnet con
+capital de hasta **5,000 MXN**, ciclos **SEMANALES**. Estrategia a entrenar: cruzar caída de precio con
+señales de noticias/web — si una cripto cae pero las noticias apuntan a que sube en la semana, se arriesga
+(buy-the-dip informado por sentimiento). Meta declarada **2,000 MXN/semana = OBJETIVO de entrenamiento, NO
+promesa** (guardrail vigente: Hermes reporta números reales, jamás promete; las expectativas se calibran con
+los resultados del laboratorio). Primero entrenar el modelo; incluye **investigar en la web las mejores
+estrategias** (parte de AT). Freno **-3% diario**: sigue SIN confirmación explícita — coexiste con la
+estrategia (protege el capital, no la contradice).

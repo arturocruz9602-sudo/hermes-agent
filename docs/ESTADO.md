@@ -15,7 +15,7 @@ Imagen `hermes-agent:latest` construida (966 MB) + respaldo `20260731_040925` re
 
 ## COLA DE AGOSTO (tras AR; orden r.97: dinero → YouTube/redes → Hermes completo)
 1. **AS — Brief 6:30 + cierre nocturno por VOZ** (r.73/86/90): brief clima×agenda + noticias trading + plan; cierre por nota de voz, Hermes extrae gastos/hábitos/peso. Necesita AR.
-2. **AT — Trading testnet (OT-10)**: `trading_entrenador.py` a testnet Binance, corridas diarias autónomas. Pedido "lo más pronto posible" (r.36); expectativas se calibran con resultados reales, nunca se prometen.
+2. **AT — Trading testnet (OT-10)**: `trading_entrenador.py` a testnet Binance; simular capital hasta **5,000 MXN, ciclos SEMANALES**; estrategia news-driven (caída + noticias que apuntan a alza = arriesgar); **investigar mejores estrategias en la web**. Meta 2,000/sem = objetivo de ENTRENAMIENTO, no promesa (r.36-43). Primero entrenar el modelo.
 3. **AU — Motor de guiones desde Obsidian + pipeline de clips** (r.45-48): guion gancho/cierre/retención; TODOS los clips ≤2 min programados en mejores horarios; OAuth YouTube (r.59).
 4. Transversal: **presupuesto de contexto** — prueba permanente del arnés (techo 19.1k/vuelta, ≥3 muestras).
 
@@ -24,11 +24,10 @@ Imagen `hermes-agent:latest` construida (966 MB) + respaldo `20260731_040925` re
 - **P2 exceso de contexto:** techo de tokens por tipo de llamada, medido en cada corrida del lab (≥3 muestras); exceder = suite en rojo. Base 30 jul: 19.1k/vuelta.
 - **P3 DeepSeek:** repetitivo → Gemini-extra/Groq/OpenRouter (r.91), DeepSeek solo comanda; ledger $/función semanal; recorte del prompt ~40k entra con AR.
 
-## Decisiones pendientes de ARTURO (contestará #1-3 después — 01 ago, sigue leyendo el cuestionario)
-1. Privacidad (r.91): propuesta default — montos/tickets SÍ a APIs gratis; correos completos, nombres y salud NO. Un "ok jefe" y queda.
-2. Confirmar apagado de emergencia de trading a -3% diario (r.40).
-3. OAuth de YouTube (5 min) cuando arranque AU.
-(Resuelto 01 ago: horario oficial sept-dic lo manda él directo a Hermes; el de may-ago quedó como SIMULACIÓN en `docs/HORARIO_SIMULACION.md`, NO oficial. Correos: NO es decisión — direcciones ya conocidas/probadas; conectarlos a Hermes es trabajo de F6 con candado solo-lectura + privacidad. Estándar de generación de docs lo define Claude Code, MANDATO §8.)
+## Decisiones pendientes de ARTURO (sigue leyendo el cuestionario — 01 ago)
+1. Freno de emergencia de trading a **-3% diario, sí/no** (r.40) — coexiste con la estrategia agresiva, solo protege el capital.
+2. OAuth de YouTube (5 min) cuando arranque AU.
+(Resuelto 01 ago: **PRIVACIDAD confirmada** — montos/tickets SÍ a gratis; correos/contraseñas/nombres/salud/datos que vulneren su seguridad NO. **Horario** oficial lo manda él a Hermes; may-ago = simulación (`docs/HORARIO_SIMULACION.md`). **Correos** = trabajo F6, no decisión. Estándar de docs lo define Claude Code, MANDATO §8.)
 
 ## No tocar / reglas de equipo
 - **M1 PRESTADA (r.102):** config nocturna (caffeinate) se REVIERTE antes de 6:00 y se verifica revertida.
