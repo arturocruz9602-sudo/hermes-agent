@@ -47,6 +47,8 @@ a gastar 200 pesos en tokens, que se gasten, pero que Hermes salga súper eficie
    montos y tickets SÍ pueden ir a APIs gratis; correos completos, nombres y salud NO. Un "ok jefe" y queda.
 4. Confirmar el apagado de emergencia de trading a -3% diario (r.40: no entendió — ya explicado en chat).
 5. OAuth de YouTube (5 min) cuando arranque AU.
+(Nota: el estándar de generación de documentos NO es promesa pendiente de Arturo — esa línea era de una
+versión reescrita por otra IA, no de su prompt original. Lo define Claude Code solo, autorizado por MANDATO §8.)
 
 ## No tocar / reglas nuevas de equipo
 - **M1 es PRESTADA (r.102):** toda config nocturna (caffeinate para render) se REVIERTE antes de las 6:00.
