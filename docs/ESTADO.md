@@ -24,13 +24,11 @@ Imagen `hermes-agent:latest` construida (966 MB) + respaldo `20260731_040925` re
 - **P2 exceso de contexto:** techo de tokens por tipo de llamada, medido en cada corrida del lab (≥3 muestras); exceder = suite en rojo. Base 30 jul: 19.1k/vuelta.
 - **P3 DeepSeek:** repetitivo → Gemini-extra/Groq/OpenRouter (r.91), DeepSeek solo comanda; ledger $/función semanal; recorte del prompt ~40k entra con AR.
 
-## Decisiones pendientes de ARTURO
-1. Horario cuatrimestre sept-dic (r.61; este ciclo ya no se carga).
-2. Correos exactos de las 2 cuentas escuela/redes (r.63).
-3. Privacidad (r.91): propuesta default — montos/tickets SÍ a APIs gratis; correos completos, nombres y salud NO. Un "ok jefe" y queda.
-4. Confirmar apagado de emergencia de trading a -3% diario (r.40).
-5. OAuth de YouTube (5 min) cuando arranque AU.
-(El estándar de generación de documentos NO es pendiente de Arturo — lo define Claude Code, MANDATO §8.)
+## Decisiones pendientes de ARTURO (contestará #1-3 después — 01 ago, sigue leyendo el cuestionario)
+1. Privacidad (r.91): propuesta default — montos/tickets SÍ a APIs gratis; correos completos, nombres y salud NO. Un "ok jefe" y queda.
+2. Confirmar apagado de emergencia de trading a -3% diario (r.40).
+3. OAuth de YouTube (5 min) cuando arranque AU.
+(Resuelto 01 ago: horario oficial sept-dic lo manda él directo a Hermes; el de may-ago quedó como SIMULACIÓN en `docs/HORARIO_SIMULACION.md`, NO oficial. Correos: NO es decisión — direcciones ya conocidas/probadas; conectarlos a Hermes es trabajo de F6 con candado solo-lectura + privacidad. Estándar de generación de docs lo define Claude Code, MANDATO §8.)
 
 ## No tocar / reglas de equipo
 - **M1 PRESTADA (r.102):** config nocturna (caffeinate) se REVIERTE antes de 6:00 y se verifica revertida.
