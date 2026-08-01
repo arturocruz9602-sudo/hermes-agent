@@ -1,4 +1,5 @@
-# PROTOCOLO DE COORDINACIÓN · v1.3.1
+# PROTOCOLO DE COORDINACIÓN · v1.4
+**Cambios v1.4 (01-ago):** reestructura documental. §2 — `ESTADO.md` gana la sección "Documentos a leer esta sesión", se SOBREESCRIBE (nunca append) y tiene gate duro `wc -l ≤ 80` al cierre. §3 — la narrativa larga de cada bloque vive en `docs/archivo/`; `BLOQUES.md` es solo el índice (1 línea por bloque). Nueva regla C17 (tarea única). Nuevo `docs/DECISIONES.md` (decisiones técnicas cerradas, append-only) y `docs/CUESTIONARIO_MAESTRO.md` (voz directa de Arturo, misma jerarquía que MANDATO).
 **Cambios v1.3.1 (23-jul):** C16 — presupuesto autónomo de pruebas ($100 MXN/mes con cortacircuitos), aprobado por Arturo.
 **Cambios v1.3 (23-jul) — CORRECCIÓN DE ARQUITECTURA:** el centro de trabajo diario deja de ser el chat de diseño y pasa a ser **Claude Code**, que arranca solo leyendo `CLAUDE.md` + `ESTADO.md` y propone el siguiente paso sin que Arturo pegue nada. Arturo deja de ser el cable entre cajas. Nuevas reglas: §10 (arranque autónomo y consulta interna a otros modelos), C15 (permisos por allowlist), P6.1 (cuenta QA de Telegram), P7 (guion de pruebas del día completo y las 3 capas de verificación de memoria). El chat de diseño (claude.ai) pasa a rol de consultor eventual, no de eslabón diario.
 **Cambios v1.2 (23-jul):** nueva sección 9 "La carga de Arturo" — regla suprema de este protocolo: los Claudes existen para quitarle trabajo a Arturo, no para convertirlo en mensajero ni en juez; economía de decisiones, versiones declaradas en ESTADO.md, y defaults con plazo.
@@ -34,6 +35,7 @@ Archivo único, corto (máx ~80 líneas), en el fork. Es la memoria compartida e
 ```
 
 **Reglas de mantenimiento:**
+- `ESTADO.md` incluye la sección **"Documentos a leer esta sesión"** (qué docs adicionales toca la tarea activa); el arranque lee SOLO esos además de la lectura fija. **Se SOBREESCRIBE, nunca se appendea**, y tiene **gate duro `wc -l ≤ 80` al cierre** (si se pasa: poda o manda lo viejo a `docs/archivo/`).
 - Claude Code lo actualiza como **último acto de cada sesión**, siempre (va en la cabecera común de sesión como regla 10).
 - Arturo lo pega (o pega su contenido) como **primer mensaje de cada conversación nueva** en el Proyecto, junto con el último reporte de sesión de Claude Code.
 - **El chat de diseño tiene PROHIBIDO emitir bloques nuevos si no tiene un ESTADO.md de hoy o el reporte de la última sesión.** Su primera respuesta en ese caso es pedirlo, no diseñar de memoria. Diseñar sin estado fue la causa raíz del 22-jul.
@@ -42,6 +44,7 @@ Archivo único, corto (máx ~80 líneas), en el fork. Es la memoria compartida e
 
 Una línea por bloque emitido: `<letra> | <fecha> | <objetivo en 5-10 palabras> | estado: pendiente/en curso/cerrado ✅/cerrado ❌/DEROGADO por <letra>`.
 
+- **`BLOQUES.md` es SOLO el índice** (1 línea por bloque); la narrativa larga de cada bloque vive en `docs/archivo/`. Consultarla desde ahí cuando haga falta.
 - Las letras son consecutivas y únicas para todo el proyecto (no se reusan).
 - Cuando un bloque nuevo reemplaza el enfoque de uno viejo (caso real: O derogó los criterios de L y el gate M), el viejo se marca DEROGADO explícitamente — así Claude Code nunca ejecuta lógica zombi ni el chat rediseña sobre algo que ya no existe.
 - El chat de diseño consulta este registro (vía ESTADO.md o pidiéndolo) antes de asignar letra nueva.
@@ -66,6 +69,8 @@ C11. **Diagnósticos temporales se retiran antes de cerrar** (prints, logs extra
 C12. **Si una instrucción del chat contradice el HAS o el estado real del código, se detiene y lo reporta** en vez de ejecutarla ("el bloque pide X pero el HAS §B4 dice Y / esto ya se resolvió en el bloque K"). El chat de diseño puede equivocarse; el ejecutor es la segunda línea de defensa, en ambas direcciones.
 C13. **Bitácora de Arturo (v1.1).** Si la sesión tocó algo visible para el usuario, el cierre incluye actualizar `docs/BITACORA_ARTURO.md`: qué cambió traducido a día-a-día + un mensaje de ejemplo que Arturo pueda mandar literal para probarlo. Las pruebas de rutina NO son de Arturo (ver P6); la bitácora es donde él verifica y experimenta por gusto, no por obligación.
 C14. **Barrido de diagnósticos (v1.1 — nace de L4).** Todo diagnóstico temporal se marca `# TEMP-DIAG` al escribirse; el cierre de sesión corre `grep -rn "TEMP-DIAG"` sobre el árbol tocado y debe dar 0 resultados (o justificar en ESTADO.md, casilla "en cuarentena", cada uno que se queda). Además, al ABRIR sesión: `git ls-files docs/ESTADO.md docs/BLOQUES.md` debe devolver ambos; si no están versionados, se detiene todo y se corrige primero (L11).
+
+C17. **Tarea única (v1.4 — concilia MANDATO §1 con el foco).** La elección de la tarea de mayor impacto ocurre **UNA sola vez, al abrir sesión** (la marca `ESTADO.md` en "OBJETIVO ACTUAL"). Elegida, queda **BLOQUEADA hasta cerrarla**: no refactorizar, no limpiar, no optimizar, no renombrar, no investigar otra cosa, no abrir frentes nuevos. Si a media sesión aparece algo más importante, se **ANOTA en `ESTADO.md`** como candidato para la siguiente sesión — no se cambia de caballo. **Excepción única: producción caída.** (Antes de proponer un cambio de arquitectura, además, se consulta `docs/DECISIONES.md`: reabrir una decisión cerrada sin evidencia nueva es falla de protocolo.)
 
 ## 6. Reglas de las pruebas (donde más se rompió el 22-jul)
 

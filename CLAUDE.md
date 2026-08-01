@@ -1,6 +1,6 @@
 # CLAUDE.md — arranque automático de toda sesión
 **Este archivo lo lee Claude Code SOLO, cada vez que abre el repo. Arturo no tiene que recordárselo nunca.**
-Va en la raíz del repo del fork. Versión 1.1 · 23-jul-2026.
+Va en la raíz del repo del fork. Versión 1.2 · 01-ago-2026 (reestructura documental: lectura de arranque ligera + tarea única + DECISIONES).
 
 ---
 
@@ -8,8 +8,8 @@ Va en la raíz del repo del fork. Versión 1.1 · 23-jul-2026.
 
 Al abrir sesión — incluso si Arturo solo dice "hola" o "¿estás ahí?" — ejecuta este arranque sin que te lo pidan:
 
-1. Lee `docs/MANDATO_ARTURO.md` (el contrato de trabajo), `docs/VIDA_DE_ARTURO.md` (los 5 frentes de su vida que el HAS no cubría + su semana real), `docs/ESTADO.md` y `docs/BLOQUES.md`.
-2. Verifica que ambos estén versionados: `git ls-files docs/ESTADO.md docs/BLOQUES.md`. Si faltan, corrígelo antes de nada (falla L11).
+1. **Lectura fija de arranque, en este orden y NADA más por default:** `CLAUDE.md` (este) + `docs/MANDATO_ARTURO.md` + `docs/ESTADO.md`. **Fin de la lectura fija.** (`CUESTIONARIO_MAESTRO.md` es la voz directa de Arturo, misma jerarquía que MANDATO; se lee cuando la tarea lo pida.)
+2. **`docs/ESTADO.md` dice qué documentos adicionales leer** para la tarea activa — lee SOLO esos. Leer `HAS`/`PROTOCOLO`/`VIDA_DE_ARTURO`/`docs/archivo/` completos requiere escribir 1 línea de motivo antes. Y **antes de proponer cualquier cambio de arquitectura, consulta `docs/DECISIONES.md`**: reabrir una decisión cerrada sin evidencia nueva = falla de protocolo. Verifica de paso que ESTADO/BLOQUES sigan versionados: `git ls-files docs/ESTADO.md docs/BLOQUES.md` (falla L11).
 3. `git status` y `git log --oneline -5` — ¿quedó algo a medias en la sesión anterior?
 4. `grep -rn "TEMP-DIAG"` — ¿quedaron diagnósticos temporales? Si sí, quítalos o justifícalos (falla L4).
 5. Salud, en silencio: `systemctl is-active hermes-gateway litellm` y, si existe, `python ~/.hermes/scripts/has_progress.py --quiet`.
@@ -27,6 +27,12 @@ Propongo seguir con: <UNA cosa concreta y por qué>. (~<X> min)
 ```
 
 **Prohibido** pedirle a Arturo que pegue el ESTADO, que te diga dónde quedaron, o que te resuma la sesión pasada: eso está en los archivos y tú los acabas de leer. Si el ESTADO está desactualizado respecto a lo que ves en git, dilo tú y arréglalo tú.
+
+## REGLA DE TAREA ÚNICA (PROTOCOLO C17 — concilia MANDATO §1 con el foco)
+
+- La elección de la tarea de mayor impacto ocurre **UNA sola vez, al abrir sesión** (la marca `ESTADO.md` en "OBJETIVO ACTUAL").
+- Elegida, queda **BLOQUEADA hasta cerrarla:** no refactorizar, no limpiar, no optimizar, no renombrar, no investigar otra cosa, no abrir frentes nuevos.
+- Si a media sesión aparece algo más importante: se **ANOTA en `ESTADO.md`** como candidato para la siguiente sesión. No se cambia de caballo. **Excepción única: producción caída.**
 
 ## ANTES DE EJECUTAR CUALQUIER BLOQUE (auto-cuestionamiento, 5 líneas)
 
@@ -46,10 +52,11 @@ Si "ASUMO" contiene algo verificable en 2 minutos: **verifícalo, no lo asumas.*
 
 Antes de terminar, o si Arturo va a dar `/clear`, o cada 30 minutos de trabajo continuo:
 1. Commit de avance (aunque sea WIP).
-2. Actualiza `docs/ESTADO.md` (incluida la primera línea de versiones vigentes) y `docs/BLOQUES.md`.
-3. Si hubo algo visible para Arturo, actualiza `docs/BITACORA_ARTURO.md` con el cambio traducido a su día a día + un mensaje de ejemplo que él pueda mandar literal.
-4. `grep -rn "TEMP-DIAG"` = 0.
-5. `git push fork HEAD:arturo/prod` — **NO** `git push fork main`: la
+2. **`docs/ESTADO.md` se SOBREESCRIBE** (nunca append) con el formato vigente, **≤80 líneas — gate duro `wc -l docs/ESTADO.md`**. Incluye la primera línea de versiones vigentes. Si se pasa de 80: poda o manda lo viejo a `docs/archivo/`.
+3. **Bloque cerrado → 1 línea en `docs/BLOQUES.md`** (es solo el índice); la narrativa larga, si amerita, va a `docs/archivo/`. **Decisión de arquitectura nueva → `docs/DECISIONES.md`** (append-only).
+4. Si hubo algo visible para Arturo, actualiza `docs/BITACORA_ARTURO.md` con el cambio traducido a su día a día + un mensaje de ejemplo que él pueda mandar literal.
+5. `grep -rn "TEMP-DIAG"` = 0.
+6. `git push fork HEAD:arturo/prod` — **NO** `git push fork main`: la
    rama `main` del fork solo espeja el upstream de NousResearch (miles
    de commits ajenos, diverge sin relación con el trabajo real). El
    trabajo de Hermes vive en `arturo/prod`.
@@ -119,14 +126,19 @@ tras confirmar que esta práctica evitó que se repitiera el problema.
 
 ## MAPA DEL PROYECTO (para no re-descubrirlo cada sesión)
 
-- `docs/MANDATO_ARTURO.md` — el contrato de trabajo de Arturo conmigo. Se lee en TODA sesión.
-- `docs/HAS.md` — qué se construye y con qué reglas. Manda sobre todo.
-- `docs/PROTOCOLO.md` — cómo colaboramos. Su §9 protege el tiempo de Arturo y manda sobre el resto del protocolo.
-- `docs/ESTADO.md` — dónde vamos hoy. Primera línea: versiones vigentes.
-- `docs/BLOQUES.md` — registro de órdenes y su estado real.
+- `docs/MANDATO_ARTURO.md` — el contrato de trabajo de Arturo conmigo. Lectura fija de arranque.
+- `docs/ESTADO.md` — dónde vamos hoy, ≤80 líneas, se sobreescribe. Dice qué más leer para la tarea activa. Lectura fija de arranque.
+- `docs/CUESTIONARIO_MAESTRO.md` — la voz directa de Arturo (123 respuestas), **misma jerarquía que MANDATO**. Donde un doc viejo lo contradiga, gana este.
+- `docs/DECISIONES.md` — decisiones técnicas cerradas (append-only). Consultar ANTES de tocar arquitectura.
+- `docs/BLOQUES.md` — índice de bloques (1 línea c/u). Narrativa vieja en `docs/archivo/`.
+- `docs/LIBRETA_SEED.md` — datos reales de la vida de Arturo, listos para cargar a `state.db` (Bloque AR).
+- `docs/HAS.md` — qué se construye y con qué reglas. Manda sobre todo (leer bajo demanda).
+- `docs/PROTOCOLO.md` — cómo colaboramos. Su §9 protege el tiempo de Arturo (leer bajo demanda).
+- `docs/VIDA_DE_ARTURO.md` — los 5 frentes de su vida (leer bajo demanda; ya destilado en CUESTIONARIO/SEED).
 - `docs/HISTORIAL.md` — memoria histórica, solo lectura.
 - `docs/GUION_PRUEBAS.md` — el día simulado completo de Arturo (úsalo para toda validación grande).
 - `docs/BITACORA_ARTURO.md` — lo que Arturo lee y prueba por gusto.
+- `docs/archivo/` — ESTADO/BLOQUES históricos y narrativa larga de bloques cerrados.
 
 Rutas vivas: `~/.hermes/` (config, memoria, skills), `/mnt/seagate/` (crudo, biblioteca, backups), `litellm/config.yaml` (proveedores), gateway como servicio systemd.
 
