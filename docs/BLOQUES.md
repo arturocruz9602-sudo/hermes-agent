@@ -4,6 +4,55 @@ Este archivo no existía antes del 22 Jul 2026 (creado en O.8, primera
 entrada retroactiva es Bloque O porque es el bloque activo al momento de
 crear este archivo; bloques anteriores no se reconstruyen aquí).
 
+## Bloque AP — Separación de entornos como regla permanente: HAS §F11 + laboratorio Docker (31 Jul 2026, noche) — **EN CURSO (documentación entregada, laboratorio nunca ejecutado)**
+
+Petición directa de Arturo: recuperar la línea de pensamiento de por qué
+Docker (no por moda, por 3 problemas concretos) y dejarla **como parte
+permanente de la arquitectura**, con desarrollo/pruebas/producción
+claramente separados.
+
+**Entregado y versionado:**
+| Artefacto | Qué es |
+|---|---|
+| `HAS §F11` (nuevo) | La regla permanente. Tabla de 3 entornos + 6 reglas duras citables `F11-b1`..`F11-b6`. Va en la sección F (gobernanza), no en B (decisiones históricas) — a propósito: en B se olvida, en F se cita. |
+| `HAS §B12` (ampliado) | El *por qué* (los 3 problemas). Ahora apunta a F11 y al manual. |
+| `docs/LABORATORIO.md` (nuevo) | Manual operativo: 3 trabajos, comandos, tabla de trampas. |
+| `docker-compose.lab.yml` (nuevo) | Volumen nombrado aislado, red bridge, sin `.env` real, sin `restart`. |
+
+**Falla propia de la sesión, corregida en vivo.** Escribí la primera
+versión de F11 sin leer `MANDATO_ARTURO.md` ni `VIDA_DE_ARTURO.md` —
+brinqué el paso 1 del arranque de `CLAUDE.md` y me quedé con `grep` sobre
+ESTADO/BLOQUES. Arturo lo detectó: *"tienes 4 archivos míos de md que
+siento que no estás analizando."* Es reincidencia de **F9-L9/L15**
+(familia E, contexto no leído): tener el archivo en el repo no es leerlo.
+Al leerlos completos, F11 ganó tres secciones que no existían: los cinco
+roles de simulación (d), las Fases 12-14 como primer caso real (e), y el
+criterio de la ventana al 16 ago (f).
+
+**Hallazgo técnico real:** `docker-compose.yml` (heredado del upstream)
+monta `~/.hermes:/opt/data` — usarlo para pruebas habría corrido los
+experimentos sobre los datos reales de Arturo. Por eso el compose del
+laboratorio es nuevo, no una copia con ajustes.
+
+**Verificación hecha (F8, evidencia real):**
+- `docker compose -f docker-compose.lab.yml config` → `type: volume`
+  (nombrado, no bind), `target: /opt/data`, red `hermes-lab_default`
+  (bridge, no host). El aislamiento está confirmado por la salida, no
+  supuesto.
+
+**Verificación NO hecha — por eso esto NO está cerrado:**
+- La imagen **nunca se ha construido**: `docker images`, `docker ps -a` y
+  `docker volume ls` devuelven los tres vacíos.
+- El laboratorio **nunca ha corrido**. El compose está validado por
+  sintaxis, no por ejecución.
+- Contabilidad honesta: de 3 trabajos documentados (respaldo, simulación,
+  cambios peligrosos), **0 probados**.
+
+**Siguiente paso concreto:** construir la imagen y restaurar dentro el
+respaldo real `/mnt/seagate/hermes_backups/20260731_040925` (Trabajo 1 de
+`LABORATORIO.md`) — eso convierte esto en `CERRADO` y de paso valida por
+primera vez que los respaldos de Arturo de verdad restauran.
+
 ## Bloque AN — DeepSeek de llave principal + el freno que ya existía apagado (30 Jul 2026, tarde) — **CERRADO, verificado con corridas reales**
 
 Autorizado por Arturo en sesión, sobre números medidos, no estimados.

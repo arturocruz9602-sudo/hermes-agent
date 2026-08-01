@@ -7,6 +7,94 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 31 Jul 2026 (6:45 pm) — Su Hermes ya tiene "taller aparte": ahora puedo romper cosas sin romperle la vida
+
+### Lo que pasaba antes
+
+Cada vez que yo quería probar algo fuerte — cargarle un mes de gastos falsos,
+meterle 50 correos de prueba, cambiar cómo guarda sus datos — tenía dos opciones,
+las dos malas:
+
+1. **Probarlo en su Hermes real** → sus finanzas se llenan de gastos inventados,
+   su agenda de citas que nunca existieron, y luego hay que andar limpiando (y
+   rezando que no se me pase ninguno).
+2. **No probarlo** → y entonces el cambio le llega a usted sin haberse probado
+   nunca. Que es peor.
+
+Por eso muchas pruebas grandes no se hacían. No por flojera: **porque el único
+lugar donde probarlas era encima de sus cosas.**
+
+### Lo que hay ahora
+
+Siguiendo su analogía de la moto: **antes yo tenía que hacerle las pruebas a su
+moto, la que usa todos los días para irse a trabajar. Ahora hay una moto gemela
+en el taller.** Misma moto, mismas piezas, pero desarmable — le puedo quitar el
+motor, ponerle gasolina falsa, dejarla corriendo toda la noche a ver si truena.
+Si truena, truena esa. La suya ni se entera.
+
+Eso es un "contenedor". Sirve para tres cosas concretas:
+
+**1. Comprobar que sus respaldos de verdad sirven.**
+Hoy tenemos respaldos suyos guardados. Pero **nunca hemos probado restaurarlos.**
+Un respaldo sin probar es una promesa, no un respaldo — se sabe si sirve el día
+que se necesita, y ese día ya es tarde. En la moto gemela puedo agarrar el
+respaldo, restaurarlo desde cero, y ver si Hermes revive completo.
+
+**2. Simular semanas completas de su vida.**
+Usted me pidió que actuara como usted — estudiante, creador, trabajador,
+inversionista, persona normal — con semanas enteras de carga: correos, gastos,
+tareas, gym, trading, "hoy gané esto pero gasté 300 pesos". **Eso ahora se puede
+hacer de verdad**, con fechas inventadas y meses acelerados, y al terminar se
+borra todo de un jalón. Cero datos falsos en su Hermes real.
+
+**3. Que ningún cambio riesgoso le llegue sin probarse.**
+Lo más cercano: le voy a construir la libreta que le prometí (gastos, ingresos,
+peso, horario, citas). Eso significa **meterle mano a la base de datos donde vive
+su información**. Ahora eso se hace primero en la gemela, con meses de datos
+falsos encima para ver si aguanta, y sólo cuando funcione toca la suya.
+
+### Algo que casi se me va, y que vale la pena que sepa
+
+El proyecto ya traía un archivo de configuración de Docker heredado. Lo iba a
+usar tal cual. Al revisarlo, decía esto:
+
+```
+- ~/.hermes:/opt/data      <- la carpeta REAL de sus datos
+```
+
+O sea: **el "taller" venía conectado directo a su moto de diario.** Habría hecho
+exactamente lo que quiero evitar. Por eso el del laboratorio es uno nuevo,
+apartado a propósito.
+
+### Y usted me corrigió a media sesión — con razón
+
+Me dijo: *"tienes 4 archivos míos de md que siento que no estás analizando."*
+**Era cierto.** Estaba escribiendo la regla nueva sin haber leído completos su
+mandato y el documento de su vida — solo les había hecho búsquedas rápidas.
+
+Al leerlos bien aparecieron tres cosas que le faltaban a la regla, y las tres son
+suyas: los **cinco roles** que me pidió simular, que la **libreta (Fases 12-14)**
+es justo el primer cambio que debe pasar por el taller, y que esto es prioridad
+**antes del 16 de agosto** porque le sirve cuando usted ya no esté disponible.
+
+*Gracias por el jalón de orejas, jefe. Sin él la regla habría salido a medias.*
+
+### ⚠️ Lo que todavía NO puede probar (se lo digo antes de que pregunte)
+
+**El taller está diseñado, no construido.** Verifiqué con el comando real: no hay
+ni una imagen, ni un contenedor. Lo que quedó escrito hoy es el plano y las
+reglas; **falta armarlo y encenderlo por primera vez.**
+
+No hay mensaje que pueda mandarle a Hermes para probar esto — es maquinaria de
+taller, no una función suya. Lo que sí le va a llegar es el **resultado**: cuando
+le entregue la libreta de gastos e ingresos, va a venir ya probada con meses
+simulados encima, en vez de estrenarse con sus datos reales.
+
+**Lo primero que hago:** armar la gemela y usarla para restaurar su respaldo del
+31 de julio. Ahí sabremos, por primera vez, si sus respaldos de verdad sirven.
+
+---
+
 ## 31 Jul 2026 (3:10 am) — Usted evitó que le filtrara sus correos, y encontramos por qué a Hermes se le olvida todo
 
 **Esta vez los hallazgos fueron suyos, jefe. Los tres.**

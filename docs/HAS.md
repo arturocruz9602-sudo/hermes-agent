@@ -156,6 +156,26 @@ Formato: **Problema → Opciones → Decisión → Por qué.**
 
 **Decisión: se mantiene el palomeo manual, pero la lista la genera Hermes cada mañana** (cruzando kanban + horario + metas) y la publica en Notion y Telegram. Palomear a mano tiene valor conductual real (compromiso, revisión consciente); lo que se automatiza es la *generación* y la *recolección* (lo palomeado alimenta la métrica de avance). Automatizar el palomeo destruiría la señal: Hermes marcando sus propias tareas como hechas es exactamente el patrón de auto-reporte no confiable de B10.
 
+## B12. Docker como laboratorio aislado — no por moda, por tres problemas concretos (31 jul 2026)
+
+**Decisión de Arturo, textual:** *"la idea era utilizar Docker como un laboratorio completamente aislado de mi Hermes de producción... para que pudieras romper, reconstruir, actualizar y experimentar todo lo necesario sin poner en riesgo mi información real."*
+
+No es arquitectura por estándar — resuelve tres problemas reales, ninguno resoluble hoy sin arriesgar producción:
+
+**1. Verificar que los respaldos de verdad restauran.** Un respaldo nunca probado no es un respaldo, es una promesa. El laboratorio: contenedor limpio, restaurar el respaldo real más reciente (`scripts/respaldar_skills_y_sistema.py` + `scripts/restaurar_hermes.sh`) dentro de un volumen aislado, arrancar Hermes ahí, correr el arnés de humo (`docs/GUION_PRUEBAS.md`), y solo entonces dar el respaldo por válido. Hoy esto nunca se prueba — se confía en que el respaldo "debería" funcionar.
+
+**2. Simular semanas completas de la vida de Arturo sin contaminar datos reales.** La razón más importante, en sus palabras: un "Hermes gemelo" donde Claude Code actúe como si fuera Arturo — fechas, gastos, ingresos, tareas, trading, contenido, correos, citas inventados — corriendo semanas simuladas, y al terminar **se destruye el contenedor entero, sin dejar un solo dato falso en producción**. Ya existe una versión parcial de esto (el entorno de simulación de `scripts/libreta.py`, reloj virtual vía `HERMES_FECHA_SIMULADA`, aislado en `sim/libreta_sim.db`) — pero solo aísla la libreta. Un contenedor aísla **todo**: memoria, `state.db`, logs, la sesión completa de Hermes, no solo una base de datos.
+
+**3. Probar cambios peligrosos antes de que toquen producción.** Migraciones de esquema, actualizaciones de dependencias, cambios de configuración, librerías nuevas — todo se prueba primero dentro del contenedor. Solo pasa a producción cuando se comprobó que funciona. Esto habría cambiado el 31 de julio: el reinicio del gateway que invalidó el caché de sesión de Arturo a medio análisis, o el `tool_progress: off` sin comillas que casi se despliega mal, se habrían cazado en el laboratorio, no en producción.
+
+**Hallazgo real al diseñar esto:** `docker-compose.yml` (heredado del upstream) monta `~/.hermes:/opt/data` directo — usarlo tal cual para el laboratorio habría corrido las pruebas **sobre los datos reales de Arturo**, exactamente lo que se busca evitar. El `Dockerfile` (imagen con s6-overlay, completa y funcional) sí se reutiliza; el compose de laboratorio es uno **nuevo**, `docker-compose.lab.yml`, con volumen nombrado y aislado, nunca un bind-mount a `~/.hermes`.
+
+**Regla permanente que se desprende de esto:** Hermes debe tener development/pruebas/producción **claramente separados**. Todo experimento, simulación o actualización ocurre primero en el laboratorio aislado; solo llega a producción validado. Esto habilita pruebas agresivas y meses simulados de uso sin arriesgar la memoria permanente ni el funcionamiento diario real.
+
+**Relación con B4/OT-10 (laboratorio de trading):** son laboratorios distintos, mismo principio. El de trading usa el testnet de Binance (dinero falso, mercado real) para la estrategia específica; este usa Docker (Hermes completo aislado) para todo lo demás. `scripts/trading_entrenador.py` (30 jun 2026) es una implementación parcial de OT-10 — nunca programada ni conectada; sigue pendiente, aparte de este bloque.
+
+**→ Este bloque es el *por qué*. La regla permanente que obliga es §F11 (separación de entornos: desarrollo / laboratorio / producción). El manual operativo es `docs/LABORATORIO.md`. El compose aislado es `docker-compose.lab.yml`.**
+
 ---
 
 # C. PLAN POR FASES
@@ -1188,6 +1208,55 @@ a) **Claude Code tiene obligación de cierre:** todo problema no trivial que res
 b) **Hermes consulta el recetario** (indexado en la memoria semántica, Fase 4) **ANTES de razonar un problema desde cero**, y puede APLICAR recetas cuyos pasos estén dentro de sus permisos (mismo principio que F2v2: normal = aplica solo, crítico = propone).
 c) **Si Hermes resuelve algo nuevo por su cuenta** (con DeepSeek autorizado, o gratis), **también escribe su receta** — el sistema aprende de ambos agentes, no solo de Claude.
 d) **Métrica mensual en la vista de avance** (E8): % de problemas resueltos por receta/Hermes sin tocar a Claude. Esa es la medida real de "necesitar cada vez menos ayuda externa" — el objetivo central del proyecto (`~/.hermes/CLAUDE.md`: minimizar el consumo de APIs de pago mediante reutilización de conocimiento), ahora con un número que lo prueba.
+
+## F11. SEPARACIÓN DE ENTORNOS: desarrollo, laboratorio, producción — v1.6
+
+Decisión de Arturo del 31-jul-2026. B12 es el *por qué* (los tres problemas concretos que Docker resuelve); esto es la *regla permanente* que se cita y se obliga. Nace de un principio que el proyecto ya venía pagando caro: **el Hermes que guarda la vida real de Arturo no es el lugar donde se prueban cosas.**
+
+### a) Los tres entornos, y qué es sagrado en cada uno
+
+| Entorno | Dónde vive | Qué contiene | Qué se puede hacer |
+|---|---|---|---|
+| **Producción** | `~/.hermes/` en la HP + servicios systemd (`hermes-gateway`, `litellm`) | La memoria permanente, `state.db`, las finanzas, la escuela, el Telegram real de Arturo | Solo cambios **ya validados** en laboratorio. Nada experimental, nunca. |
+| **Laboratorio** | Contenedor Docker con volumen nombrado y aislado (`docker-compose.lab.yml`) | Un Hermes gemelo: datos falsos, o una copia restaurada de un respaldo | **Todo.** Romper, reconstruir, migrar, simular meses, actualizar dependencias, borrar y volver a empezar. Se destruye sin duelo. |
+| **Desarrollo** | El repo `~/.hermes/hermes-agent/` (git, rama `arturo/prod`) | Código, docs, skills en texto | Editar, commitear, correr tests unitarios y el arnés interno. No toca datos de Arturo. |
+
+### b) Las reglas que no se rompen
+
+1. **Un experimento nunca nace en producción.** Migración de esquema, dependencia nueva, librería nueva, cambio de arquitectura, prueba de carga, simulación de semanas: **primero en el laboratorio**, siempre. Producción recibe el cambio solo cuando ya se comprobó allí, con evidencia pegada (F8).
+2. **El laboratorio jamás monta `~/.hermes` directo.** Prohibido el bind-mount a los datos reales — se usa volumen nombrado o una copia restaurada de un respaldo. Ese es el punto entero del laboratorio; un compose con `~/.hermes:/opt/data` lo anula. `docker-compose.yml` (el heredado del upstream) hace exactamente eso: **no se usa para pruebas.**
+3. **Datos simulados jamás tocan la memoria real.** Toda simulación de la vida de Arturo (fechas, gastos, ingresos, tareas, trading, contenido, correos, citas inventados) vive y muere dentro del laboratorio. Al terminar, **se destruye el contenedor y su volumen** — cero datos falsos sobrevivientes en producción. Si un dato simulado apareciera en la memoria real, eso es un incidente de F9, no un descuido.
+4. **Un respaldo no probado no es un respaldo.** Ningún respaldo se declara válido sin haberse restaurado en un laboratorio limpio y haber arrancado Hermes ahí. Restaurar es la prueba; tener el archivo no lo es. Verificación mínima: `integrity_check` de la base + el arnés de humo de `docs/GUION_PRUEBAS.md`.
+5. **El laboratorio nunca habla con el Telegram principal.** Dos procesos con el mismo bot token compitiendo por `getUpdates` tumban el gateway real. Si la prueba necesita mensajes en vivo, se usa la cuenta QA; si no, el arnés interno.
+6. **Nada de credenciales reales de pago en el laboratorio por defecto.** Una simulación de meses con las llaves reales puede quemar cuota o presupuesto sin que nadie lo note. El laboratorio arranca con llaves de prueba, modelos gratuitos, o simulados; usar una llave real ahí es una decisión explícita que se registra en el ledger con etiqueta `test`.
+
+### c) Cómo se cita esta regla
+
+Como F8 y F9: cualquier sesión puede detener un cambio diciendo **"F11-b1: eso va al laboratorio primero"**. No requiere discusión ni permiso de Arturo — es la regla por defecto, y proponer lo contrario es lo que necesita justificarse.
+
+### d) Para qué existe, en concreto: la simulación de los cinco roles
+
+El laboratorio no es una comodidad de ingeniería — es la **única forma legal** de cumplir lo que el mandato ya exige y que hoy no se puede hacer sin contaminar producción:
+
+> `MANDATO_ARTURO.md §6` y `VIDA_DE_ARTURO.md`: *"Deja de limitar las pruebas a funciones individuales. **Actúa como si fueras yo. Simula semanas completas de uso real.**"*
+
+Los **cinco roles** que Claude Code debe encarnar dentro del laboratorio: **estudiante universitario · creador de contenido · trabajador · inversionista · usuario cotidiano.** La carga a simular es la que él nombró: decenas de correos, documentos, imágenes, tareas escolares, pagos, gastos, recordatorios, **eventos inesperados**, sesiones de trading, generación de contenido, **cambios de horario** — más sus ejemplos textuales (salir al cine, dejar a Hermes en trading mientras trabaja, llegar y reportar *"hoy gané esto pero gasté 300 pesos"*).
+
+Nada de eso puede correrse contra el Hermes real: un mes simulado dejaría gastos falsos en sus finanzas, pesos falsos en su seguimiento y citas falsas en su agenda. **El laboratorio es lo que convierte esa orden en ejecutable.** Y el reloj virtual (`HERMES_FECHA_SIMULADA`) es lo que permite que "semanas completas" no tarden semanas.
+
+**Auditoría desde su silla (MANDATO §7):** los artefactos que produzca el laboratorio (Word, PDF, imágenes, correos, resúmenes) se **abren y se juzgan** como si fuera Arturo recibiéndolos; el defecto encontrado se rastrea hasta el componente que lo produjo y se corrige ahí (MANDATO §8, la fábrica, no la pieza).
+
+### e) El primer trabajo real que pasa por aquí: las Fases 12-14
+
+`VIDA_DE_ARTURO.md` documenta el cuello de botella verificado — *"manuales sin libreta"*: Hermes tiene las skills de finanzas, salud y YouTube, pero en las 27 tablas de `state.db` **no existe** ninguna de `gastos`, `ingresos`, `ahorro`, `peso`, `entrenamientos`, `horario`, `guiones`, `citas`. Las Fases 12-14 son, literalmente, **migraciones de esquema sobre la base que guarda su vida**.
+
+Eso las pone de lleno bajo F11-b1 y F7.2 a la vez: se escriben como migración numerada, **se aplican y se prueban primero en el laboratorio** (con meses simulados de datos encima, para ver si el esquema aguanta antes de que tenga datos reales que ya no se pueden tirar), y solo entonces tocan producción. Aplicar una migración de esquema directo sobre el `state.db` real, sin haberla corrido antes con carga simulada, es exactamente el riesgo que esta regla existe para prohibir.
+
+### f) Por qué esto importa antes del 16 de agosto
+
+Criterio del `MANDATO_ARTURO.md §2` — *"¿esto sigue sirviendo cuando Arturo casi no esté?"*: el laboratorio es de las pocas piezas cuya respuesta es un sí rotundo. Habilita el **trabajo autónomo nocturno** que él autorizó (§6: pruebas controladas mientras duerme o trabaja) sin el riesgo que hoy lo frena — porque si una corrida autónoma se descarrila a las 3 de la mañana, se descarrila dentro de un contenedor desechable, no encima de su memoria permanente.
+
+El manual operativo está en `docs/LABORATORIO.md`.
 
 ---
 

@@ -2,6 +2,74 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
+## ⚑ ARRANCAR AQUÍ (31 jul, 18:45) — separación de entornos ya es regla permanente del HAS (§F11)
+
+Petición directa de Arturo: que la filosofía de Docker-como-laboratorio
+**quedara documentada como parte permanente de la arquitectura**, no como
+una decisión suelta de una sesión.
+
+**Lo escrito (versionado, no notas sueltas):**
+- **`HAS §F11` — SEPARACIÓN DE ENTORNOS (nuevo, en la sección F de
+  gobernanza permanente, no en B).** Tabla de los 3 entornos
+  (producción / laboratorio / desarrollo) + **6 reglas duras** citables
+  como `F11-b1`..`F11-b6`, igual que se citan F8 y F9.
+- **`HAS §B12`** (el *por qué*, escrito antes en esta misma sesión) ahora
+  apunta explícitamente a F11 y al manual.
+- **`docs/LABORATORIO.md`** (nuevo) — manual operativo: los 3 trabajos,
+  comandos, y una tabla de trampas donde cada fila es un error que ya
+  casi se comete.
+- **`docker-compose.lab.yml`** (nuevo) — volumen nombrado aislado, red
+  bridge, sin `.env` de producción, sin `restart`.
+
+**Corrección importante de la sesión (falla mía, Arturo la cachó):**
+escribí la primera versión de F11 **sin haber leído `MANDATO_ARTURO.md`
+ni `VIDA_DE_ARTURO.md`** — brinqué el paso 1 del arranque de CLAUDE.md y
+solo hice `grep` sobre ESTADO/BLOQUES. Arturo: *"tienes 4 archivos míos
+de md que siento que no estás analizando."* Tenía razón. Al leerlos
+completos aparecieron tres cosas que faltaban y que se agregaron a F11:
+- **§F11-d — los cinco roles.** El mandato §6 y VIDA exigen *"actúa como
+  si fueras yo, simula semanas completas"* con cinco roles (estudiante ·
+  creador · trabajador · inversionista · usuario cotidiano). El
+  laboratorio es la **única forma legal** de cumplir esa orden sin
+  ensuciar sus datos. La primera versión de la regla ni los nombraba.
+- **§F11-e — las Fases 12-14 son el primer caso real.** El hallazgo
+  "manuales sin libreta" de VIDA (las 27 tablas de `state.db` no tienen
+  `gastos`/`ingresos`/`peso`/`horario`) significa que esas fases son
+  **migraciones de esquema sobre la base que guarda su vida** → caen bajo
+  F11-b1 + F7.2 juntas: se prueban con meses simulados encima ANTES de
+  tocar producción.
+- **§F11-f — por qué antes del 16 ago.** Criterio del mandato §2: el
+  laboratorio habilita el trabajo autónomo nocturno (§6) sin el riesgo
+  que hoy lo frena.
+
+**Hallazgo técnico real (la razón de que el compose sea nuevo y no el
+heredado):** `docker-compose.yml` del upstream monta `~/.hermes:/opt/data`
+directo. Usarlo para pruebas habría corrido los experimentos **encima de
+los datos reales de Arturo** — justo lo que el laboratorio evita. El
+`Dockerfile` sí se reutiliza (`HERMES_HOME=/opt/data`, `VOLUME /opt/data`,
+s6-overlay); el compose de laboratorio es nuevo.
+
+**Verificado con salida real, no supuesto** (`docker compose -f
+docker-compose.lab.yml config`):
+```
+volumes:
+  - type: volume          <- nombrado, NO bind. Este es el punto entero.
+    source: hermes-lab-data
+    target: /opt/data
+networks:
+  default: hermes-lab_default   <- bridge, NO host (no colisiona con el gateway real)
+```
+
+**Estado real, sin inflar (F8):** Docker está instalado y sano (v29.1.3,
+compose v2.40.3, grupo activo), pero `docker images` / `ps -a` /
+`volume ls` devuelven **los tres vacíos**: la imagen **nunca se ha
+construido** y el laboratorio **nunca ha corrido**. Lo entregado hoy es
+la regla + el manual + el compose validado por sintaxis. La primera
+corrida real (construir la imagen y restaurar el respaldo
+`/mnt/seagate/hermes_backups/20260731_040925` dentro) **está pendiente** —
+ese es el siguiente paso, y hasta entonces esto es `en curso`, no
+`cerrado`. Espacio en `/`: 46 GB libres de 109 GB.
+
 ## ⚑ ARRANCAR AQUÍ (31 jul, 18:03) — confusión real aclarada: memoria vaciada ≠ sesión reiniciada, + eco de voz apagado
 
 Arturo probó el sistema mandando un audio real después del reset de memoria,

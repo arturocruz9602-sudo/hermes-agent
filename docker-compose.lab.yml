@@ -1,0 +1,100 @@
+#
+# docker-compose.lab.yml — EL LABORATORIO DE HERMES
+#
+# Esto NO es el compose de producción. Es el entorno aislado que exige
+# HAS §F11 (separación de entornos) y que justifica B12: romper,
+# reconstruir, simular meses y restaurar respaldos sin tocar un solo byte
+# de los datos reales de Arturo.
+#
+# Manual completo de uso: docs/LABORATORIO.md
+#
+# ─────────────────────────────────────────────────────────────────────
+# LA DIFERENCIA QUE IMPORTA (léela antes de editar este archivo)
+# ─────────────────────────────────────────────────────────────────────
+# El docker-compose.yml heredado del upstream monta el directorio real:
+#
+#     volumes:
+#       - ~/.hermes:/opt/data        # <-- DATOS REALES DE ARTURO
+#
+# Usar ESE compose para pruebas correría los experimentos sobre la
+# memoria permanente, las finanzas y la escuela de Arturo. Es
+# exactamente lo que el laboratorio existe para evitar.
+#
+# Este archivo usa un VOLUMEN NOMBRADO (`hermes-lab-data`), que nace
+# vacío y se destruye entero con `docker compose -f docker-compose.lab.yml
+# down -v`. Nunca agregues aquí un bind-mount a ~/.hermes: eso anula el
+# laboratorio (HAS §F11-b2, regla dura).
+#
+# ─────────────────────────────────────────────────────────────────────
+# RED: bridge, NO host
+# ─────────────────────────────────────────────────────────────────────
+# El compose de producción usa `network_mode: host`. Aquí NO, a
+# propósito: el gateway real de Arturo ya está escuchando en esta
+# laptop, y compartir la red del host provocaría colisiones de puerto y
+# que el laboratorio se cuelgue de servicios reales sin querer. El
+# laboratorio vive en su propia red y no publica puertos salvo que se lo
+# pidas explícitamente (ver el bloque `ports` comentado abajo).
+#
+# ─────────────────────────────────────────────────────────────────────
+# CREDENCIALES: nada real por defecto (HAS §F11-b6)
+# ─────────────────────────────────────────────────────────────────────
+# No se monta el .env de producción. Si una prueba necesita llaves, se
+# crea un `.env.lab` aparte con llaves de prueba o modelos gratuitos —
+# jamás el bot token principal de Telegram (HAS §F11-b5: dos procesos
+# con el mismo token pelean por getUpdates y tumban el gateway real).
+#
+
+name: hermes-lab
+
+services:
+  lab:
+    build: .
+    image: hermes-agent
+    container_name: hermes-lab
+    # Sin `restart: unless-stopped` a propósito: el laboratorio es
+    # desechable, no debe resucitar solo tras un reinicio de la HP.
+    restart: "no"
+
+    volumes:
+      # ÚNICO almacenamiento: volumen nombrado, aislado, destruible.
+      # NUNCA cambiar esto por `~/.hermes:/opt/data` (HAS §F11-b2).
+      - hermes-lab-data:/opt/data
+
+      # Para restaurar un respaldo real dentro del laboratorio, se monta
+      # el directorio de respaldos en SOLO LECTURA (`:ro`) — el
+      # laboratorio puede leer el respaldo, nunca escribirlo ni
+      # corromperlo. Descomentar solo cuando se vaya a restaurar:
+      # - /mnt/seagate/hermes_backups:/respaldos:ro
+
+    environment:
+      - HERMES_UID=${HERMES_UID:-10000}
+      - HERMES_GID=${HERMES_GID:-10000}
+
+      # Marca de entorno: cualquier código o skill que quiera comportarse
+      # distinto en pruebas (no mandar correos reales, no publicar, no
+      # cobrar) puede leer esta variable. Producción nunca la tiene.
+      - HERMES_ENTORNO=laboratorio
+
+      # Reloj virtual: mismo mecanismo que ya usa scripts/libreta.py para
+      # su entorno de simulación. Permite correr "semanas completas" de la
+      # vida de Arturo sin esperar semanas reales.
+      # - HERMES_FECHA_SIMULADA=2026-09-15
+
+    # Puertos: cerrados por defecto para no chocar con el Hermes real.
+    # Descomentar y usar un puerto ALTO distinto al de producción si se
+    # necesita entrar al dashboard del laboratorio desde el navegador.
+    # ports:
+    #   - "127.0.0.1:9219:9119"
+
+    # Shell interactiva por defecto en vez de arrancar el gateway: el
+    # laboratorio casi siempre se usa para inspeccionar, restaurar y
+    # correr guiones, no para atender Telegram. Para levantar el gateway
+    # dentro del laboratorio, correr `docker compose -f
+    # docker-compose.lab.yml run --rm lab gateway run`.
+    command: ["bash"]
+    stdin_open: true
+    tty: true
+
+volumes:
+  hermes-lab-data:
+    name: hermes-lab-data
