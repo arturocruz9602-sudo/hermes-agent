@@ -1912,3 +1912,41 @@ pero si algún día lo cierras, Hermes deja de ver ese correo.
 
 
 ---
+
+## 31 jul 2026 (noche) — reinicio de memoria + Telegram limpio + red de gastos aclarada
+
+**Lo que cambió en tu día a día.**
+
+1. **Le vaciamos la memoria a Hermes de verdad** (a tu orden) y ya la volvimos
+   a llenar, pero solo con datos que verificamos hoy mismo -- tu trabajo, tu
+   escuela, tu canal, tus metas reales. Ya no arrastra la meta vieja de la
+   Mac Mini de $26,000 ni nada desactualizado.
+
+2. **Tu Telegram ya no se ve como log técnico.** Antes cada búsqueda y cada
+   herramienta aparecía como mensaje suelto. Ya no. Y las transcripciones de
+   tus audios dejaron de aparecer como burbuja aparte (siguen guardadas por
+   si algún día quieres revisar que Hermes te entendió bien).
+
+3. **Aclarado el susto de "Gemini gastó dinero":** no es cierto, nunca le
+   asignaste fondos. Ese número era un precio de referencia (lo que costaría
+   si fuera de paga), no un cargo real. Lo único que sale de tu saldo de
+   verdad es DeepSeek, y desde tu recarga de ayer solo se ha gastado **$0.40
+   MXN reales** de los $100 que metiste.
+
+4. **`/new` funciona.** Se lo puedes mandar cuando sientas que la
+   conversación lleva mucho tiempo abierta -- nada se pierde, solo empieza
+   ligero otra vez. El reinicio automático diario (para no tener que
+   acordarte) queda pendiente de construir con calma, no se apuró hoy.
+
+**Hallazgo real sin arreglar que te afecta:** tu router se puso "inalcanzable"
+un rato hoy en la tarde -- si notas que Hermes tarda en contestar o no
+contesta, antes de asumir que es un bug, revisa tu router/internet primero.
+
+**Para probarlo tú mismo:** mándale a Hermes un simple "Hermes" y compara --
+ya debería saber que trabajas en la taquería y que tu canal es "Ruido Mental
+Necesario" sin que se lo tengas que recordar.
+
+**Notas de Arturo:**
+
+
+---

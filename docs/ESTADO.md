@@ -2,6 +2,54 @@
 
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.3.1**
 
+## ⚑ ARRANCAR AQUÍ (31 jul, 18:03) — confusión real aclarada: memoria vaciada ≠ sesión reiniciada, + eco de voz apagado
+
+Arturo probó el sistema mandando un audio real después del reset de memoria,
+y le salió confuso: Hermes le dijo *"esta charla ya está larga, jefe"* y se
+puso a comprimir dos veces -- "no entiendo por qué, se supone que ya estaba
+borrada su memoria".
+
+### La aclaración, para que quede escrita y no se repita la confusión
+**Son dos sistemas completamente distintos:**
+- `MEMORY.md`/`USER.md` -- hechos curados sobre Arturo. Esto se vació hoy.
+- **El historial de LA SESIÓN de Telegram** -- toda la conversación cruda
+  (mensajes, búsquedas, herramientas). Vive en `state.db`, ligado al
+  `session_id`, y NUNCA se toca al vaciar memoria. La sesión en curso
+  (`20260730_114926_f59336ab`) lleva viva desde **30 jul 14:27 -- más de
+  27 horas sin `/new`**, acumulando todo lo de hoy (CETES, diagnóstico de
+  tokens, guardado en Obsidian...).
+
+**Evidencia real de que el problema es genuino, no solo confusión:** esa
+sesión se comprimió DOS veces en 3 minutos al procesar el audio de Arturo
+(`Preflight compression: ~84,124 tokens`, luego `42,845 -> tope duro de
+40,000 excedido -- recorte agresivo adicional`), y el propio sistema
+disparó su aviso de degradación: *"Sesión comprimida 2 veces -- la
+precisión puede degradarse. Considera /new."* **Recomendado a Arturo:
+mandar `/new` para esa sesión específica** (nada se pierde, el historial
+completo queda guardado; solo deja de cargar 27h acumuladas en cada
+llamada).
+
+### Corregido: el eco visual de las transcripciones de voz
+Arturo, textual: *"podría ser bueno como auditoría... pero visualmente
+estorba."* `stt.echo_transcripts` (default `true` de fábrica) controlaba
+exactamente eso -- confirmado en `gateway/run.py::_should_echo_stt_transcripts()`,
+es puramente de presentación. Apagado (`false`, sin el gotcha de `off` sin
+comillas de antes -- aquí se verificó que quedó como booleano real).
+El texto sigue guardándose en `state.db` para consultar/auditar después;
+solo deja de aparecer como burbuja aparte en el chat.
+Respaldo previo del config.yaml, `tests/gateway/test_stt_transcript_echo_config.py`
++ `test_config.py`: 157/157. Gateway reiniciado, un solo arranque limpio.
+
+### Pendiente real, para la próxima sesión de arquitectura
+El patrón de hoy (sesiones largas necesitando compresión agresiva, prompt
+de sistema de ~40,000 tokens como piso fijo) sigue siendo el cuello de
+botella de fondo que Arturo ha señalado varias veces. Los fixes de hoy
+(memoria a índice, toolsets por plataforma, eco de STT apagado) atacan
+síntomas puntuales verificados; falta la revisión de fondo de por qué el
+prompt de sistema es tan pesado incluso cacheado.
+
+---
+
 ## ⚑ ARRANCAR AQUÍ (31 jul, noche) — memoria reiniciada a cero (orden explícita de Arturo, irreversible), 2 bugs reales corregidos, investigación de tokens cerrada
 
 ### RESET DE MEMORIA — orden directa de Arturo, ejecutada con respaldo
