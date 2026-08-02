@@ -198,3 +198,6 @@ kanban.db-wal
 kanban.db-shm
 *.sqlite
 *.sqlite3
+scripts/.loop_estado.json
+scripts/loop_tokens.jsonl
+scripts/.loop_alto

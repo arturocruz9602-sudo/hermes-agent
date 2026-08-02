@@ -1,0 +1,292 @@
+#!/usr/bin/env python3
+"""orquestar.py -- Lanzador del loop autónomo de Hermes (Bloque AV, fases 3-5).
+
+Recorre la cola completa del proyecto (loop_cola.COLA) respetando dependencias y,
+por cada bloque, en una terminal que Arturo mira en vivo por SSH+tmux:
+
+  1. GATE TÉRMICO (r.103): si la HP pasa 85°C, pausa hasta que baje.
+  2. FRENO MANUAL: si existe scripts/.loop_alto, se detiene limpio tras el bloque.
+  3. CLASIFICA -> modelo (Haiku, una sola llamada para toda la cola).
+  4. CORRE el bloque con `claude -p --model <X>` en STREAMING visible.
+  5. MIDE tokens/costo (evento `result` de stream-json) y lo escribe al ledger.
+  6. MARCA el bloque hecho en estado persistente (para reanudar tras un corte).
+
+DOS STACKS DE MODELOS (DECISIONES 01 ago, r.91): esto usa SOLO los 3 Claude de la
+cuenta de Arturo (Haiku/Sonnet/Opus). La escalera gratis (Gemini/Groq/OpenRouter)
+es de HERMES en runtime, no del loop.
+
+PERMISOS (decisión de seguridad de Arturo): los bloques corren con
+--permission-mode bypassPermissions para trabajar solos sin trabarse pidiendo
+confirmación en cada paso. La RED DE SEGURIDAD es el hook PreToolUse
+~/.claude/hooks/hermes-guard.sh (hard-deny de rm -rf, git push --force, DROP SQL,
+curl|bash, instalaciones sin versión fija, escritura a credenciales...), que se
+dispara SIEMPRE, sin importar el modo de permisos.
+
+Uso:
+  python3 scripts/orquestar.py plan        # solo el plan (no ejecuta nada)
+  python3 scripts/orquestar.py probar       # prueba inocua del motor (no toca archivos)
+  python3 scripts/orquestar.py correr       # corre el loop (respeta estado/freno/temp)
+  python3 scripts/orquestar.py correr --max 1   # corre solo el próximo bloque
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as _dt
+import json
+import pathlib
+import subprocess
+import sys
+import time
+
+_DIR = pathlib.Path(__file__).resolve().parent
+_REPO = _DIR.parent
+if str(_DIR) not in sys.path:
+    sys.path.insert(0, str(_DIR))
+
+from loop_cola import COLA                       # noqa: E402
+from loop_orquestador import clasificar_lote     # noqa: E402
+
+# --- Configuración -----------------------------------------------------------
+ESTADO_LOOP = _DIR / ".loop_estado.json"     # progreso persistente (reanudable)
+LEDGER = _DIR / "loop_tokens.jsonl"          # gasto por bloque (una línea JSON c/u)
+ALTO = _DIR / ".loop_alto"                   # `touch` este archivo para frenar limpio
+TEMP_PATH = pathlib.Path("/sys/class/thermal/thermal_zone0/temp")
+UMBRAL_TEMP_C = 85                           # r.103: pausa si sube de aquí
+PAUSA_TERMICA_S = 30
+
+# Modo de permisos de los bloques. Autonomía total, con hermes-guard como red.
+MODO_PERMISOS = "bypassPermissions"
+
+# Techo de vueltas por bloque (freno anti-runaway; el costo se dispara si no).
+MAX_TURNS = {"trivial": 15, "medio": 30, "complejo": 60}
+
+
+# --- Utilidades de salud/estado ---------------------------------------------
+def temp_hp() -> int | None:
+    try:
+        return int(TEMP_PATH.read_text().strip()) // 1000
+    except Exception:
+        return None
+
+
+def gate_termico() -> None:
+    while True:
+        t = temp_hp()
+        if t is None or t < UMBRAL_TEMP_C:
+            return
+        print(f"  🌡️  HP a {t}°C ≥ {UMBRAL_TEMP_C}°C — pauso {PAUSA_TERMICA_S}s (r.103)...")
+        time.sleep(PAUSA_TERMICA_S)
+
+
+def cargar_estado() -> dict:
+    if ESTADO_LOOP.exists():
+        try:
+            return json.loads(ESTADO_LOOP.read_text())
+        except Exception:
+            pass
+    return {"hechos": []}
+
+
+def guardar_estado(estado: dict) -> None:
+    ESTADO_LOOP.write_text(json.dumps(estado, ensure_ascii=False, indent=2))
+
+
+def siguiente_bloque(hechos: list) -> dict | None:
+    """Primer bloque pendiente cuyas dependencias ya están todas hechas."""
+    hechos_set = set(hechos)
+    for b in COLA:
+        if b["id"] in hechos_set:
+            continue
+        if all(dep in hechos_set for dep in b.get("depende_de", [])):
+            return b
+    return None
+
+
+# --- El prompt de trabajo de un bloque --------------------------------------
+def prompt_bloque(bloque: dict) -> str:
+    refs = ", ".join(bloque.get("cuestionario", [])) or "(ninguna específica)"
+    return f"""Eres una sesión del loop autónomo de Hermes trabajando UN SOLO bloque.
+Ya leíste CLAUDE.md, MANDATO y ESTADO al arrancar (hook). Respétalos al pie.
+
+BLOQUE {bloque['id']}: {bloque['titulo']}
+Descripción: {bloque['descripcion']}
+Ancla en el HAS: {bloque.get('has', '-')}
+Respuestas del cuestionario que lo gobiernan: {refs}
+
+Reglas de este bloque:
+- Cualquier duda de ALCANCE se resuelve con docs/CUESTIONARIO_MAESTRO.md; donde un
+  doc viejo lo contradiga, gana el cuestionario. Consulta docs/DECISIONES.md antes
+  de tocar arquitectura.
+- Regla de simulación (r.20): nada real fuera del laboratorio Docker; en producción,
+  captura espontánea = preguntar antes de crear.
+- B10: la escritura ocurre en esta sesión; los subagentes son solo de lectura.
+- Si necesitas una decisión de Arturo que NO está en los documentos, NO la inventes:
+  déjala anotada en ESTADO.md como pendiente y avanza con lo que SÍ puedas cerrar.
+- Entregable mínimo verificable: haz el trabajo, corre las pruebas que apliquen con
+  evidencia, y haz commit del avance (aunque sea WIP). No declares cerrado lo que no
+  probaste (regla 2).
+
+Al terminar, resume en máximo 5 líneas: qué hiciste, qué probaste (con números), y
+qué queda pendiente."""
+
+
+# --- Ejecutar un bloque en streaming visible --------------------------------
+def _resumen_tool(name: str, inp: dict) -> str:
+    for k in ("command", "file_path", "pattern", "path", "url", "prompt"):
+        if isinstance(inp, dict) and inp.get(k):
+            return f"{name}: {str(inp[k])[:80]}"
+    return name
+
+
+def correr_bloque(prompt: str, modelo: str, max_turns: int,
+                  permisos: str = MODO_PERMISOS) -> dict:
+    """Corre `claude -p` en streaming, imprime el trabajo en vivo y devuelve el
+    gasto medido del evento `result`. Nunca lanza."""
+    cmd = [
+        "claude", "-p", prompt,
+        "--model", modelo,
+        "--output-format", "stream-json", "--verbose",
+        "--permission-mode", permisos,
+        "--max-turns", str(max_turns),
+    ]
+    res = {"usage": {}, "cost": None, "num_turns": None, "is_error": None,
+           "final": "", "rc": None}
+    try:
+        proc = subprocess.Popen(
+            cmd, cwd=str(_REPO), stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, text=True, bufsize=1,
+        )
+    except Exception as e:
+        print(f"  ✖ no se pudo lanzar claude: {e}")
+        return res
+
+    for ln in proc.stdout:  # type: ignore[union-attr]
+        ln = ln.strip()
+        if not ln:
+            continue
+        try:
+            o = json.loads(ln)
+        except Exception:
+            continue
+        t = o.get("type")
+        if t == "assistant":
+            for c in (o.get("message", {}).get("content") or []):
+                if c.get("type") == "text" and c.get("text", "").strip():
+                    print("  " + c["text"].strip())
+                elif c.get("type") == "tool_use":
+                    print(f"  🔧 {_resumen_tool(c.get('name', '?'), c.get('input', {}))}")
+        elif t == "rate_limit_event":
+            print("  ⏳ límite de tasa — la sesión espera...")
+        elif t == "result":
+            res["usage"] = o.get("usage", {}) or {}
+            res["cost"] = o.get("total_cost_usd")
+            res["num_turns"] = o.get("num_turns")
+            res["is_error"] = o.get("is_error", False)
+            res["final"] = o.get("result", "")
+    proc.wait()
+    res["rc"] = proc.returncode
+    return res
+
+
+def registrar(bloque: dict, clasif, res: dict) -> None:
+    u = res.get("usage", {}) or {}
+    fila = {
+        "ts": _dt.datetime.now().isoformat(timespec="seconds"),
+        "bloque": bloque["id"],
+        "dificultad": clasif.dificultad,
+        "modelo": clasif.modelo,
+        "input_tokens": u.get("input_tokens"),
+        "output_tokens": u.get("output_tokens"),
+        "cache_read": u.get("cache_read_input_tokens"),
+        "cache_creation": u.get("cache_creation_input_tokens"),
+        "cost_usd": res.get("cost"),
+        "num_turns": res.get("num_turns"),
+        "is_error": res.get("is_error"),
+        "rc": res.get("rc"),
+    }
+    with LEDGER.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(fila, ensure_ascii=False) + "\n")
+    print(f"  💰 tokens in/out: {fila['input_tokens']}/{fila['output_tokens']}  ·  "
+          f"cache_read {fila['cache_read']}  ·  costo ${fila['cost_usd']}  ·  "
+          f"{fila['num_turns']} vueltas")
+
+
+# --- Bucle principal ---------------------------------------------------------
+def correr(max_bloques: int | None) -> None:
+    clasifs = clasificar_lote(COLA)
+    estado = cargar_estado()
+    hechos = estado.setdefault("hechos", [])
+    corridos = 0
+    costo_total = 0.0
+
+    while True:
+        if max_bloques is not None and corridos >= max_bloques:
+            print(f"\n■ Alcancé el máximo de {max_bloques} bloque(s) de esta corrida.")
+            break
+        if ALTO.exists():
+            print("\n■ Freno manual (.loop_alto) — me detengo limpio. Borra el archivo para seguir.")
+            break
+        bloque = siguiente_bloque(hechos)
+        if bloque is None:
+            print("\n✔ No quedan bloques con dependencias listas. Loop al día.")
+            break
+
+        clasif = clasifs[bloque["id"]]
+        gate_termico()
+        print(f"\n{'='*90}")
+        print(f"▶ BLOQUE {bloque['id']} · {bloque['titulo']}")
+        print(f"  dificultad={clasif.dificultad} → modelo={clasif.modelo} · "
+              f"HAS {bloque.get('has','-')} · temp {temp_hp()}°C")
+        print(f"{'='*90}")
+
+        res = correr_bloque(prompt_bloque(bloque), clasif.modelo,
+                            MAX_TURNS.get(clasif.dificultad, 30))
+        registrar(bloque, clasif, res)
+        if res.get("cost"):
+            costo_total += res["cost"]
+
+        if res.get("is_error") or res.get("rc") not in (0, None):
+            print(f"  ✖ El bloque {bloque['id']} terminó con error — me detengo (regla 2: "
+                  "no avanzar sobre lo que no cerró). Revisa y reanuda.")
+            break
+
+        hechos.append(bloque["id"])
+        guardar_estado(estado)
+        corridos += 1
+        print(f"  ✔ {bloque['id']} marcado hecho.")
+        time.sleep(2)
+
+    print(f"\n{'─'*90}\nResumen: {corridos} bloque(s) esta corrida · "
+          f"costo acumulado ${costo_total:.4f} · ledger: {LEDGER}")
+
+
+def probar() -> None:
+    """Prueba INOCUA del motor: una llamada a Haiku que no toca archivos, para
+    verificar el streaming visible y la captura de tokens de punta a punta."""
+    print("Prueba inocua del motor (no toca archivos, no usa herramientas):\n")
+    prompt = ("Sin usar NINGUNA herramienta y sin tocar archivos, responde en 3 "
+              "líneas cómo abordarías el bloque 'AS-2: cierre nocturno en audio'.")
+    res = correr_bloque(prompt, "haiku", max_turns=1, permisos="acceptEdits")
+    print()
+    from loop_orquestador import Clasificacion
+    registrar({"id": "PRUEBA"}, Clasificacion("trivial", "haiku", "prueba", False), res)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Loop autónomo de Hermes")
+    ap.add_argument("modo", choices=["plan", "probar", "correr"], help="qué hacer")
+    ap.add_argument("--max", type=int, default=None, help="máx bloques a correr")
+    args = ap.parse_args()
+
+    if args.modo == "plan":
+        from loop_orquestador import planificar
+        planificar()
+    elif args.modo == "probar":
+        probar()
+    elif args.modo == "correr":
+        correr(args.max)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
