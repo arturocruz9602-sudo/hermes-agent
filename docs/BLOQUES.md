@@ -34,3 +34,4 @@ AR | 01 ago | La libreta RECONCILIADA: la libreta ya existia (libreta.db); migra
 AS | 01 ago | Brief 6:30 DESPLEGADO (brief_matutino.py + timer, verificado en simulacion con reloj virtual); falta cierre nocturno en audio + verificar voz→libreta | en curso 🔄 ← SIGUIENTE
 AT | — | Trading testnet: conectar trading_entrenador.py, corridas diarias autónomas | pendiente (necesita AQ)
 AU | — | Motor de guiones desde Obsidian + pipeline de clips + OAuth YouTube | pendiente
+AV | 02 ago | Capa de confiabilidad para loop autónomo: hook arranque SessionStart + skill /cierre + lista de tareas viva | en curso 🔄 (paso 1 hecho; sigue orquestador multi-modelo)

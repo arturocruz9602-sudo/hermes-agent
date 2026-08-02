@@ -2140,3 +2140,39 @@ Necesario" sin que se lo tengas que recordar.
 
 
 ---
+
+## 02 ago 2026 — Ya puedes ver a Hermes trabajar en vivo desde tu terminal + arranque a prueba de olvidos
+
+**Qué cambió:**
+- Ya puedes **entrar por SSH desde tu MacBook y ver esta sesión en vivo**: te conectas
+  y te pegas a la sesión `claude` de tmux. Puedes mirar sin tocar (modo lectura) o meter mano.
+- Cada vez que abro sesión (o das `/clear`), ahora corre solo un **chequeo de arranque
+  automático**: git, salud de Hermes, temperatura de la HP, la tapa, tmux. Antes dependía de
+  que yo me acordara de teclearlo; ahora es automático y no se me puede olvidar (que es
+  justo lo que más te preocupa: que Hermes olvide y se autosabotee).
+- El **cierre de sesión** (guardar avances y subirlos para que los veas en `git log`) quedó
+  como un paso repetible `/cierre`, para que cada vuelta del loop cierre limpio.
+
+**Antes / ahora concreto:**
+- Antes: para ver el avance tenías que preguntarme. Ahora: `git log`, `docs/ESTADO.md` y la
+  lista de tareas en tu terminal te lo muestran solos.
+- Antes: al empezar hoy te dije "producción caída" — fue error mío, miré en el lugar
+  equivocado. Ahora el chequeo mira bien (`--user`) y confirma: **gateway y litellm ARRIBA**.
+  Tu Hermes nunca estuvo caído hoy.
+
+**Para verlo tú mismo desde la MacBook (con Tailscale prendido):**
+
+    ssh arturo@100.101.21.60
+    tmux attach -t claude -r
+
+(el `-r` es solo-mirar; para salir sin cortar nada: Ctrl-b y luego d)
+
+**Hallazgo sin arreglar (menor):** la instrucción vieja de arranque en mi archivo-guía
+(CLAUDE.md) mira la salud en el lugar equivocado y diría "apagado" aunque Hermes esté
+encendido. Ya quedó bien en el chequeo automático; falta corregir esa línea del archivo-guía
+-- te lo propongo aparte, porque ese archivo es tu contrato y no lo toco sin tu ok.
+
+**Notas de Arturo:**
+
+
+---

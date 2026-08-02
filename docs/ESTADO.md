@@ -1,4 +1,4 @@
-# ESTADO — actualizado: 01 ago 2026 (AR cerrado: libreta reconciliada en producción; siguiente AS)
+# ESTADO — actualizado: 02 ago 2026 (AV en curso: capa de confiabilidad para loop autónomo; AS pausado por redirección)
 **Se SOBREESCRIBE cada sesión, máx 80 líneas (gate). Histórico: `docs/archivo/`. Voz de Arturo: `CUESTIONARIO_MAESTRO.md` = misma jerarquía que MANDATO.**
 
 ## Fases HAS
@@ -16,7 +16,11 @@ HALLAZGO: la libreta YA existía (`libreta.db`, 17 tablas, clase `Libreta` real/
 ## ✅ BUG RESUELTO (AR, hallado y corregido 01 ago) — sin tocar la migración aplicada
 La v4 siembra datos base en toda BD migrada, lo que rompía 2 tests que contaban toda la tabla (`test_libreta.py`). Fix elegido (respeta la regla "no editar migración ya aplicada"): las 2 pruebas ahora verifican SOLO la fila que crean (`WHERE nombre=...`), que es lo que de verdad prueban. **49/49 en verde.** Producción intacta.
 
-## OBJETIVO ACTUAL — Bloque AS (EN CURSO)
+## OBJETIVO ACTUAL — Bloque AV: capa de confiabilidad para LOOP autónomo (EN CURSO, redirección de Arturo 02 ago)
+Meta de Arturo: SSH desde MacBook → tmux (sesión `claude`) → loop PAUSADO que avanza la cola solo, visible en terminal, con **modelo por dificultad** (Sonnet simple / Opus 4.8 complejo) y tokens medidos por bloque. **Paso 1 HECHO y verificado a mano:** hook `.claude/hooks/hermes-arranque.sh` (SessionStart, `exit 0` siempre, salud en `--user`) + skill `/cierre` (6 pasos) + lista de tareas viva. Ambos entran en vigor al próximo `/clear`/arranque. **SIGUIENTE:** orquestador con ruteo de modelo por dificultad (respeta B10: skills, no subagentes-que-escriben).
+⚠️ Hallazgo: CLAUDE.md pt.5 usa `systemctl is-active` SIN `--user` → falso 'inactive' con prod ENCENDIDA (gateway/litellm `active`). El hook usa `--user`; falta corregir esa línea de CLAUDE.md (propuesto, pendiente del ok de Arturo — es su archivo-contrato).
+
+## EN COLA — Bloque AS (pausado por redirección de Arturo, retomar tras AV)
 ✅ **Brief 6:30 LISTO y desplegado:** `scripts/brief_matutino.py` (agenda horario+citas · clima Open-Meteo sin llave, cruzado con gym/trabajo · pagos realmente próximos · tareas · meta capital · trading Brave best-effort). Timer `hermes-brief-matutino.timer` armado (próx. dom 06:30). Verificado en SIMULACIÓN (lunes con reloj adelantado) + corre desde ruta de prod. Todo determinista/APIs gratis.
 Falta para cerrar AS:
 - **Cierre nocturno en AUDIO (r.90):** hoy `cierre_del_dia.py` (22:45) empuja la pregunta en TEXTO; falta el resumen del día en audio a la hora de dormir.
@@ -48,4 +52,4 @@ Falta para cerrar AS:
 ESTADO ≤80 sobreescrito · BLOQUES 1 línea · DECISIONES si hubo · commit+push · TEMP-DIAG=0 · temperatura HP normal.
 
 ## Último contexto
-01 ago: reestructura documental + cuestionario 123 + CLAUDE.md v1.3 + **AQ cerrado** (lab validado) + **AR cerrado** (libreta reconciliada en producción: gastos/meta/peso/hábitos reales, libreta ya respaldada). Siguiente: **AS** (brief 6:30 + cierre nocturno por voz).
+02 ago: Arturo redirige a montar el **loop autónomo que mira por SSH+tmux** con modelo por dificultad. AV paso 1 (capa de confiabilidad: hook de arranque + skill `/cierre`) HECHO y verificado. Prod CONFIRMADA arriba (gateway/litellm `active` en `--user`; mi "prod caída" del inicio fue error de scope). Siguiente: orquestador multi-modelo, luego encender loop y retomar AS.

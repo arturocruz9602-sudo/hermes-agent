@@ -23,7 +23,8 @@
       "Bash(systemctl --user restart hermes-gateway.service)",
       "Bash(systemctl --user restart litellm.service)",
       "Bash(journalctl --user -u hermes-gateway.service*)",
-      "Bash(journalctl --user -u litellm.service*)"
+      "Bash(journalctl --user -u litellm.service*)",
+      "Bash(systemctl --user is-active:*)"
     ],
     "deny": [
       "Bash(sudo *)",
@@ -38,6 +39,20 @@
       "Edit(//home/arturo/.hermes/hermes-agent/.env*)",
       "Write(//home/arturo/.hermes/.env*)",
       "Write(//home/arturo/.hermes/hermes-agent/.env*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/hermes-arranque.sh",
+            "timeout": 15,
+            "statusMessage": "Corriendo chequeos de arranque Hermes..."
+          }
+        ]
+      }
     ]
   }
 }

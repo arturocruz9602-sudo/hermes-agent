@@ -161,3 +161,18 @@ futura; coexiste con la estrategia news-driven (esta busca ganar, el freno solo 
 v4 siembra datos base en toda BD migrada, lo que rompía 2 tests que contaban la tabla completa. En vez de
 editar una migración ya aplicada (prohibido por el runner), los tests ahora verifican solo la fila que crean
 (`WHERE nombre=...`) — que es exactamente lo que prueban ("no duplica por nombre"). 49/49 en verde.
+
+**02 ago 2026 · Capa de confiabilidad para loop autónomo: chequeos de arranque como hook SessionStart +
+cierre como skill `/cierre` (Bloque AV).** EXTIENDE la reestructura documental del 01 ago (arranque ligero),
+no la reabre: mismo objetivo (menos contexto siempre-residente, menos "Hola Hermes"). Los chequeos
+DETERMINISTAS del arranque (git, L11, TEMP-DIAG, salud, uptime/reboot, tmux, tapa, gate ESTADO≤80, temp HP)
+pasan a `.claude/hooks/hermes-arranque.sh` (SessionStart, versionado en el repo, `exit 0` siempre, tolera
+gsettings sin D-Bus); su stdout se inyecta como contexto y dispara también en `/clear`. El cierre de 6 pasos
+pasa a la skill `.claude/skills/cierre`. Motivo: un loop autónomo AMPLIFICA el olvido (r.115 "lo peor:
+olvidar y autosabotear") — estos pasos no pueden depender de que Claude los teclee. El juicio (leer
+MANDATO/ESTADO, elegir tarea, saludar, qué escribir) sigue siendo de Claude; el hook solo junta datos. NO se
+usan subagentes-por-modelo para trabajar: B10 sigue vigente (perfiles = skills, escritura en sesión
+principal, subagentes solo lectura). Hallazgo corregido: la salud se mide en scope **`--user`** (gateway/
+litellm son user-units); el `systemctl is-active` SIN `--user` de CLAUDE.md pt.5 reporta 'inactive' con
+producción ENCENDIDA — el hook usa el scope correcto. Impacto: es la base del orquestador con ruteo de modelo
+por dificultad (Sonnet simple / Opus complejo), siguiente paso del loop que Arturo mira por SSH+tmux.
