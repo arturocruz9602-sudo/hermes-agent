@@ -176,3 +176,16 @@ principal, subagentes solo lectura). Hallazgo corregido: la salud se mide en sco
 litellm son user-units); el `systemctl is-active` SIN `--user` de CLAUDE.md pt.5 reporta 'inactive' con
 producción ENCENDIDA — el hook usa el scope correcto. Impacto: es la base del orquestador con ruteo de modelo
 por dificultad (Sonnet simple / Opus complejo), siguiente paso del loop que Arturo mira por SSH+tmux.
+
+**02 ago 2026 · Loop autónomo: los bloques corren con `--permission-mode bypassPermissions`; la
+red es el hook `hermes-guard` (AUTORIZADO por Arturo, textual: "Si autorizo").** `orquestar.py` corre
+cada bloque con `claude -p --model <X>` en bypassPermissions para trabajar sin trabarse pidiendo
+confirmación en cada archivo/comando. La RED DE SEGURIDAD es el PreToolUse `~/.claude/hooks/hermes-guard.sh`
+(hard-deny de rm -rf, git push --force, DROP/DELETE SQL directo, curl|bash, instalaciones sin versión
+fija, escritura directa a credenciales), que se dispara SIN importar el modo de permisos. Ruteo por
+dificultad con los 3 Claude (Haiku/Sonnet/Opus); la escalera gratis (Gemini/Groq/OpenRouter) es de
+HERMES en runtime, NO del loop (r.91). Gasto medido por bloque en `scripts/loop_tokens.jsonl`; freno
+manual `scripts/.loop_alto`; gate térmico r.103 (>85°C pausa); estado reanudable en `.loop_estado.json`.
+Impacto: el loop puede construir el proyecto sin supervisión; Arturo lo mira por SSH+tmux y lo frena
+cuando quiera. Costo medido: cada sesión anidada paga ~$0.03-0.04 solo por cargar el contexto (peaje a
+optimizar). Verificado inocuamente antes de correr real (`orquestar.py probar`).
