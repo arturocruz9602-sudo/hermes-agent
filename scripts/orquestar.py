@@ -105,7 +105,8 @@ def siguiente_bloque(hechos: list) -> dict | None:
 # --- El prompt de trabajo de un bloque --------------------------------------
 def prompt_bloque(bloque: dict) -> str:
     refs = ", ".join(bloque.get("cuestionario", [])) or "(ninguna específica)"
-    return f"""Eres una sesión del loop autónomo de Hermes trabajando UN SOLO bloque.
+    guia = bloque.get("guia")
+    prompt = f"""Eres una sesión del loop autónomo de Hermes trabajando UN SOLO bloque.
 Ya leíste CLAUDE.md, MANDATO y ESTADO al arrancar (hook). Respétalos al pie.
 
 BLOQUE {bloque['id']}: {bloque['titulo']}
@@ -128,6 +129,23 @@ Reglas de este bloque:
 
 Al terminar, resume en máximo 5 líneas: qué hiciste, qué probaste (con números), y
 qué queda pendiente."""
+    if guia:
+        prompt += (
+            "\n\nGUÍA DE REUSO (verificada por Hermes el 02 ago; úsala, no la re-explores):\n"
+            + guia
+        )
+    if bloque.get("entorno") == "docker_qa":
+        prompt += (
+            "\n\n⚠ CANDADO DE SEGURIDAD (r.119, GANA sobre cualquier otra instrucción): este "
+            "bloque es docker_qa, PERO esta sesión corre en el HOST con credenciales de "
+            "PRODUCCIÓN y NO hay canal QA de Telegram configurado en ~/.hermes/.env (solo el "
+            "real TELEGRAM_HOME_CHANNEL). Por lo tanto: NO envíes NINGÚN tráfico de prueba a "
+            "Telegram ni a ningún canal/servicio real. Genera y VERIFICA LOCAL (que el .ogg "
+            "exista y sea Opus válido); deja el envío en vivo (sendVoice) como PENDIENTE "
+            "documentado en ESTADO.md hasta que exista un canal QA. Cierra el bloque cableando "
+            "el código + commit WIP; eso cuenta como entregable."
+        )
+    return prompt
 
 
 # --- Ejecutar un bloque en streaming visible --------------------------------

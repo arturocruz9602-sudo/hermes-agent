@@ -39,6 +39,34 @@ COLA = [
             "síntesis de voz que Hermes ya tiene; no crear un TTS nuevo. Probar en el "
             "laboratorio con la cuenta QA, nunca en el Telegram real."
         ),
+        "guia": (
+            "MAPA DE REUSO (verificado 02 ago por Hermes; NO re-explores, todo esto ya existe):\n"
+            "1. TTS: tools/tts_tool.py, funcion text_to_speech_tool(text, output_path=None). "
+            "Lee el provider de ~/.hermes/config.yaml (seccion tts:). En Telegram genera .ogg "
+            "(Opus, nota de voz) solo. Usala como modulo (from tools.tts_tool import "
+            "text_to_speech_tool); NO crees un TTS nuevo.\n"
+            "2. Envio: ~/.hermes/scripts/enviar.py tiene enviar_mensaje(texto) y "
+            "enviar_archivo(path, caption). OJO: detectar_tipo() NO reconoce .ogg ni .mp3 -> "
+            "caen en sendDocument (archivo generico, NO nota de voz). Para nota de voz nativa "
+            "hace falta sendVoice (solo .ogg/Opus). Decision tuya: extender detectar_tipo para "
+            ".ogg->sendVoice, o enviar directo con requests a "
+            "https://api.telegram.org/bot<TOKEN>/sendVoice. Token y chat viven en ~/.hermes/.env "
+            "(TELEGRAM_BOT_TOKEN, TELEGRAM_HOME_CHANNEL).\n"
+            "3. Referencia: tests/gateway/test_telegram_audio_vs_voice.py confirma .ogg = nota "
+            "de voz (entra a STT), .mp3 = archivo de audio (no STT). Para el cierre del dia "
+            "queremos NOTA DE VOZ -> .ogg.\n"
+            "4. Punto de integracion natural: scripts/cierre_del_dia.py ya maneja la hora "
+            "(22:45 por defecto), el dedupe diario (~/.hermes/state/cierre_del_dia.json) y el "
+            "envio via ~/.hermes/scripts/enviar.py. Extiendelo (o crea un hermano) para que "
+            "genere el audio y lo mande.\n"
+            "5. r.90 (hora del cierre) sigue PENDIENTE en el cuestionario: respeta 22:45 como "
+            "default configurable y deja anotado en ESTADO.md que la hora final la confirma "
+            "Arturo.\n"
+            "6. Prueba en entorno docker_qa con la cuenta QA de Telegram, NUNCA el chat real. "
+            "Evidencia minima: .ogg generado + respuesta 200 de sendVoice.\n"
+            "7. Entregable: flujo cierre-en-audio funcionando en QA + commit WIP aun si es "
+            "parcial."
+        ),
         "has": "Fase 9 (TTS interino Piper/Gemini)", "cuestionario": ["r.90"],
         "entorno": "docker_qa", "depende_de": [], "estado": "pendiente",
     },
