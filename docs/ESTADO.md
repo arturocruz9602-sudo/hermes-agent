@@ -54,8 +54,11 @@ Transversal aún pendiente: **presupuesto de contexto** — prueba permanente de
 - **P2 exceso de contexto:** techo de tokens por tipo de llamada, medido en cada corrida del lab (≥3 muestras); exceder = suite en rojo. Base 30 jul: 19.1k/vuelta.
 - **P3 DeepSeek:** repetitivo → Gemini-extra/Groq/OpenRouter (r.91), DeepSeek solo comanda; ledger $/función semanal; recorte del prompt ~40k entra con AR.
 
-## Decisiones pendientes de ARTURO
-1. **OAuth de YouTube (5 min)** — AU-1 y AU-2 ya construidos y probados; falta SOLO que Arturo conecte el OAuth (a HERMES, no a Claude Code) para poder preparar/programar subidas reales. Único pendiente vivo que necesita su mano.
+## Decisiones pendientes de ARTURO (actualizado 03 ago, ver docs/META_TERMINACION.md)
+1. **OAuth de YouTube (5 min)** — AU-1/AU-2 construidos y probados; falta conectar OAuth (a HERMES).
+2. **Canal QA de Telegram** — sigue sin existir; bloquea envío real de AS-2, AT y todo bloque `docker_qa`. ¿Cuenta nueva o autorizar tráfico acotado a producción?
+3. **Llaves `BINANCE_TESTNET_API_KEY/_SECRET` (5 min)** — AT construido y probado (17/17), solo falta esto + Docker/QA para desplegar.
+4. **Direcciones de los 2 correos (r.63)** — para poder vigilar el personal (banco/compras); hoy solo existe vigilancia del correo escolar.
 (Resuelto 01 ago: **Trading -3% diario CONFIRMADO** (Arturo: "que quede así"). **PRIVACIDAD** — montos/tickets SÍ a gratis; correos/contraseñas/nombres/salud/datos que vulneren su seguridad NO. **Horario** oficial lo manda él a Hermes; may-ago = simulación. **Correos** = trabajo F6. Estándar de docs lo define Claude Code, MANDATO §8.)
 
 ## No tocar / reglas de equipo
@@ -69,4 +72,4 @@ Transversal aún pendiente: **presupuesto de contexto** — prueba permanente de
 ESTADO ≤80 sobreescrito · BLOQUES 1 línea · DECISIONES si hubo · commit+push · TEMP-DIAG=0 · temperatura HP normal.
 
 ## Último contexto
-02 ago: el loop despachó AU-1 (motor de guiones), AU-2 (clips ≤2min + horarios + gate OAuth) y AU-3 (corte de silencios §E6 + edición DaVinci por SSH a la M1), además de F5-1/F5-2/AT. Cadena de YouTube (r.97 #2) ya cubre punta a punta: idea→guion→clips→horarios→gate de subida + corte de silencios sin destruir habla→timeline DaVinci→render nocturno; falta SOLO desplegar (OAuth 5 min + ejecutor SSH real a la M1 + Whisper real). Siguiente: orquestador multi-modelo, tool de runtime AU en el registry, retomar AS, OT-5 (Hoy/Kanban/Escuela + Bloques 1/4); F5-2/AT/AU pendientes solo de despliegue.
+03 ago: `docs/META_TERMINACION.md` NUEVO — meta de terminación (33 necesidades del cuestionario mapeadas, 18% 🚀 desplegado / 48% construido-o-más) + calibración real de tokens/mes (ledger real 11 días: ~125.6M tok/mes escenario alto, ~50.5M normal; $64/$26 MXN — cabe en $100 con margen). Cuello de botella confirmado: DESPLEGAR, no construir más. Siguiente: cablear voice_extractor+cola_v2 a runtime, resolver canal QA, correr F6-1/F7-2/F7-3.
