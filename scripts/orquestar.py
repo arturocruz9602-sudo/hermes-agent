@@ -57,8 +57,10 @@ PAUSA_TERMICA_S = 30
 # Modo de permisos de los bloques. Autonomía total, con hermes-guard como red.
 MODO_PERMISOS = "bypassPermissions"
 
-# Techo de vueltas por bloque (freno anti-runaway; el costo se dispara si no).
-MAX_TURNS = {"trivial": 15, "medio": 30, "complejo": 60}
+# Techo de vueltas por bloque (freno anti-runaway). Subido 02 ago por orden de
+# Arturo: con 30 los bloques medios morían explorando+implementando antes de
+# probar/commitear. Ahora alcanza para explorar + implementar + probar + commitear.
+MAX_TURNS = {"trivial": 20, "medio": 60, "complejo": 100}
 
 
 # --- Utilidades de salud/estado ---------------------------------------------
@@ -91,11 +93,15 @@ def guardar_estado(estado: dict) -> None:
     ESTADO_LOOP.write_text(json.dumps(estado, ensure_ascii=False, indent=2))
 
 
-def siguiente_bloque(hechos: list) -> dict | None:
-    """Primer bloque pendiente cuyas dependencias ya están todas hechas."""
+def siguiente_bloque(hechos: list, bloqueados: list | None = None) -> dict | None:
+    """Primer bloque pendiente (ni hecho ni bloqueado) cuyas dependencias ya
+    están todas HECHAS. Un bloque cuya dependencia quedó bloqueada nunca se
+    vuelve elegible — el loop simplemente lo salta y termina cuando no hay más."""
+    bloqueados = bloqueados or []
+    saltar = set(hechos) | set(bloqueados)
     hechos_set = set(hechos)
     for b in COLA:
-        if b["id"] in hechos_set:
+        if b["id"] in saltar:
             continue
         if all(dep in hechos_set for dep in b.get("depende_de", [])):
             return b
@@ -123,9 +129,11 @@ Reglas de este bloque:
 - B10: la escritura ocurre en esta sesión; los subagentes son solo de lectura.
 - Si necesitas una decisión de Arturo que NO está en los documentos, NO la inventes:
   déjala anotada en ESTADO.md como pendiente y avanza con lo que SÍ puedas cerrar.
-- Entregable mínimo verificable: haz el trabajo, corre las pruebas que apliquen con
-  evidencia, y haz commit del avance (aunque sea WIP). No declares cerrado lo que no
-  probaste (regla 2).
+- COMMIT INCREMENTAL (importante): haz `git commit` de avance WIP DESPUÉS DE CADA PASO
+  con sentido — cada archivo que escribas, cada prueba que pase. NO lo dejes para el
+  final. Si te quedas sin vueltas, lo ya commiteado se conserva y el loop reanuda desde
+  ahí. Entregable mínimo: trabajo hecho + pruebas con evidencia. No declares cerrado lo
+  que no probaste (regla 2).
 
 Al terminar, resume en máximo 5 líneas: qué hiciste, qué probaste (con números), y
 qué queda pendiente."""
@@ -206,11 +214,12 @@ def correr_bloque(prompt: str, modelo: str, max_turns: int,
     return res
 
 
-def registrar(bloque: dict, clasif, res: dict) -> None:
+def registrar(bloque: dict, clasif, res: dict, intento: int = 1) -> None:
     u = res.get("usage", {}) or {}
     fila = {
         "ts": _dt.datetime.now().isoformat(timespec="seconds"),
         "bloque": bloque["id"],
+        "intento": intento,
         "dificultad": clasif.dificultad,
         "modelo": clasif.modelo,
         "input_tokens": u.get("input_tokens"),
@@ -230,10 +239,15 @@ def registrar(bloque: dict, clasif, res: dict) -> None:
 
 
 # --- Bucle principal ---------------------------------------------------------
+def _fallo(res: dict) -> bool:
+    return bool(res.get("is_error")) or res.get("rc") not in (0, None)
+
+
 def correr(max_bloques: int | None) -> None:
     clasifs = clasificar_lote(COLA)
     estado = cargar_estado()
     hechos = estado.setdefault("hechos", [])
+    bloqueados = estado.setdefault("bloqueados", [])
     corridos = 0
     costo_total = 0.0
 
@@ -244,38 +258,58 @@ def correr(max_bloques: int | None) -> None:
         if ALTO.exists():
             print("\n■ Freno manual (.loop_alto) — me detengo limpio. Borra el archivo para seguir.")
             break
-        bloque = siguiente_bloque(hechos)
+        bloque = siguiente_bloque(hechos, bloqueados)
         if bloque is None:
             print("\n✔ No quedan bloques con dependencias listas. Loop al día.")
             break
 
         clasif = clasifs[bloque["id"]]
-        gate_termico()
-        print(f"\n{'='*90}")
-        print(f"▶ BLOQUE {bloque['id']} · {bloque['titulo']}")
-        print(f"  dificultad={clasif.dificultad} → modelo={clasif.modelo} · "
-              f"HAS {bloque.get('has','-')} · temp {temp_hp()}°C")
-        print(f"{'='*90}")
+        # Orden de Arturo (02 ago): un bloque que falla NO detiene el loop. Se
+        # reintenta UNA vez con el techo de vueltas nuevo; si vuelve a fallar se
+        # marca BLOQUEADO y se sigue con el siguiente. El avance WIP se conserva
+        # porque cada bloque commitea incrementalmente.
+        exito = False
+        for intento in (1, 2):
+            gate_termico()
+            print(f"\n{'='*90}")
+            print(f"▶ BLOQUE {bloque['id']} · {bloque['titulo']}  (intento {intento}/2)")
+            print(f"  dificultad={clasif.dificultad} → modelo={clasif.modelo} · "
+                  f"HAS {bloque.get('has','-')} · temp {temp_hp()}°C · "
+                  f"máx {MAX_TURNS.get(clasif.dificultad, 60)} vueltas")
+            print(f"{'='*90}")
 
-        res = correr_bloque(prompt_bloque(bloque), clasif.modelo,
-                            MAX_TURNS.get(clasif.dificultad, 30))
-        registrar(bloque, clasif, res)
-        if res.get("cost"):
-            costo_total += res["cost"]
+            res = correr_bloque(prompt_bloque(bloque), clasif.modelo,
+                                MAX_TURNS.get(clasif.dificultad, 60))
+            registrar(bloque, clasif, res, intento)
+            if res.get("cost"):
+                costo_total += res["cost"]
 
-        if res.get("is_error") or res.get("rc") not in (0, None):
-            print(f"  ✖ El bloque {bloque['id']} terminó con error — me detengo (regla 2: "
-                  "no avanzar sobre lo que no cerró). Revisa y reanuda.")
-            break
+            if not _fallo(res):
+                exito = True
+                break
+            if intento == 1:
+                print(f"  ✖ intento 1 de {bloque['id']} falló (agotó vueltas o error) — "
+                      "reintento UNA vez con el techo nuevo (orden de Arturo).")
+                time.sleep(2)
 
-        hechos.append(bloque["id"])
+        if exito:
+            hechos.append(bloque["id"])
+            print(f"  ✔ {bloque['id']} marcado HECHO.")
+        else:
+            bloqueados.append(bloque["id"])
+            print(f"  ✖✖ {bloque['id']} falló 2 veces — lo marco BLOQUEADO y SIGO con el "
+                  "siguiente (el loop no se detiene, orden de Arturo). Su avance WIP quedó "
+                  "commiteado; revisar después.")
         guardar_estado(estado)
         corridos += 1
-        print(f"  ✔ {bloque['id']} marcado hecho.")
         time.sleep(2)
 
-    print(f"\n{'─'*90}\nResumen: {corridos} bloque(s) esta corrida · "
-          f"costo acumulado ${costo_total:.4f} · ledger: {LEDGER}")
+    print(f"\n{'─'*90}")
+    print(f"Resumen: {corridos} bloque(s) procesados · hechos={len(hechos)} · "
+          f"bloqueados={len(bloqueados)} · costo acumulado ${costo_total:.4f}")
+    if bloqueados:
+        print(f"  ⚠ bloqueados (revisar): {', '.join(bloqueados)}")
+    print(f"  ledger: {LEDGER}")
 
 
 def probar() -> None:

@@ -201,3 +201,4 @@ kanban.db-shm
 scripts/.loop_estado.json
 scripts/loop_tokens.jsonl
 scripts/.loop_alto
+scripts/loop_run.log
