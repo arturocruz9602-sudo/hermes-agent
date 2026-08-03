@@ -2430,3 +2430,58 @@ no cortar para no arriesgar su voz.
 
 
 ---
+
+## 03 ago 2026 — Su correo personal (Gmail) ya está vigilado, igual que el de la escuela
+
+**Lo que cambió en su día a día.** Ya tenía a Hermes viendo su correo de la
+universidad. Ahora también ve su Gmail personal — ese donde le llegan
+avisos de banco, compras y eventos, mezclados con cientos de
+notificaciones de TikTok, Medium e Indeed que nadie lee.
+
+**Antes:** su Gmail personal no lo vigilaba nadie; había que abrirlo y
+buscar entre el ruido.
+
+**Ahora:** cada 15 minutos Hermes revisa lo nuevo (nunca el histórico —
+tiene 4,245 correos ahí, y Hermes jamás los va a leer ni tocar de golpe,
+solo lo que llegue de aquí en adelante). Le avisa por Telegram solo si es
+de banco, una compra, o una invitación a un evento — y le dice qué hacer,
+no solo que llegó algo:
+
+```
+📧 Correo personal — banco
+
+De: BBVA México
+Asunto: Movimiento en tu tarjeta de crédito
+Recibido: 03 ago 17:40
+
+Sugerencia: revisa el movimiento; si no lo reconoces, entra al banco
+directo (no des clic en el correo)
+
+(te aviso porque dice 'tarjeta de credito')
+```
+
+Todo lo demás — "fulano te envió un mensaje", "a alguien le gustó tu
+publicación", los digests de Medium — se lo calla. Sobre una muestra real
+de 300 correos suyos: solo 9 eran del tipo que le importa, 179 eran puro
+ruido social.
+
+**Lo que encontré probándolo con su correo real:** el primer intento
+marcaba como "compra" cualquier notificación de TikTok/Messenger que
+dijera "te envió un mensaje" — la palabra "envío" lo confundía con un
+envío de paquete. Ya está corregido y probado (13 pruebas) antes de
+dejarlo prendido.
+
+**Para probarlo usted mismo:** no tiene que hacer nada — ya está
+corriendo. Si le llega un correo de banco, tienda o invitación a su
+Gmail personal, en un máximo de 15 minutos le debe llegar el aviso a
+Telegram.
+
+**Ojo, esto es solo lectura.** Hermes nunca contesta, borra ni mueve
+nada de su correo — solo avisa y sugiere. Que Hermes pueda contestar
+algún correo por usted (con su autorización y viéndolo antes) es algo
+que usted mismo pidió para más adelante, todavía no está construido.
+
+**Notas de Arturo:**
+
+
+---
