@@ -286,6 +286,20 @@ MIGRACIONES = [
             "INSERT OR IGNORE INTO habitos (nombre, activo, nota) VALUES ('entrenar',1,'r.72'), ('estudiar',1,'r.72'), ('comer_limpio',1,'registro detallado de comidas (r.70)'), ('trabajo_profundo',1,'marco mental (r.78)'), ('cero_chelas',1,'regla principal; en riesgo explicar lo que se echa a perder + ventajas (r.71)'), ('descanso_estrategico',1,'r.72')",
         ],
     ),
+    (
+        5,
+        "Escuela: horario por foto -- materia/profesor/cuatrimestre en horario (F6-2, OT-6 Bloque 1, HAS 1157)",
+        [
+            # 'horario' ya servia gimnasio/taqueria con actividad+lugar generico.
+            # Estas columnas son NULL para esas filas; solo las de escuela las usan.
+            # cuatrimestre es la clave del versionado F7: un horario nuevo archiva
+            # (activo=0) al anterior, nunca lo borra -- historial academico permanente.
+            "ALTER TABLE horario ADD COLUMN materia TEXT",
+            "ALTER TABLE horario ADD COLUMN profesor TEXT",
+            "ALTER TABLE horario ADD COLUMN cuatrimestre TEXT",
+            "CREATE INDEX IF NOT EXISTS idx_horario_cuatrimestre ON horario(cuatrimestre)",
+        ],
+    ),
 ]
 
 
