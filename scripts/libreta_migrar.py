@@ -300,6 +300,35 @@ MIGRACIONES = [
             "CREATE INDEX IF NOT EXISTS idx_horario_cuatrimestre ON horario(cuatrimestre)",
         ],
     ),
+    (
+        6,
+        "Archivo permanente (F7-1, OT-7): tabla archivos (biblioteca, E2) + "
+        "gastos gana comercio/evidencia_id para tickets con evidencia",
+        [
+            # categoria = que decidio el clasificador de entrada (E1): nunca
+            # el tiempo. retention_class='permanent' siempre aqui -- lo
+            # efimero (cache/) no se indexa en esta tabla, vive y expira
+            # aparte. hash_sha256 evita duplicar la misma foto reenviada.
+            """
+            CREATE TABLE IF NOT EXISTS archivos (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                categoria       TEXT    NOT NULL CHECK (categoria IN
+                                    ('ticket','familiar','escuela','contenido','otro')),
+                filepath        TEXT    NOT NULL UNIQUE,
+                hash_sha256     TEXT    NOT NULL,
+                retention_class TEXT    NOT NULL DEFAULT 'permanent'
+                                    CHECK (retention_class IN ('cache','permanent')),
+                origen_nombre   TEXT,
+                nota            TEXT,
+                creado_en       TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_archivos_categoria ON archivos(categoria)",
+            "CREATE INDEX IF NOT EXISTS idx_archivos_hash ON archivos(hash_sha256)",
+            "ALTER TABLE gastos ADD COLUMN comercio TEXT",
+            "ALTER TABLE gastos ADD COLUMN evidencia_id INTEGER REFERENCES archivos(id)",
+        ],
+    ),
 ]
 
 
