@@ -177,35 +177,35 @@ def extraer_clips(
 ) -> list[ClipCandidato]:
     """Encuentra los clips valiosos ≤`max_seg` del video largo.
 
-    Ancla una ventana en cada segmento y la extiende mientras quepa en el tope
-    de 2 min; puntúa cada ventana; luego elige codiciosamente por valor las que
-    no se traslapan. Devuelve solo las que superan `umbral`, rankeadas (r.48: si
-    hay 20 valiosas, son 20; si hay 3, son 3 — no rellena de paja).
+    Enumera TODAS las ventanas de segmentos consecutivos que quepan en el tope
+    de 2 min, puntúa cada una, y elige codiciosamente por valor las que no se
+    traslapan — prefiriendo la ventana MÁS COMPACTA a igualdad de valor, para
+    no tragarse relleno entre dos momentos fuertes (un clip de 40s denso vale
+    más que uno de 120s con paja en medio). Devuelve solo las que superan
+    `umbral`, rankeadas (r.48: si hay 20 valiosas, son 20; si hay 3, son 3 — no
+    rellena de paja ni recorta buenos).
     """
     n = len(transcripto)
     ventanas: list[ClipCandidato] = []
     for i in range(n):
-        fin_idx = i
-        # extiende mientras la ventana [i..fin_idx] no pase del tope
-        while (fin_idx + 1 < n
-               and transcripto[fin_idx + 1].fin - transcripto[i].inicio <= max_seg):
-            fin_idx += 1
-        inicio = transcripto[i].inicio
-        fin = transcripto[fin_idx].fin
-        dur = fin - inicio
-        if dur < min_seg or dur > max_seg:
-            continue
-        texto = " ".join(s.texto for s in transcripto[i:fin_idx + 1]).strip()
-        valor, motivos = _valor_texto(texto)
-        if valor < umbral:
-            continue
-        ventanas.append(ClipCandidato(
-            inicio=inicio, fin=fin, texto=texto,
-            titulo=_titulo_desde(texto), valor=valor, motivos=motivos,
-        ))
+        for j in range(i, n):
+            dur = transcripto[j].fin - transcripto[i].inicio
+            if dur > max_seg:
+                break  # más allá ya no cabe en 2 min; corta la extensión
+            if dur < min_seg:
+                continue
+            texto = " ".join(s.texto for s in transcripto[i:j + 1]).strip()
+            valor, motivos = _valor_texto(texto)
+            if valor < umbral:
+                continue
+            ventanas.append(ClipCandidato(
+                inicio=transcripto[i].inicio, fin=transcripto[j].fin, texto=texto,
+                titulo=_titulo_desde(texto), valor=valor, motivos=motivos,
+            ))
 
-    # selección codiciosa sin traslape: primero las de mayor valor.
-    ventanas.sort(key=lambda c: (-c.valor, c.inicio))
+    # selección codiciosa sin traslape: mayor valor primero; a igual valor, la
+    # ventana más corta (más densa) gana, así no absorbe relleno.
+    ventanas.sort(key=lambda c: (-c.valor, c.duracion, c.inicio))
     elegidos: list[ClipCandidato] = []
     ocupado: list[tuple[float, float]] = []
     for c in ventanas:
