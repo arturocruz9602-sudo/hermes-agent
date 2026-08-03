@@ -134,6 +134,15 @@ Reglas de este bloque:
   final. Si te quedas sin vueltas, lo ya commiteado se conserva y el loop reanuda desde
   ahí. Entregable mínimo: trabajo hecho + pruebas con evidencia. No declares cerrado lo
   que no probaste (regla 2).
+- CONSULTA INTERNET AL FALLAR (orden de Arturo, 02 ago): si algo te falla, te atascas o
+  un error no es obvio (bug, API que no responde como esperas, comportamiento raro de una
+  herramienta), NO reintentes a ciegas ni te rindas: busca en internet la solución —
+  foros (Stack Overflow, GitHub Issues), documentación oficial y páginas especializadas —
+  copiando el mensaje de error EXACTO en la búsqueda. PRIORIZA fuentes con fechas
+  recientes/actuales (últimos ~6 meses) sobre las antiguas: las APIs y herramientas
+  cambian rápido y una respuesta vieja puede estar obsoleta. Aplica esta regla en el
+  intento 1 y también en el reintento (intento 2): antes de fallar dos veces, investiga
+  en la web y ataca la causa real.
 
 Al terminar, resume en máximo 5 líneas: qué hiciste, qué probaste (con números), y
 qué queda pendiente."""
