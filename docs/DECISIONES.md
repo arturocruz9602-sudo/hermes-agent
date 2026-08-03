@@ -199,3 +199,14 @@ INDEPENDIENTE de la estrategia. Arquitectura: mercado y sentimiento son puertos 
 toca red por sí mismo (r.119, host con creds de prod sin QA); el cliente `MercadoBinanceTestnet` (python-binance
 testnet=True) queda cableado pero exige keys+laboratorio para correr en vivo. Capital simulado con tope duro
 5000 MXN. Impacto: AT cierra como entrenador probado localmente; el dinero real sigue atado a B4 y propone-y-apruebas.
+
+**02 ago 2026 · Pipeline de clips (AU-2): el clip ES un guion corto grabado.** El corto ≤2min
+se registra en la MISMA tabla `guiones` de AU-1 (estado 'grabado'), no en una tabla nueva:
+comparte ciclo (idea→guion→grabado→publicado) y evita duplicar esquema. El tope de 2 min (r.48)
+se defiende en el DATO (`ClipCandidato` revienta si dura >120s), no solo en el extractor —
+imposible que un clip fuera de norma llegue a programarse. Extracción: enumera todas las
+ventanas de segmentos y prefiere la más COMPACTA a igual valor (un clip denso de 40s vale más
+que uno de 120s con relleno). Horarios: pesos por día/hora anclados en investigación 2025-2026,
+CRITERIO ajustable cuando llegue el Analytics real del canal (no gate ciego). OAuth vive en
+HERMES (DECISIONES 31 jul); publicar exige `aprobado=True` explícito de Arturo (r.59) — el
+cliente de red es inyectable y queda cableado pero pendiente del OAuth de 5 min.

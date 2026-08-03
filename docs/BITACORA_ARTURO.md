@@ -2339,3 +2339,47 @@ te falta un bucle abierto en el minuto 2 y el cierre no cierra el gancho".
 
 
 ---
+
+## 02 Ago 2026 (loop) — De un video largo saco los clips y los reparto en la semana
+
+### Lo que hay ahora
+
+Ya está la máquina que agarra su **video largo** y de ahí saca los **clips
+cortos (máximo 2 minutos)** que valen la pena, jefe — justo como lo pidió: si
+salen 5 buenos son 5, si salen 20 son 20, sin rellenar con paja. Cada clip lo
+elige por gancho, momento emocional y que se entienda solo (no un pedazo cortado
+a la mitad).
+
+Después los **acomoda en los mejores horarios de la semana** para que siempre
+esté subiendo algo: reparte los mejores clips en los mejores huecos (tardes,
+la hora de salida del trabajo y las noches; los fines de semana pesan más porque
+la gente ve más). No los amontona todos el mismo día.
+
+**Lo más importante — su regla:** Hermes NUNCA sube nada solo. Deja TODO listo y
+programado, pero hasta que usted diga "sí, súbelo" no sale a la calle. Y sube en
+**privado** primero, para que usted revise antes de hacerlo público.
+
+**Aviso honesto:** si su permiso de YouTube (el "OAuth") se vence o falta, Hermes
+se lo dice de una vez — nunca se queda callado fingiendo que todo va bien.
+
+### Lo que falta (y necesita 5 minutos suyos)
+
+Falta que usted conecte **una sola vez** el permiso de YouTube a Hermes (el
+OAuth, ~5 min). Hasta que lo haga, Hermes puede preparar y programar todo en
+borrador, pero no puede tocar su canal real. Cuando tenga los 5 minutos, me dice
+y lo conectamos.
+
+### Cómo lo prueba usted
+
+Cuando esté conectado, va a poder mandarle algo como:
+
+> "Hermes, de mi último video largo sácame los clips de menos de 2 minutos y
+> repártelos en los mejores horarios de esta semana."
+
+Y le va a devolver la lista: cuántos clips salieron, a qué día y hora quedaría
+cada uno, y el recordatorio de que nada se sube hasta su "sí, súbelo".
+
+**Notas de Arturo:**
+
+
+---
