@@ -2383,3 +2383,50 @@ cada uno, y el recordatorio de que nada se sube hasta su "sí, súbelo".
 
 
 ---
+
+## 02 ago 2026 — Cortar los silencios sin comerse sus palabras + editar de noche en la Mac
+
+### Qué se arregló / construyó
+
+Dos cosas de la parte de video, jefe:
+
+**1. Cortar silencios sin recortarle palabras.** Usted me contó (r.49) que la IA
+de DaVinci le detecta como "silencio" la cola de las palabras que pierden fuerza
+al final, y se las recorta — quedan cortadas. Ahora Hermes corta los silencios
+protegiendo esas colas (conserva un respiro antes y después de cada palabra) y,
+lo importante: **antes de entregarle nada, verifica que no se perdió ni una
+palabra.** Si detecta que un corte se comió aunque sea una, afloja y reintenta; y
+si aun así hay riesgo, le entrega su grabación **intacta** con el aviso "no pude
+cortar sin riesgo" — nunca le devuelve un corte que le arruinó una palabra.
+
+- **Antes:** se sentaba horas a repasar la línea de tiempo cazando palabras que la
+  IA recortó de más.
+- **Ahora:** Hermes hace el corte y le certifica con números (0 palabras perdidas)
+  que no tocó su voz; si no puede garantizarlo, no lo hace y se lo dice.
+
+**2. Editar de noche en su MacBook, dejándola como estaba.** Hermes puede armar el
+timeline en DaVinci (importar, ordenar, aplicar los cortes aprobados) por la noche
+en su Mac. Como es **su equipo de trabajo, no el de Hermes** (r.102), toda config
+nocturna (evitar que se duerma para renderizar) se **revierte antes de las 6:00 y
+se verifica** que quedó limpia. Y por si algo se cuelga, la config **se cae sola**
+antes de esa hora — así nunca se queda su laptop encendida gastando batería si usted
+sale y olvida apagarla. El armado del timeline no renderiza: le deja el proyecto
+abierto para que usted lo revise; el render pesado sí corre solo, pero solo de noche.
+
+### Cómo lo prueba usted
+
+Esto todavía necesita conectar a Hermes con su Mac (por SSH) y su Whisper para el
+paso final — es despliegue, no código. Pero la lógica ya está probada (35 pruebas).
+Cuando esté conectado, va a poder mandarle algo como:
+
+> "Hermes, córtale los silencios a la grabación de hoy y ármame el timeline en
+> DaVinci, pero no me vayas a recortar ninguna palabra."
+
+Y le va a devolver: cuántos silencios cortó, cuántos segundos le quitó, y la
+confirmación de que verificó **0 palabras perdidas** — o el aviso de que prefirió
+no cortar para no arriesgar su voz.
+
+**Notas de Arturo:**
+
+
+---

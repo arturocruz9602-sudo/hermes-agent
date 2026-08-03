@@ -210,3 +210,19 @@ que uno de 120s con relleno). Horarios: pesos por día/hora anclados en investig
 CRITERIO ajustable cuando llegue el Analytics real del canal (no gate ciego). OAuth vive en
 HERMES (DECISIONES 31 jul); publicar exige `aprobado=True` explícito de Arturo (r.59) — el
 cliente de red es inyectable y queda cableado pero pendiente del OAuth de 5 min.
+
+**02 ago 2026 · Corte de silencios (AU-3): la verificación §E6 es parte del corte, no un extra.**
+El fallo real de r.49 (la IA toma la cola de una consonante final por silencio y la recorta)
+se modela explícitamente con `cola_ms` por palabra: el corte se ACEPTA solo tras verificar 0
+palabras perdidas y WER≤2% (§E6); si falla, relaja umbral+3dB/padding+50ms (máx 3 iter) y, si
+aun así falla, entrega el ORIGINAL con "no pude cortar sin riesgo" — nunca un corte que destruye
+habla. El Whisper de verificación es INYECTABLE (oráculo determinista en el laboratorio, r.20).
+
+**02 ago 2026 · La M1 prestada se protege con TRIPLE candado (AU-3, r.102), no con un flag.**
+`SesionM1` garantiza que la Mac queda como estaba con: (a) reversión en `finally` — ocurre aunque
+el trabajo lance a media noche; (b) verificación de que revirtió — si no, `ReversionError`, alarma
+dura, nunca en silencio (regla 3); (c) auto-expiración del lado de la Mac (`caffeinate -t` con los
+segundos hasta las 06:00) — si Hermes muere sin `__exit__`, la config igual se cae sola. La edición
+de timeline es SIN render (proyecto abierto para revisión, OT-8); el render SÍ es automático (r.102)
+pero solo dentro del envelope (con caffeinate) y en ventana — es el paso pesado que calienta la Mac.
+Impacto: Hermes puede editar de noche en la Mac de Arturo sin riesgo de dejarla tocada o sin batería.
