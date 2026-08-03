@@ -31,7 +31,8 @@ AP | 31 jul | Separación de entornos: HAS §F11 + lab Docker | en curso 🔄 (d
 — | 01 ago | Reestructura documental + cuestionario 123 respuestas integrado (ESTADO/DECISIONES/SEED) | cerrado ✅
 AQ | 01 ago | Primera corrida real del lab: imagen + restaurar respaldo 20260731 (integrity ok) + smoke + arnés 57/57 + gate térmico (pico 59°C) | cerrado ✅
 AR | 01 ago | La libreta RECONCILIADA: la libreta ya existia (libreta.db); migracion v4 (gastos/meta $100k/peso/habitos) validada en lab F11-e + aplicada a prod con respaldo; +libreta.db al respaldo; HAS §E10 v1.7 | cerrado ✅
-AS | 01 ago | Brief 6:30 DESPLEGADO (brief_matutino.py + timer, verificado en simulacion con reloj virtual); falta cierre nocturno en audio + verificar voz→libreta | en curso 🔄 ← SIGUIENTE
+AS | 01 ago | Brief 6:30 DESPLEGADO (brief_matutino.py + timer, verificado en simulacion con reloj virtual); falta cierre nocturno en audio + verificar voz→libreta | en curso 🔄
+AS-2 | 02 ago | Cierre nocturno en AUDIO (r.90): cierre_del_dia_audio.py genera+verifica .ogg (ffprobe=opus) reusando tts_tool; enviar.py ahora detecta .ogg→sendVoice (verificado sin trafico real, mock de requests.post) | en curso 🔄 (falta: canal QA o aprobacion de Arturo para envio en vivo, timer nocturno, hora r.90 confirmada) ← SIGUIENTE
 AT | — | Trading testnet: conectar trading_entrenador.py, corridas diarias autónomas | pendiente (necesita AQ)
 AU | — | Motor de guiones desde Obsidian + pipeline de clips + OAuth YouTube | pendiente
 AV | 02 ago | Capa de confiabilidad para loop autónomo: hook arranque SessionStart + skill /cierre + lista de tareas viva | en curso 🔄 (paso 1 hecho; sigue orquestador multi-modelo)
