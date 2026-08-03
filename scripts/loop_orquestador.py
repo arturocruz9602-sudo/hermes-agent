@@ -94,7 +94,13 @@ dificultad="complejo" cuando el bloque exige JUICIO o toca mucho:
   - algo con supuestos sin verificar o que puede romper producción
   - cualquier cosa de seguridad, migraciones de esquema, o dinero real
 
-Ante la duda entre dos niveles, elige SIEMPRE el más alto (trivial<medio<complejo)."""
+NOTA de eficiencia (03 ago, orden de Arturo): la longitud o el número de pasos
+de un bloque NO lo hacen complejo. Trabajo de contenido/edición/pipeline/scripts
+(crear, procesar, editar, renderizar archivos; integrar una API ya existente) es
+"medio" aunque toque muchos pasos, SALVO que involucre de verdad arquitectura,
+causa raíz, multi-módulos, seguridad, dinero real o riesgo de producción.
+Ante la duda entre dos niveles, elige medio (trivial<medio<complejo); solo sube
+a complejo si el bloque exige juicio real de arquitectura/riesgo/dinero."""
 
 
 _RUBRICA_DIFICULTAD = """Eres el enrutador de un loop autónomo de programación.

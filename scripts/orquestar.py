@@ -60,7 +60,7 @@ MODO_PERMISOS = "bypassPermissions"
 # Techo de vueltas por bloque (freno anti-runaway). Subido 02 ago por orden de
 # Arturo: con 30 los bloques medios morían explorando+implementando antes de
 # probar/commitear. Ahora alcanza para explorar + implementar + probar + commitear.
-MAX_TURNS = {"trivial": 20, "medio": 60, "complejo": 100}
+MAX_TURNS = {"trivial": 20, "medio": 60, "complejo": 60}  # complejo 100->60 (03 ago): cierran en ~36 vueltas; techo alto = desbordes caros
 
 
 # --- Utilidades de salud/estado ---------------------------------------------
@@ -143,6 +143,11 @@ Reglas de este bloque:
   cambian rápido y una respuesta vieja puede estar obsoleta. Aplica esta regla en el
   intento 1 y también en el reintento (intento 2): antes de fallar dos veces, investiga
   en la web y ataca la causa real.
+- ECONOMÍA DE CONTEXTO (orden de Arturo, 03 ago): cada vuelta reenvía TODO el
+  historial y se cobra contra la cuota Pro. No re-leas archivos que ya leíste:
+  usa grep -n para localizar y lee solo los rangos necesarios (read_file con
+  offset/limit). Recorta salidas largas de comandos (head/tail/grep) antes de
+  pegarlas; si una salida es enorme, guarda un resumen, no el dump completo.
 
 Al terminar, resume en máximo 5 líneas: qué hiciste, qué probaste (con números), y
 qué queda pendiente."""
