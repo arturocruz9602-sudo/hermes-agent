@@ -7,6 +7,35 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 02 Ago 2026 (loop) — Ya está armado el laboratorio de trading (dinero de mentiritas)
+
+### Lo que hay ahora
+
+Le construí el **entrenador de trading**, jefe. Piense en un simulador de vuelo:
+practica con dinero SIMULADO (tope de 5,000 pesos de juguete), nunca con su
+dinero real. Aprende una estrategia concreta que usted mismo pidió: comprar
+cuando una cripto CAE **pero** las noticias apuntan a que va a subir — y solo
+entra cuando se juntan las tres señales (cayó, está "agotada" de tanto bajar, y
+el ánimo del mercado apunta a alza), no por cualquier bajón. Antes de escribir
+una línea busqué en internet las mejores prácticas: comprar cada caída a ciegas
+es de los errores más comunes, por eso el triple filtro.
+
+Trae el **freno de emergencia -3% al día** que usted confirmó ("que quede así"):
+si un día pierde el 3% del capital, se detiene solo y no vuelve a operar ese día.
+
+### Lo que todavía NO hace (y por qué)
+
+**No está operando aún** — ni en la testnet de Binance. Esta sesión corrió en su
+laptop con las llaves reales del sistema, y por seguridad NO conecto nada real
+desde aquí. Para encenderlo de verdad (en un entorno de pruebas aislado) faltan
+sus llaves de la testnet de Binance y moverlo al laboratorio. Todo lo demás ya
+está probado: 17 pruebas en verde, incluido que el freno frena.
+
+### Mensaje que puede mandar para entenderlo
+
+> "Hermes, explícame en cristiano cómo decide tu entrenador de trading cuándo
+> comprar, y qué pasa si un día va perdiendo mucho."
+
 ## 02 Ago 2026 (7:10 pm) — Ya tiene una segunda pestaña viva en Notion: "Finanzas"
 
 ### Lo que hay ahora

@@ -1,4 +1,4 @@
-# ESTADO — actualizado: 02 ago 2026 (AV en curso: capa de confiabilidad para loop autónomo; AS pausado por redirección)
+# ESTADO — actualizado: 02 ago 2026 (AT cerrado: entrenador trading testnet; AV en curso: capa de confiabilidad loop autónomo)
 **Se SOBREESCRIBE cada sesión, máx 80 líneas (gate). Histórico: `docs/archivo/`. Voz de Arturo: `CUESTIONARIO_MAESTRO.md` = misma jerarquía que MANDATO.**
 
 ## Fases HAS
@@ -34,10 +34,13 @@ Pendiente para después: (a) envío en vivo a Telegram QA/producción; (b) timer
 ## ✅ F5-2 CERRADO (02 ago, bloque del loop) — cola de tareas v2 con garantía dura (OT-5 Bloque 3 / HAS §E5)
 `scripts/cola_v2.py` (patrón libreta.py: real=state.db / simulacion aparte): máquina de estados `encolada→en_proceso→resuelta→notificada|atorada` en `state.db`, escalera de reintentos Groq→Gemini→OpenRouter (5/prov, **sin DeepSeek automático**), watchdog de huérfanas >2h con **idempotencia por result_hash** (no re-ejecuta el efecto), notificación **GARANTIZADA** (resuelta⇒notificada; si Telegram falla, queda resuelta y el siguiente barrido renotifica — nunca resuelta-sin-avisar), y `task_queue_log` que escribe éxito Y fallo de cada intento. **solver/notificador son INYECTABLES**: la cola es la espina dorsal de la proactividad sin poder gastar sola. **11/11 pruebas** (`tests/scripts/test_cola_v2.py`) clavan los 3 invariantes E5, incl. lote mixto de 15 tareas donde NADA queda en estado no-terminal. **Pendiente de despliegue:** cablear solver real (skill/proveedor por tarea) + notificador real (`~/.hermes/scripts/enviar.py`) + timer systemd del watchdog cada 30 min. **OT-5 Bloque 3 hecho; van 2/6 vistas + cola v2.**
 
+## ✅ AT CERRADO (02 ago, bloque del loop) — entrenador de trading testnet news-driven (OT-10/B4)
+`scripts/trading_entrenador.py`: buy-the-dip informado por sentimiento. Investigación web (02 ago): dip a secas rinde mal → la entrada exige el CRUCE de 3 (caída ≥umbral + RSI<30 sobreventa + score de sentimiento alcista; r.91 solo números). Capital SIMULADO tope **5,000 MXN**, ciclos semanales, freno duro **-3% diario** (r.40, circuit-breaker independiente), fees 0.1%+slippage por fill. Mercado y sentimiento son puertos **INYECTABLES** → el módulo no toca red solo (r.119: host con creds de prod, sin QA). Cliente `MercadoBinanceTestnet` (python-binance `testnet=True`) cableado pero **PENDIENTE**. **17/17 pruebas** con dobles locales: freno dispara+bloquea+reinicia por día, cruce de señal, capital nunca negativo/tope duro, fee+slippage, RSI Wilder, TP/SL.
+**Pendiente de despliegue (r.119, requiere QA):** (a) keys `BINANCE_TESTNET_API_KEY/_SECRET` en `.env`; (b) correr en Docker/QA, nunca host-prod; (c) fuente de sentimiento real (Fear&Greed alternative.me, solo números, apta r.91); (d) reporte Notion (r.42); (e) datos reales para calibrar umbrales.
+
 ## COLA DE AGOSTO (tras AS; orden r.97: dinero → YouTube/redes → Hermes completo)
-1. **AT — Trading testnet (OT-10)**: `trading_entrenador.py` a testnet Binance; simular capital hasta **5,000 MXN, ciclos SEMANALES**; estrategia news-driven (caída + noticias que apuntan a alza = arriesgar); **investigar mejores estrategias en la web**. Meta 2,000/sem = objetivo de ENTRENAMIENTO, no promesa (r.36-43). Primero entrenar el modelo.
-2. **AU — Motor de guiones desde Obsidian + pipeline de clips** (r.45-48): guion gancho/cierre/retención; TODOS los clips ≤2 min programados en mejores horarios; OAuth YouTube (r.59).
-3. Transversal: **presupuesto de contexto** — prueba permanente del arnés (techo 19.1k/vuelta, ≥3 muestras).
+1. **AU — Motor de guiones desde Obsidian + pipeline de clips** (r.45-48): guion gancho/cierre/retención; TODOS los clips ≤2 min programados en mejores horarios; OAuth YouTube (r.59).
+2. Transversal: **presupuesto de contexto** — prueba permanente del arnés (techo 19.1k/vuelta, ≥3 muestras).
 
 ## EFICIENCIA — 3 preocupaciones de Arturo (01 ago)
 - **P1 variantes:** matriz = GUION_PRUEBAS × 5 roles (F11-d) × escenarios simulados (r.20); cada corrida nocturna agrega escenarios.

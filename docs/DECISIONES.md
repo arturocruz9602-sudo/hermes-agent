@@ -189,3 +189,13 @@ manual `scripts/.loop_alto`; gate térmico r.103 (>85°C pausa); estado reanudab
 Impacto: el loop puede construir el proyecto sin supervisión; Arturo lo mira por SSH+tmux y lo frena
 cuando quiera. Costo medido: cada sesión anidada paga ~$0.03-0.04 solo por cargar el contexto (peaje a
 optimizar). Verificado inocuamente antes de correr real (`orquestar.py probar`).
+
+**02 ago · Trading AT — la señal es un CRUCE de 3, no dip a secas (r.36-43).** Investigación web (02 ago):
+comprar la caída sola rinde mal (se queda invertido dentro de bear markets). Por eso la entrada de
+`trading_entrenador.py` exige TRES condiciones juntas: (1) caída ≥umbral vs. referencia, (2) RSI<30
+(agotamiento/sobreventa, confirma pullback y no caída libre), (3) score de sentimiento alcista (r.91: a
+gratis solo van números, un score numérico es apto). El freno -3% diario (r.40) es un circuit-breaker
+INDEPENDIENTE de la estrategia. Arquitectura: mercado y sentimiento son puertos INYECTABLES → el módulo no
+toca red por sí mismo (r.119, host con creds de prod sin QA); el cliente `MercadoBinanceTestnet` (python-binance
+testnet=True) queda cableado pero exige keys+laboratorio para correr en vivo. Capital simulado con tope duro
+5000 MXN. Impacto: AT cierra como entrenador probado localmente; el dinero real sigue atado a B4 y propone-y-apruebas.
