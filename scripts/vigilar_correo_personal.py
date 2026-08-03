@@ -81,12 +81,16 @@ CLAVES_BANCO = (
     "transferencia", "saldo", "pago realizado", "nu mexico", "nubank",
 )
 
-# Compras/envios -> PRIORITARIO
+# Compras/envios -> PRIORITARIO. Frases completas, nunca "envio" a secas:
+# "te envio un mensaje" (chat de red social) normaliza a una cadena que
+# contiene "envio" como substring de "envió" y disparaba falsos positivos
+# (hallado en la prueba real del 03 ago contra la bandeja de Arturo).
 CLAVES_COMPRAS = (
-    "amazon", "mercadolibre", "mercado libre", "mercado pago", "envio",
-    "tu pedido", "pedido #", "compra realizada", "factura", "paquete",
-    "rastreo", "numero de guia", "confirmacion de compra", "shein",
-    "temu", "aliexpress",
+    "amazon", "mercadolibre", "mercado libre", "mercado pago",
+    "tu pedido", "pedido #", "compra realizada", "confirmacion de compra",
+    "confirmacion de tu compra", "factura", "tu factura", "paquete",
+    "rastreo", "numero de guia", "tu envio", "estado de tu envio",
+    "envio en camino", "pedido enviado", "shein", "temu", "aliexpress",
 )
 
 # Invitaciones a eventos -> PRIORITARIO
