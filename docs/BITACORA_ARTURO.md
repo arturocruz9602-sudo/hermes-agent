@@ -2485,3 +2485,56 @@ que usted mismo pidió para más adelante, todavía no está construido.
 
 
 ---
+
+## 03 ago 2026 — Empecé el tutor académico: la primera pieza es que Hermes lea su horario de una foto
+
+**Lo que cambió en su día a día.** Cuando mande la foto de su horario del
+cuatrimestre (el que empieza en septiembre), Hermes ya sabe qué hacer con
+ella: entenderla, mostrársela de vuelta como tabla para que usted la
+corrija, y solo cuando diga "sí" la guarda de verdad — nunca la carga sola.
+
+**Antes:** no había ningún lugar donde Hermes supiera sus materias,
+horarios de clase, aula o maestro; todo dependía de que usted mismo se
+acordara.
+
+**Ahora, cuando mande la foto (aún NO hecho — falta la pieza que lee la
+foto, ver abajo), Hermes contestaría algo así:**
+
+```
+📅 Horario detectado para 2026-C3 (aún NO aplicado):
+
+Lunes
+  08:00-09:30  Programación Web  (B-204 · Ing. Ríos)
+  09:30-11:00  Bases de Datos  (B-204 · Ing. Solís)
+Miércoles
+  08:00-09:30  Programación Web  (B-204 · Ing. Ríos)
+
+¿Lo doy de alta así? Responde sí, o corrige lo que falte.
+```
+
+Y si el próximo cuatrimestre cambia de horario, el anterior no se borra
+—queda archivado, por si algún día necesita ver "qué llevaba el
+cuatrimestre pasado".
+
+**Lo que TODAVÍA no hace, y por qué (importante).** Construí la parte que
+entiende y guarda el horario, pero NO la parte que lee la foto todavía.
+Motivo real: su horario trae nombres de sus maestros, y hay una regla suya
+del 31 de julio — nunca mandar nombres de personas a una API gratuita de
+IA (esas entrenan con lo que les mandas). No tengo confirmado si la llave
+de Gemini que uso para "ver fotos" es de las de paga o de las gratis, así
+que no le voy a mandar la foto real de su horario hasta aclarar eso.
+Cuando usted mande el horario (dijo que sería más adelante, para el
+cuatrimestre que empieza en septiembre), antes le voy a preguntar cómo
+prefiere que se procese la foto.
+
+**Para probarlo usted mismo, sin foto real todavía:**
+```
+python3 scripts/horario_por_foto.py --simular
+```
+Eso le muestra exactamente el mensaje de confirmación que recibiría,
+con datos de prueba (no los suyos).
+
+**Lo que sigue de este frente (pendiente, no en esta sesión):** el
+"pizarrón" por materia (foto del pizarrón → explicación + guardado por
+materia) y el repaso proactivo antes de que arranque el cuatrimestre —
+ambos dependían de que el horario ya existiera, así que iban después.
