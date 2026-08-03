@@ -2176,3 +2176,30 @@ encendido. Ya quedó bien en el chequeo automático; falta corregir esa línea d
 
 
 ---
+
+## 02 Ago 2026 (7:00 pm) — El cierre de la noche ya puede llegarle en su voz, pero todavía no se lo mando
+
+### Lo que hay ahora
+
+Le pidió que el resumen de cierre de la noche fuera en audio, no puro texto. Ya
+armé la pieza que arma ese resumen ("Buenas noches, jefe. Resumen de hoy... Que
+descanses.") con sus datos reales de la libreta (gastos, pagos cerca, tareas de
+mañana) y lo convierte a nota de voz de verdad — la probé y el archivo que salió
+es audio válido, no un archivo roto.
+
+**Todavía no se la mando a ningún lado, ni de prueba.** No tengo un canal de
+Telegram separado para pruebas, y esta laptop tiene sus credenciales reales — no
+quise arriesgarme a que una prueba le llegara a su chat de siempre sin que usted
+lo supiera. Igual falta que usted confirme la hora exacta (por default sigue en
+22:45, la misma del cuestionario de cierre en texto).
+
+### Cómo lo prueba usted
+
+Nada que probar todavía — es la parte de "atrás del telón". Cuando le arme un
+canal de pruebas (o si usted prefiere que la primera vez se la mande directo a
+su Telegram real para escucharla), se lo aviso primero.
+
+**Notas de Arturo:**
+
+
+---
