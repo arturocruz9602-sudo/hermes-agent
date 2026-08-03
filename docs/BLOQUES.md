@@ -36,3 +36,4 @@ AS-2 | 02 ago | Cierre nocturno en AUDIO (r.90): cierre_del_dia_audio.py genera+
 AT | — | Trading testnet: conectar trading_entrenador.py, corridas diarias autónomas | pendiente (necesita AQ)
 AU | — | Motor de guiones desde Obsidian + pipeline de clips + OAuth YouTube | pendiente
 AV | 02 ago | Capa de confiabilidad para loop autónomo: hook arranque SessionStart + skill /cierre + lista de tareas viva | en curso 🔄 (paso 1 hecho; sigue orquestador multi-modelo)
+F5-1 | 02 ago | Tablero único Notion: vista "Finanzas" (notion_finanzas.py) + timer 15min, verificado en vivo contra API real, 7/7 pruebas | en curso 🔄 (2/6 vistas de OT-5; faltan Hoy/Kanban/Cola/Escuela + Bloques 1/3/4)

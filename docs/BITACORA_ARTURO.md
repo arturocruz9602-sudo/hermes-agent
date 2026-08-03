@@ -7,6 +7,38 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 02 Ago 2026 (7:10 pm) — Ya tiene una segunda pestaña viva en Notion: "Finanzas"
+
+### Lo que hay ahora
+
+Dentro de su página "Hermes" en Notion ya existe (y se actualiza sola cada 15
+minutos) una página **"Finanzas"** con:
+
+- Balance del mes (ingresos, gastos, saldo)
+- Gastos por categoría
+- Sus metas de ahorro (el capital rumbo a $100,000)
+- Los pagos recurrentes próximos — y los que **todavía no tienen día
+  confirmado** (gym, gasolina, etc.) para que los fije una vez y ya quede
+
+Es la segunda pestaña del "tablero único" que pidió (la primera fue "Avance
+HAS" hace unos días). Notion nunca es donde vive el dato real — eso sigue
+siendo su libreta — Notion solo lo refleja para que no tenga que pedírmelo.
+
+### Cómo lo prueba usted
+
+Abra su página "Hermes" en Notion y busque la subpágina **"Finanzas"** — ya
+debe estar ahí con datos de hoy. Si registra un gasto nuevo por voz, en
+máximo 15 minutos debe verse reflejado ahí solo.
+
+### Hallazgo sin arreglar (para que lo sepa)
+
+La otra pestaña, "Avance HAS", todavía saca su número de un script
+(`has_progress.py`) que sabemos que reporta un porcentaje inflado y
+engañoso — no lo toqué esta sesión porque no era el bloque de hoy, pero
+quiere decir que ese % en Notion hoy NO es confiable todavía.
+
+---
+
 ## 01 Ago 2026 (6:00 pm) — Desde mañana le llega un "buenos días" con el panorama del día
 
 ### Lo que hay ahora

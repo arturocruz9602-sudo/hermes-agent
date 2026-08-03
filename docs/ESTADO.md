@@ -27,6 +27,10 @@ Brief 6:30 + cierre nocturno en audio + verificación punta a punta completados.
 - ✅ **AS-3 Voz→STT→Libreta verificado:** `scripts/verify_voice_to_libreta_real.py` ejecutado, 5 pasos OK. Audio Opus → STT → VoiceDataExtractor (regex) → `lib.registrar_gasto()` → BD. Log: gastos guardados id=13, $50 comida.
 Pendiente para después: (a) envío en vivo a Telegram QA/producción; (b) timer nocturno de cierre; (c) `~/.hermes/scripts/enviar.py` vive solo fuera de repo.
 
+## ✅ F5-1 EN CURSO (02 ago, bloque del loop) — vista "Finanzas" en Notion, tablero único (OT-5 Bloque 2)
+`tools/notion_finanzas.py` (mismo patrón que `notion_avance_has.py`, B7: libreta.db fuente de verdad, Notion espejo solo-lectura): balance del mes, gastos por categoría, metas de ahorro, pagos recurrentes próximos. 7/7 pruebas en verde + **verificado en vivo contra la API real** (page_id `3b1c1df3-4107-8194-8baa-cab2ac2d44f0`, contenido leído de vuelta y confirmado). Timer `hermes-notion-finanzas.timer` activo cada 15 min (mismo patrón que el de Avance HAS, no versionado en repo). **De las 6 vistas de OT-5 van 2/6** (Avance HAS, Finanzas). Faltan: Hoy, Kanban espejo, Cola de tareas, Escuela (bloqueada a Fase 6) + BLOQUE 1 (consolidar skill notion-api) + BLOQUE 3 (cola v2) + BLOQUE 4 (checklist diario).
+⚠️ Hallazgo sin arreglar: `notion_avance_has.py` sigue llamando a `has_progress.py` directo aunque ESTADO dice "NO se usa, reporta 90% engañoso" — la vista Avance HAS en Notion hoy muestra ese dato erróneo. No corregido este bloque (fuera de alcance de F5-1); anotado para revisión.
+
 ## COLA DE AGOSTO (tras AS; orden r.97: dinero → YouTube/redes → Hermes completo)
 1. **AT — Trading testnet (OT-10)**: `trading_entrenador.py` a testnet Binance; simular capital hasta **5,000 MXN, ciclos SEMANALES**; estrategia news-driven (caída + noticias que apuntan a alza = arriesgar); **investigar mejores estrategias en la web**. Meta 2,000/sem = objetivo de ENTRENAMIENTO, no promesa (r.36-43). Primero entrenar el modelo.
 2. **AU — Motor de guiones desde Obsidian + pipeline de clips** (r.45-48): guion gancho/cierre/retención; TODOS los clips ≤2 min programados en mejores horarios; OAuth YouTube (r.59).
@@ -52,4 +56,4 @@ Pendiente para después: (a) envío en vivo a Telegram QA/producción; (b) timer
 ESTADO ≤80 sobreescrito · BLOQUES 1 línea · DECISIONES si hubo · commit+push · TEMP-DIAG=0 · temperatura HP normal.
 
 ## Último contexto
-02 ago: Arturo redirige a montar el **loop autónomo que mira por SSH+tmux** con modelo por dificultad. AV paso 1 (capa de confiabilidad: hook de arranque + skill `/cierre`) HECHO y verificado. Prod CONFIRMADA arriba (gateway/litellm `active` en `--user`; mi "prod caída" del inicio fue error de scope). Siguiente: orquestador multi-modelo, luego encender loop y retomar AS.
+02 ago: Arturo redirige a montar el **loop autónomo que mira por SSH+tmux** con modelo por dificultad. AV paso 1 (capa de confiabilidad: hook de arranque + skill `/cierre`) HECHO y verificado. Prod CONFIRMADA arriba (gateway/litellm `active` en `--user`; mi "prod caída" del inicio fue error de scope). El loop mismo despachó el bloque F5-1 (vista Finanzas en Notion) esta sesión, en paralelo a la cola de AV/AS de arriba. Siguiente: orquestador multi-modelo, retomar AS, y seguir OT-5 (Hoy/Kanban/Cola de tareas).
