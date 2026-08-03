@@ -2235,3 +2235,40 @@ su Telegram real para escucharla), se lo aviso primero.
 
 
 ---
+
+## 02 ago 2026 — La cola que NUNCA pierde una tarea (F5-2)
+
+### Qué se arregló / construyó
+
+Le armé la "cola de tareas con garantía dura": la pieza que hace posible que
+Hermes sea proactivo sin fallar en silencio. La regla, escrita en código y
+protegida con 11 pruebas: **toda tarea que entra a la cola termina resuelta y
+avisada, o marcada "necesito ayuda con esta" — nunca desaparece callada.**
+
+### Antes / ahora concreto
+
+- **Antes:** si Hermes se ponía a resolver algo (resumir un correo, preparar un
+  reporte) y el proveedor de IA fallaba, o la tarea se colgaba a media noche, o
+  el aviso a Telegram no salía... la tarea se perdía y usted nunca se enteraba.
+- **Ahora:** cada tarea pasa por una máquina de estados
+  (encolada → en proceso → resuelta → **avisada**). Si el primer proveedor
+  gratis falla, reintenta y salta al siguiente (Groq → Gemini → OpenRouter, sin
+  tocar DeepSeek de pago). Si una tarea se queda colgada más de 2 horas, un
+  "watchdog" la vuelve a encolar sola. Y lo más importante: **una tarea resuelta
+  NO puede quedar sin avisarle** — si Telegram falla, la cola lo reintenta hasta
+  que usted reciba el "ya está, revísala cuando quieras". Todo, éxito y fallo,
+  queda escrito en un registro; nada ocurre a oscuras.
+
+### Cómo lo prueba usted
+
+Todavía es la maquinaria de atrás (aún hay que conectarle el "quién resuelve"
+y el "por dónde avisa" reales, y ponerle su reloj de vigilancia). Cuando quede
+enchufada al día a día, se va a notar en que las cosas que le prometa Hermes
+—recordatorios, resúmenes, reportes— **siempre le lleguen**, aunque algo falle
+en el camino. Si algo no se puede hacer, en vez de silencio recibirá un
+"necesito ayuda con esta".
+
+**Notas de Arturo:**
+
+
+---
