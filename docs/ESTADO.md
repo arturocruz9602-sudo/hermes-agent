@@ -55,8 +55,8 @@ Transversal aún pendiente: **presupuesto de contexto** — prueba permanente de
 - **P3 DeepSeek:** repetitivo → Gemini-extra/Groq/OpenRouter (r.91), DeepSeek solo comanda; ledger $/función semanal; recorte del prompt ~40k entra con AR.
 
 ## Decisiones pendientes de ARTURO (actualizado 03 ago, ver docs/META_TERMINACION.md)
-1. **OAuth de YouTube (5 min)** — AU-1/AU-2 construidos y probados; falta conectar OAuth (a HERMES).
-2. **Canal QA de Telegram — CORREGIDO 03 ago:** Arturo dice que ya dio acceso; no encontré `bot token`/`chat_id` de QA en `.env` (solo `TELEGRAM_HOME_CHANNEL`, el real). Pendiente que Hermes confirme el dato exacto con Arturo.
+1. **YouTube: SE OCUPAN LAS DOS llaves (CONFIRMADO 03 ago, sin ambigüedad — ver DECISIONES.md)** — (a) API key pública de YouTube Data API v3 desde Google Cloud Console; (b) OAuth (login Arturo) conectado a HERMES. AU-1/AU-2 construidos y probados; falta que Arturo saque/conecte ambas (~10 min total).
+2. **Canal QA de Telegram — RESUELTO 03 ago:** "Hermes QA De La Cruz", `chat_id=8727618189`, bot `@ArturoHermes_bot`, verificado en `state.db::gateway_routing` (desde 24 jul). Falta `TELEGRAM_QA_CHANNEL=8727618189` en `.env` — pendiente de confirmación de Arturo para tocar ese archivo (regla dura del CLAUDE.md).
 3. **Llaves `BINANCE_TESTNET_API_KEY/_SECRET` (5 min)** — AT construido y probado (17/17); guía completa en `docs/BINANCE_TESTNET_GUIA.md`.
 ~~4. Direcciones de los 2 correos~~ — **RESUELTO 03 ago:** institucional `5725111428@utrng.edu.mx` (Thunderbird/OAuth2, vigilado c/15min) + personal `arturocruz9602@gmail.com` (credenciales YA en `.env`, adapter `plugins/platforms/email/adapter.py` existe). Pendiente real: cablear la VIGILANCIA del personal (hoy apagada, sin timer ni `EMAIL_ALLOWED_USERS`) — no es acceso, es despliegue.
 (Resuelto 01 ago: **Trading -3% diario CONFIRMADO** (Arturo: "que quede así"). **PRIVACIDAD** — montos/tickets SÍ a gratis; correos/contraseñas/nombres/salud/datos que vulneren su seguridad NO. **Horario** oficial lo manda él a Hermes; may-ago = simulación. **Correos** = trabajo F6. Estándar de docs lo define Claude Code, MANDATO §8.)

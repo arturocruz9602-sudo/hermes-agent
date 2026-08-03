@@ -36,7 +36,7 @@ Criterios de aceptación (verificables, no de opinión):
 |15|Reporte de trading en Notion (r.42)|Vista Notion trading|⬜|no existe|
 |16|Guion gancho/cierre/retención (r.47)|`motor_guiones.py`|🏗|15/15 tests + nota real leída; sin tool de runtime|
 |17|Clips ≤2min + horarios (r.46/48)|`pipeline_clips.py`|🏗|25/25 tests; sin tool de runtime|
-|18|Publicar en YouTube (r.59)|OAuth+`PublicadorYouTube`|🏗|cableado, bloqueado por OAuth de Arturo (5 min)|
+|18|Publicar en YouTube (r.59)|OAuth+API key+`PublicadorYouTube`|🏗|**CONFIRMADO 03 ago: se necesitan LAS DOS llaves** (API key pública Google Cloud Console + OAuth login Arturo→HERMES) — resuelve contradicción de sesión 31 jul, ver DECISIONES.md; cableado, bloqueado por que Arturo las saque (~10 min)|
 |19|Corte silencios + DaVinci M1 (r.49/102)|`corte_silencios.py`+`edicion_m1.py`|🏗|17+18 tests; falta SSH real M1 + Whisper real|
 |20|TikTok/Instagram (r.45/54/55)|Distribución multi-red|⬜|no existe|
 |21|Sonido/imágenes de contexto auto (r.49)|Automatización de edición|⬜|explícitamente no prometido (decisión AU-1)|
@@ -50,7 +50,7 @@ Criterios de aceptación (verificables, no de opinión):
 |29|Vigilar correo personal banco/compras (r.108)|Adaptador personal|🏗|**CORREGIDO 03 ago**: acceso YA otorgado (credenciales reales en `.env`, adapter `plugins/platforms/email/adapter.py` existe); vigilancia sigue apagada (sin timer, sin `EMAIL_ALLOWED_USERS`) — pendiente es cablear, no acceso|
 |30|Enrutamiento de privacidad por API (r.91)|DeepSeek comanda / gratis repetitivo|🚀|**medido HOY en ledger real: 55.6% DeepSeek, 44.4% Gemini/Groq** — la regla se cumple|
 |31|Auditoría semanal de memoria (r.95)|Timer reflexión semanal|🚀|**verificado HOY: próxima corrida domingo 09 ago 08:00, última corrida domingo 02 ago**|
-|32|Distinguir entorno QA de producción (r.119)|Canal QA de Telegram|🏗|**CORREGIDO 03 ago**: Arturo dice que ya dio acceso al canal QA; no encontré `bot token`/`chat_id` de QA en `.env` (solo el real) — pendiente que Hermes confirme el dato exacto|
+|32|Distinguir entorno QA de producción (r.119)|Canal QA de Telegram|🏗|**RESUELTO 03 ago**: "Hermes QA De La Cruz" `chat_id=8727618189`, verificado en `state.db::gateway_routing` (desde 24 jul) — YA existía, no era cuenta nueva. Falta `TELEGRAM_QA_CHANNEL` en `.env`, pendiente de confirmación de Arturo (regla dura .env)|
 |33|Brief 6:30 + trato "jefe" (r.84/86/98)|`brief_matutino.py`+tono|🚀|timer activo, verificado en simulación, tono ya en CLAUDE.md|
 
 **% de avance real (🚀/33 necesidades): 6/33 = 18%.**
@@ -106,8 +106,8 @@ medir 30 días después de que Fase 6/9 estén 🚀, no antes, porque hoy el run
 esas tareas en producción.
 
 ## 5. Pendientes de decisión de Arturo (no inventados, anotados también en ESTADO.md)
-- **Canal QA de Telegram**: ¿cuenta nueva, o autorizar tráfico acotado a producción para ciertas pruebas?
-- OAuth YouTube (5 min) — único pendiente que ya estaba anotado.
-- Llaves `BINANCE_TESTNET_API_KEY/_SECRET` (5 min).
-- Direcciones de los 2 correos, para poder vigilar el personal (r.63, ya pendiente antes).
+- **YouTube: sacar/conectar LAS DOS llaves** (API key Google Cloud Console + OAuth) — confirmado 03 ago, ~10 min.
+- **`TELEGRAM_QA_CHANNEL=8727618189` en `.env`** — canal QA ya identificado (03 ago); falta solo escribir la variable, pendiente de confirmación explícita para tocar `.env` (regla dura CLAUDE.md).
+- Llaves `BINANCE_TESTNET_API_KEY/_SECRET` (5 min) — guía lista en `docs/BINANCE_TESTNET_GUIA.md`.
+- ~~Direcciones de los 2 correos~~ — RESUELTO 03 ago, ya las tenía Hermes; pendiente real es cablear vigilancia del personal (#29).
 - Protocolo de pesaje (r.69) y hora exacta del cierre nocturno (r.90) — ya pendientes, sin cambio.

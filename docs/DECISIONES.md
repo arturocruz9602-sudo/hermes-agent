@@ -226,3 +226,24 @@ segundos hasta las 06:00) — si Hermes muere sin `__exit__`, la config igual se
 de timeline es SIN render (proyecto abierto para revisión, OT-8); el render SÍ es automático (r.102)
 pero solo dentro del envelope (con caffeinate) y en ventana — es el paso pesado que calienta la Mac.
 Impacto: Hermes puede editar de noche en la Mac de Arturo sin riesgo de dejarla tocada o sin batería.
+
+**03 ago 2026 · YouTube: SE OCUPAN LAS DOS llaves — resuelve la contradicción de la sesión 31 jul, sin
+ambigüedad.** Hallazgo previo (subagente Explore, 03 ago): en la sesión `159c6f15-...` (31 jul) Claude
+Code se contradijo a sí mismo — primero dijo que el OAuth (login de Arturo, conectado a HERMES) sustituía
+por completo a la API key pública de YouTube Data API v3 (Google Cloud Console), 35 min después dijo que
+hacían falta ambas, y quedó sin resolver en el código (`pipeline_clips.py` solo cablea un OAuth). Arturo
+CONFIRMÓ explícitamente (03 ago): **se necesitan las DOS.** (1) **API key pública** (Google Cloud Console
+→ APIs y servicios → Credenciales → Crear credenciales → Clave de API) — para datos de canales públicos.
+(2) **OAuth** (login de Arturo, conectado a HERMES no a Claude Code, ya decisión previa) — para datos
+privados del propio canal (vistas, monetización) y para publicar. Impacto: AU-2/`pipeline_clips.py` debe
+cablear AMBAS credenciales, no solo el OAuth; pendiente de que Arturo las saque (~10 min, ver ESTADO.md).
+
+**03 ago 2026 · Canal QA de Telegram: YA EXISTÍA — no era una cuenta nueva por crear.** Corrige el hallazgo
+del 02 ago (que decía "sigue sin existir, bloquea AS-2/AT/docker_qa"). Arturo confirmó y Claude Code
+verificó en `state.db::gateway_routing`: cuenta "Hermes QA De La Cruz", `chat_id=8727618189`, mismo bot
+`@ArturoHermes_bot`, sesión registrada desde 2026-07-24T10:36:39 — once días antes de que se reportara
+como faltante. Impacto: el candado r.119 que bloqueaba envío real en AS-2/AT/bloques `docker_qa` se
+resuelve con `TELEGRAM_QA_CHANNEL=8727618189` en `.env` (pendiente de confirmación explícita de Arturo
+para tocar ese archivo, regla dura de CLAUDE.md "tocar .env... siempre" pregunta). Lección: antes de
+declarar "no existe" un recurso, buscar más a fondo en el propio sistema (aquí, `state.db`) antes de
+asumir que hace falta crear algo nuevo.

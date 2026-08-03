@@ -5,6 +5,9 @@
 
 - **Cada caso tiene: ID · qué se manda · qué DEBE pasar · cómo se verifica.** Si no hay criterio verificable, el caso está mal escrito.
 - **Etiqueta obligatoria de evidencia:** `[arnés]` (interno, sin Telegram) o `[E2E real]` (cuenta QA por Telegram real).
+- **Cuenta QA real (confirmado 03 ago 2026):** "Hermes QA De La Cruz", `chat_id=8727618189`, mismo bot
+  `@ArturoHermes_bot`. Verificado en `state.db::gateway_routing` (sesión desde 2026-07-24T10:36:39) — NO
+  es una cuenta nueva, ya existía. Variable de entorno: `TELEGRAM_QA_CHANNEL`.
 - **Regla de oro:** un caso no "pasa" porque la respuesta se vea bien. Pasa porque su verificación objetiva se cumple (fila en DB, archivo en disco, línea en log, notificación recibida).
 - **Regla de oro (crecimiento orgánico, v1.6 — 29-jul-2026):** todo error del mundo real se convierte en prueba permanente en la misma semana en que se arregla. Este guion nunca se congela — crece con cada bug real encontrado, no solo con los casos previstos de antemano.
 - **Cadencia:** los casos marcados 🔁 corren en cada suite (son la regresión); el resto, al tocar su área.
