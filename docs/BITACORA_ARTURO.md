@@ -2301,3 +2301,41 @@ en el camino. Si algo no se puede hacer, en vez de silencio recibirá un
 
 
 ---
+
+## 02 ago 2026 — Ya empezó lo de YouTube: el motor de guiones
+
+### Qué se hizo
+
+Arranqué el primer pedazo de la parte de YouTube (r.45-47): un **motor que toma
+una idea suya de Obsidian y le arma el esqueleto del guion** — no cualquier
+esqueleto, sino con las tres cosas que usted pidió que Hermes "siempre tenga en
+mente": el **gancho** (los primeros ~15 segundos, sin "hola, bienvenidos"), el
+**cierre** que paga lo que el gancho prometió, y un **análisis de retención en
+formato podcast** (dónde meter preguntas que dejen picado al espectador, y
+avisar que las transiciones entre temas son por donde más se va la gente).
+
+No me lo inventé: busqué en internet las mejores prácticas actuales (2025-2026).
+Dato que me gustó: los "bucles abiertos" (prometer algo al inicio y pagarlo al
+final) suben el tiempo de visualización ~32%; y tras 15 segundos sin gancho, la
+gente que se queda cae debajo del 45%. Eso quedó cocido en la herramienta.
+
+**Importante y a propósito:** el motor **NO le escribe el guion final por usted**
+todavía. Le pone el molde y le mide qué tan bien retiene, pero la voz sigue
+siendo suya. Primero aprendemos de su proceso real antes de prometer que edita
+solo.
+
+### Cómo lo prueba usted
+
+Cuando le conecte la herramienta al chat (falta ese cable), va a poder mandarle a
+Hermes algo como:
+
+> "Hermes, de mi nota de Obsidian sobre [tema], ármame el guion con gancho y
+> cierre y dime qué tan bien retiene."
+
+Y le va a devolver el esqueleto por secciones + una nota tipo "va en 78/100:
+te falta un bucle abierto en el minuto 2 y el cierre no cierra el gancho".
+
+**Notas de Arturo:**
+
+
+---

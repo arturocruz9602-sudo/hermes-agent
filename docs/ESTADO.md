@@ -1,4 +1,4 @@
-# ESTADO — actualizado: 02 ago 2026 (AT cerrado: entrenador trading testnet; AV en curso: capa de confiabilidad loop autónomo)
+# ESTADO — actualizado: 02 ago 2026 (AU-1 cerrado: motor de guiones desde Obsidian; AV en curso: capa de confiabilidad loop autónomo)
 **Se SOBREESCRIBE cada sesión, máx 80 líneas (gate). Histórico: `docs/archivo/`. Voz de Arturo: `CUESTIONARIO_MAESTRO.md` = misma jerarquía que MANDATO.**
 
 ## Fases HAS
@@ -38,9 +38,9 @@ Pendiente para después: (a) envío en vivo a Telegram QA/producción; (b) timer
 `scripts/trading_entrenador.py`: buy-the-dip informado por sentimiento. Investigación web (02 ago): dip a secas rinde mal → la entrada exige el CRUCE de 3 (caída ≥umbral + RSI<30 sobreventa + score de sentimiento alcista; r.91 solo números). Capital SIMULADO tope **5,000 MXN**, ciclos semanales, freno duro **-3% diario** (r.40, circuit-breaker independiente), fees 0.1%+slippage por fill. Mercado y sentimiento son puertos **INYECTABLES** → el módulo no toca red solo (r.119: host con creds de prod, sin QA). Cliente `MercadoBinanceTestnet` (python-binance `testnet=True`) cableado pero **PENDIENTE**. **17/17 pruebas** con dobles locales: freno dispara+bloquea+reinicia por día, cruce de señal, capital nunca negativo/tope duro, fee+slippage, RSI Wilder, TP/SL.
 **Pendiente de despliegue (r.119, requiere QA):** (a) keys `BINANCE_TESTNET_API_KEY/_SECRET` en `.env`; (b) correr en Docker/QA, nunca host-prod; (c) fuente de sentimiento real (Fear&Greed alternative.me, solo números, apta r.91); (d) reporte Notion (r.42); (e) datos reales para calibrar umbrales.
 
-## COLA DE AGOSTO (tras AS; orden r.97: dinero → YouTube/redes → Hermes completo)
-1. **AU — Motor de guiones desde Obsidian + pipeline de clips** (r.45-48): guion gancho/cierre/retención; TODOS los clips ≤2 min programados en mejores horarios; OAuth YouTube (r.59).
-2. Transversal: **presupuesto de contexto** — prueba permanente del arnés (techo 19.1k/vuelta, ≥3 muestras).
+## ✅ AU-1 CERRADO (02 ago, bloque del loop) — motor de guiones desde Obsidian (Fase 8/OT-8, r.45-47)
+`scripts/motor_guiones.py`: nota Obsidian (frontmatter+cuerpo) → ANDAMIAJE de guion con las 3 partes que Arturo pidió "siempre en mente" (r.47): gancho (≤15s) / promesa-payoff / segmentos con open-loops + transiciones-microgancho / cierre / CTA + **analizador de retención medible** (r.91: nº open-loops, duración, payoff-cierra-gancho, transiciones). Reglas ancladas en **investigación web 02 ago** (open-loops +32% watch time; tras 15s sin gancho retención <45%; transición=micro-gancho; podcast narrativo: primeros minutos deciden). **NO promete edición creativa** (decisión del bloque): pone el molde y mide, la prosa final la escribe el LLM/Arturo. Registro en tabla `guiones` **inyectable** (no abre DB solo). **15/15 pruebas** + verificado en vivo contra nota real del vault (solo lectura). **PENDIENTE de AU:** (a) tool de runtime en el registry/toolsets para que Hermes lo llame en chat; (b) pipeline de clips ≤2 min + programación (r.46/48); (c) OAuth YouTube (r.59).
+Transversal aún pendiente: **presupuesto de contexto** — prueba permanente del arnés (techo 19.1k/vuelta, ≥3 muestras).
 
 ## EFICIENCIA — 3 preocupaciones de Arturo (01 ago)
 - **P1 variantes:** matriz = GUION_PRUEBAS × 5 roles (F11-d) × escenarios simulados (r.20); cada corrida nocturna agrega escenarios.
@@ -62,4 +62,4 @@ Pendiente para después: (a) envío en vivo a Telegram QA/producción; (b) timer
 ESTADO ≤80 sobreescrito · BLOQUES 1 línea · DECISIONES si hubo · commit+push · TEMP-DIAG=0 · temperatura HP normal.
 
 ## Último contexto
-02 ago: Arturo redirige a montar el **loop autónomo que mira por SSH+tmux** con modelo por dificultad. AV paso 1 (capa de confiabilidad: hook de arranque + skill `/cierre`) HECHO y verificado. Prod CONFIRMADA arriba (gateway/litellm `active` en `--user`; mi "prod caída" del inicio fue error de scope). El loop despachó F5-1 (vista Finanzas) y F5-2 (cola de tareas v2, espina dorsal de la proactividad) esta sesión, en paralelo a la cola de AV/AS. Siguiente: orquestador multi-modelo, retomar AS, y seguir OT-5 (Hoy/Kanban/Escuela + Bloques 1/4); F5-2 pendiente solo de despliegue (cablear solver/notificador reales + timer watchdog).
+02 ago: el loop despachó AU-1 (motor de guiones desde Obsidian, primer bloque de YouTube — r.97 #2), además de F5-1/F5-2/AT esta sesión. AV paso 1 (hook de arranque + skill `/cierre`) HECHO y verificado; prod CONFIRMADA arriba (`--user`). Siguiente: orquestador multi-modelo, seguir AU (tool de runtime + clips + OAuth YouTube), retomar AS, OT-5 (Hoy/Kanban/Escuela + Bloques 1/4); F5-2 y AT pendientes solo de despliegue.
