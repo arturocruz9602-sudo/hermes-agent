@@ -56,9 +56,9 @@ Transversal aún pendiente: **presupuesto de contexto** — prueba permanente de
 
 ## Decisiones pendientes de ARTURO (actualizado 03 ago, ver docs/META_TERMINACION.md)
 1. **OAuth de YouTube (5 min)** — AU-1/AU-2 construidos y probados; falta conectar OAuth (a HERMES).
-2. **Canal QA de Telegram** — sigue sin existir; bloquea envío real de AS-2, AT y todo bloque `docker_qa`. ¿Cuenta nueva o autorizar tráfico acotado a producción?
-3. **Llaves `BINANCE_TESTNET_API_KEY/_SECRET` (5 min)** — AT construido y probado (17/17), solo falta esto + Docker/QA para desplegar.
-4. **Direcciones de los 2 correos (r.63)** — para poder vigilar el personal (banco/compras); hoy solo existe vigilancia del correo escolar.
+2. **Canal QA de Telegram — CORREGIDO 03 ago:** Arturo dice que ya dio acceso; no encontré `bot token`/`chat_id` de QA en `.env` (solo `TELEGRAM_HOME_CHANNEL`, el real). Pendiente que Hermes confirme el dato exacto con Arturo.
+3. **Llaves `BINANCE_TESTNET_API_KEY/_SECRET` (5 min)** — AT construido y probado (17/17); guía completa en `docs/BINANCE_TESTNET_GUIA.md`.
+~~4. Direcciones de los 2 correos~~ — **RESUELTO 03 ago:** institucional `5725111428@utrng.edu.mx` (Thunderbird/OAuth2, vigilado c/15min) + personal `arturocruz9602@gmail.com` (credenciales YA en `.env`, adapter `plugins/platforms/email/adapter.py` existe). Pendiente real: cablear la VIGILANCIA del personal (hoy apagada, sin timer ni `EMAIL_ALLOWED_USERS`) — no es acceso, es despliegue.
 (Resuelto 01 ago: **Trading -3% diario CONFIRMADO** (Arturo: "que quede así"). **PRIVACIDAD** — montos/tickets SÍ a gratis; correos/contraseñas/nombres/salud/datos que vulneren su seguridad NO. **Horario** oficial lo manda él a Hermes; may-ago = simulación. **Correos** = trabajo F6. Estándar de docs lo define Claude Code, MANDATO §8.)
 
 ## No tocar / reglas de equipo

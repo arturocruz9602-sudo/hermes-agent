@@ -47,10 +47,10 @@ Criterios de aceptación (verificables, no de opinión):
 |26|Autoevaluación dominical (r.76)|Preguntas semanales|⬜|no existe|
 |27|Cola de tareas con garantía (agenda)|`cola_v2.py`|🏗|11/11 tests; solver/notificador reales sin cablear, sin timer watchdog|
 |28|Notificaciones proactivas reales (r.80-81)|Avisos 2h antes / pagos 1 día antes|⬜|depende de #27 sin cablear|
-|29|Vigilar correo personal banco/compras (r.108)|Adaptador personal|⬜|**verifiqué HOY: solo existe el de escuela**, ninguno personal|
+|29|Vigilar correo personal banco/compras (r.108)|Adaptador personal|🏗|**CORREGIDO 03 ago**: acceso YA otorgado (credenciales reales en `.env`, adapter `plugins/platforms/email/adapter.py` existe); vigilancia sigue apagada (sin timer, sin `EMAIL_ALLOWED_USERS`) — pendiente es cablear, no acceso|
 |30|Enrutamiento de privacidad por API (r.91)|DeepSeek comanda / gratis repetitivo|🚀|**medido HOY en ledger real: 55.6% DeepSeek, 44.4% Gemini/Groq** — la regla se cumple|
 |31|Auditoría semanal de memoria (r.95)|Timer reflexión semanal|🚀|**verificado HOY: próxima corrida domingo 09 ago 08:00, última corrida domingo 02 ago**|
-|32|Distinguir entorno QA de producción (r.119)|Canal QA de Telegram|⬜|**sigue sin existir — bloquea AS-2, AT, y todo bloque `docker_qa`**|
+|32|Distinguir entorno QA de producción (r.119)|Canal QA de Telegram|🏗|**CORREGIDO 03 ago**: Arturo dice que ya dio acceso al canal QA; no encontré `bot token`/`chat_id` de QA en `.env` (solo el real) — pendiente que Hermes confirme el dato exacto|
 |33|Brief 6:30 + trato "jefe" (r.84/86/98)|`brief_matutino.py`+tono|🚀|timer activo, verificado en simulación, tono ya en CLAUDE.md|
 
 **% de avance real (🚀/33 necesidades): 6/33 = 18%.**
