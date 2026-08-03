@@ -11,10 +11,11 @@ Qué hace, y qué NO:
     (Opus) listo para nota de voz de Telegram.
     NO lo envía a Telegram todavía. Candado r.119: esta sesión corre en el
     HOST con credenciales de PRODUCCIÓN y no existe un canal QA de Telegram
-    configurado en ~/.hermes/.env. enviar_voz() ya está cableada en
-    enviar.py, pero el envío en vivo (sendVoice) queda PENDIENTE hasta que
-    exista un canal QA o Arturo apruebe mandarlo a producción directamente
-    (ver docs/ESTADO.md).
+    configurado en ~/.hermes/.env. `enviar_archivo()` de enviar.py ya
+    detecta .ogg -> sendVoice (nota de voz nativa, verificado sin tráfico
+    real con requests.post mockeado -- ver ESTADO.md), pero el envío en
+    vivo queda PENDIENTE hasta que exista un canal QA o Arturo apruebe
+    mandarlo a producción directamente.
     NO interpreta ni escribe nada nuevo en la libreta -- solo lee (mismo
     patrón de solo_lectura=True que brief_matutino.py).
 
@@ -199,8 +200,9 @@ def main() -> None:
     log(
         "⏸️  ENVÍO PENDIENTE (candado r.119): no hay canal QA de Telegram "
         "configurado y esta sesión corre con credenciales de producción. "
-        "enviar_voz() ya está cableada en enviar.py -- falta activarla "
-        "cuando exista canal QA o Arturo apruebe producción. Ver ESTADO.md."
+        "enviar_archivo() de enviar.py ya detecta .ogg -> sendVoice -- "
+        "falta activar el envío cuando exista canal QA o Arturo apruebe "
+        "producción. Ver ESTADO.md."
     )
 
 
