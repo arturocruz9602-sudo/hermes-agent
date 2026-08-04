@@ -265,3 +265,15 @@ arriba: verificar en disco antes de asumir. Impacto: F7-1 crea la tabla `archivo
 `media_files`, con `retention_class` desde el día uno) en `libreta.db` vía migración v6, NO en
 `state.db` — sigue el mismo patrón que `gastos`/`horario`/etc: la vida de Arturo vive en la libreta,
 `state.db` es del gateway y no se toca para esto (ver `libreta_migrar.py` docstring).
+
+**04 ago 2026 · Criterio de alarma del watchdog: manda el PRINCIPAL, no la escalera gratuita.** A partir
+del Bloque AN (30 jul) `chat-primary` es `deepseek-v4-flash` y Gemini/Groq/OpenRouter son RESPALDO. Por
+tanto, un 429 en los logs de LiteLLM **ya no es evidencia de caída**: la escalera gratuita cayéndose es
+el diseño funcionando. Regla cerrada (P3): el watchdog alerta a Arturo y marca pausa **solo si cae toda
+la escalera, DeepSeek incluido**; si el principal responde (`is_deepseek_ok`), lo resuelve en silencio y
+lo deja en su log. Vale para cualquier alarma futura de disponibilidad, no solo esta: la pregunta
+correcta es "¿el principal responde?", no "¿algún proveedor devolvió 429?". Esto es aplicación directa
+de la regla de Arturo "no quiero estar viendo problemas, yo me estreso; que solo siga resolviendo sin
+que me entere" — la misma que originó el fix del 30 jul (ledger <240s). Corolario operativo: cuando
+cambie el modelo principal, hay que revisar el watchdog en la misma sesión — es la segunda vez que se
+queda con una idea vieja de quién es el principal.
