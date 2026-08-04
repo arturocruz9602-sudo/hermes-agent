@@ -38,6 +38,14 @@ jamás la bandeja histórica de 4,223).
 **31 jul 2026 · Laboratorio Docker regla permanente (HAS §F11).** Impacto: toda migración de esquema se
 prueba en lab antes de producción (F11-e); los 5 roles solo corren ahí (F11-d).
 
+**03 ago 2026 · E14 (ventana de mantenimiento nocturna) reusa `cola_v2` como persistencia, no inventa
+cola nueva.** Motivo: E14 ya declaraba `depende_de: F5-2` en `loop_cola.py`; la garantía dura de F5-2
+(toda tarea termina `notificada` o `atorada`+aviso, nada se pierde en silencio, cada intento en
+`task_queue_log`) cubre exactamente el requisito "ejecutar con evidencia" del bloque, con 11/11 pruebas
+ya verdes. Impacto: `scripts/ventana_mantenimiento.py` solo aporta el gate horario 2:00-5:00 + gate
+térmico (r.103) + las fuentes de candidatos (hoy: skills stale §F5/§E3); reportar/conteo se filtra por
+`chat_id="ventana_mantenimiento"` para no mezclarse con otros usos reales de la misma tabla compartida.
+
 **31 jul 2026 · Reset de memoria a cero** (orden explícita; respaldos pre-wipe en seagate). Confirmado
 01 ago (r.94): NADA se restaura, todo desde cero. Memoria solo vía `memory_tool.py`.
 

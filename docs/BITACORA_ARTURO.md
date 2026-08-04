@@ -2647,3 +2647,49 @@ la biblioteca de pruebas, para que vea el resultado tal cual quedaría.
 mensual en PDF con todos los tickets del mes (día 1 de cada mes), y la
 limpieza mensual de lo que ya no sirve — esa última **siempre** le va a
 preguntar antes de borrar cualquier cosa, nunca sola.
+
+---
+
+## 03 Ago 2026 (loop) — Empezó la "ventana de mantenimiento nocturna" (trabajo de fondo, todavía no corre sola)
+
+### Lo que hay ahora
+
+Usted pidió que el mantenimiento de Hermes (limpieza, revisión de qué está
+desactualizado, etc.) corra de madrugada (2:00-5:00) y jamás le robe
+velocidad cuando le esté hablando de día. Hoy construí el motor de esa regla:
+un mecanismo que se niega a trabajar fuera de esas 3 horas, y que además
+pausa solo si la laptop se calienta de más (por encima de 85°C) — la
+protege incluso si algún día el mantenimiento crece.
+
+También le di su primer trabajo real: revisar si alguna de sus "skills"
+(las instrucciones que uso para tareas concretas, como el resumen del día
+o el chequeo de salud de la HP) lleva más de 180 días sin que nadie
+confirme que sigue funcionando bien. Hoy revisé sus 16 skills marcadas y
+ninguna está vencida (la más vieja es del 28 de julio) — así que no hay
+nada que reportarle todavía, y eso es correcto, no un error.
+
+### Por qué todavía no hay nada que usted pueda probar
+
+Construí el motor y el primer chequeo, pero falta la pieza que hace que
+esto corra SOLO cada noche sin que nadie lo dispare a mano (un timer del
+sistema, igual al que ya usa el correo cada 15 min). Sin eso, hoy es un
+mecanismo que existe pero está apagado. También faltan dos de las tres
+cosas que debía vigilar: errores con evidencia real (todavía no tengo un
+canal donde Hermes registre sus propios errores) y las propuestas del
+"barrido semanal" (ese barrido tampoco existe aún — es trabajo aparte).
+
+**Antes de que esto haga algo por usted, necesito que me diga:** cuando de
+madrugada encuentre algo que revisar (una skill vencida, por ejemplo),
+¿quiere que se lo mencione en el resumen de la mañana (el brief de las
+6:30), o prefiere otro canal? Hoy, a propósito, no le avisa de ninguna
+forma — no quise inventar una notificación a las 3am sin que usted la
+pidiera.
+
+**Para probar el chequeo de skills usted mismo (sin esperar a la noche):**
+```
+python3 scripts/ventana_mantenimiento.py acumular
+python3 scripts/ventana_mantenimiento.py correr --forzar
+python3 scripts/ventana_mantenimiento.py estado
+```
+Hoy debería decirle "encolados: 0" — es lo esperado, sus skills están al
+día. El día que alguna pase los 180 días, ahí sí vería un registro real.
