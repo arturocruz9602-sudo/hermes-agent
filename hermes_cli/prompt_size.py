@@ -82,16 +82,21 @@ def compute_prompt_breakdown(platform: str = "cli") -> Dict[str, Any]:
 
     # Memory + user profile live in the volatile tier. We re-derive their
     # blocks directly from the memory store so the numbers are attributable
-    # even though they're joined into ``volatile``.
+    # even though they're joined into ``volatile``. Both pass through
+    # ``_memoria_como_indice`` first — that's what actually ships on the
+    # wire (Bloque AK/AL); reporting the raw block would understate the
+    # real per-turn cost and hide a regression if the indexing ever breaks.
+    from agent.system_prompt import _memoria_como_indice
+
     memory_block = ""
     user_block = ""
     store = getattr(agent, "_memory_store", None)
     if store is not None:
         try:
             if getattr(agent, "_memory_enabled", True):
-                memory_block = store.format_for_system_prompt("memory") or ""
+                memory_block = _memoria_como_indice(store.format_for_system_prompt("memory") or "")
             if getattr(agent, "_user_profile_enabled", True):
-                user_block = store.format_for_system_prompt("user") or ""
+                user_block = _memoria_como_indice(store.format_for_system_prompt("user") or "")
         except Exception:
             pass
 
