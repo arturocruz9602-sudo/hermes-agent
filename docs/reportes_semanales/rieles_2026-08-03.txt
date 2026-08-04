@@ -1,0 +1,48 @@
+======================================================================
+REPORTE SEMANAL — RIELES FINANCIEROS
+Periodo: 2026-07-28 hasta 2026-08-03 (7 días)
+Generado: 2026-08-03 23:41:09
+======================================================================
+
+📊 BALANCE SEMANAL
+  Ingresos:  $    300.00
+  Gastos:    $     10.80
+  Saldo:     $    289.20
+
+📈 INGRESOS POR FUENTE
+  refrescos            $    300.00 (3 movs)
+
+💸 GASTOS POR CATEGORÍA
+  inversion_ia         $     10.80 (1 movs)
+
+🧊 NEGOCIO DE REFRESCOS (esta semana)
+  Rejas compradas:    1
+  Invertido:          $    328.00
+  Unidades vendidas:  15
+  Ingreso bruto:      $    300.00
+  Ganancia neta:      $    -28.00
+  ROI:                      -8.5%
+
+🎯 META DE AHORRO ($100,000 por 31-dic-2027)
+  Acumulado actual:   $      0.00
+  Objetivo:           $ 100000.00
+  Piso (minimo):      $  90000.00
+  Progreso:                  0.0%
+
+💰 DEPÓSITO MENSUAL (objetivo: $3,500/mes, r.29)
+  Días transcurridos: 3
+  Objetivo prorrateado: $    338.71
+  Ingresos reales mes: $    300.00
+  Diferencia:         $    -38.71 ✗
+
+📅 PAGOS RECURRENTES ACTIVOS
+  colegiatura                    $ 1200.00 (cada 4m, día None)
+  deepseek                       $  100.00 (cada 1m, día 28)
+  gasolina                       $  200.00 (cada 1m, día None)
+  gym                            $  500.00 (cada 1m, día None)
+  recarga_telefono               $  230.00 (cada 1m, día None)
+  servicio_moto                  $  550.00 (cada 2m, día None)
+
+======================================================================
+Reporte generado por reporte_rieles_semanales.py (F7-3, r.18)
+======================================================================
