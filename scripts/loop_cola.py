@@ -309,4 +309,56 @@ COLA = [
         "has": "E14", "cuestionario": ["r.103"],
         "entorno": "repo", "depende_de": ["F5-2"], "estado": "pendiente",
     },
+
+    # ---- Correo escolar: falta la capa de análisis+sugerencia (r.62-64) ------
+    {
+        "id": "F6-3",
+        "titulo": "Correo escolar: analiza + sugiere qué hacer (no solo avisa)",
+        "descripcion": (
+            "vigilar_correo_escuela.py hoy solo reenvía remitente/asunto/motivo. "
+            "Falta la capa que r.62-64 pide: analizar el contenido y SUGERIR qué "
+            "hacer (no solo avisar que llegó). Incluye el flujo de seguimiento de "
+            "r.64: si una tarea se entrega a una hora dada, avisar ANTES con lo que "
+            "falta, y DESPUÉS volver a preguntar si ya se subió/resolvió — nunca "
+            "asumir que se hizo."
+        ),
+        "guia": (
+            "MAPA DE REUSO (verificado 04 ago; NO reinventes, ya existe el patrón "
+            "gemelo en el correo personal):\n"
+            "1. scripts/vigilar_correo_personal.py ya implementa exactamente esto "
+            "para el correo personal (F6-1, r.107-108): clasificar(remitente, "
+            "asunto) -> categoria+motivo, y sugerir(categoria) -> texto de acción "
+            "concreta (r.107: 'sugerir qué hacer', nunca agenda solo un evento sin "
+            "preguntar). Sigue el MISMO patrón para vigilar_correo_escuela.py: no "
+            "inventes una arquitectura nueva de clasificación.\n"
+            "2. vigilar_correo_escuela.py ya tiene clasificar()/CLAVES (tarea, "
+            "entrega, examen, etc.) y verificar_frescura() (agregado 04 ago, NO "
+            "tocar su lógica) — extiende clasificar() o agrega un paso posterior "
+            "que, cuando es_importante=True, arme una sugerencia (ej. 'esto es una "
+            "tarea, revisa si tiene fecha de entrega en el cuerpo del correo').\n"
+            "3. r.64 pide algo más: seguimiento con DOS avisos por tarea con "
+            "entrega — uno ANTES de la hora límite ('faltan estos detalles, "
+            "revísalo y súbelo antes de las X') y uno DESPUÉS preguntando si se "
+            "subió. Esto necesita persistencia (qué tareas están pendientes de "
+            "seguimiento) — usa `scripts/cola_v2.py` (F5-2, ya construida, "
+            "garantía dura encolada->resuelta->notificada) en vez de inventar un "
+            "sistema de recordatorios nuevo.\n"
+            "4. NO leas el cuerpo completo del correo a una API externa sin "
+            "verificar antes la regla de privacidad (r.91, DECISIONES 31 jul): "
+            "correos completos NO van a APIs gratis. Si necesitas extraer fecha de "
+            "entrega del cuerpo, hazlo con reglas locales (regex/fechas) primero, "
+            "como ya hace clasificar(); si de verdad hace falta un modelo, usa el "
+            "mismo patrón ya aprobado en otros bloques (parser INYECTABLE, "
+            "pendiente de decisión de proveedor — no la inventes tú).\n"
+            "5. Prueba con `tests/scripts/test_vigilar_correo_escuela.py` como "
+            "base (ya tiene 7/7 de verificar_frescura) — agrega ahí las pruebas "
+            "nuevas, no crees un archivo de pruebas aparte.\n"
+            "6. Entregable mínimo: clasificar() sugiere algo concreto para cada "
+            "categoría importante + al menos el primer aviso (antes de la hora "
+            "límite) de r.64 funcionando; el segundo aviso (seguimiento posterior) "
+            "puede quedar como commit WIP si no alcanza el tiempo."
+        ),
+        "has": "Fase 6 / OT-6", "cuestionario": ["r.62", "r.63", "r.64", "r.91"],
+        "entorno": "repo", "depende_de": ["F5-2"], "estado": "pendiente",
+    },
 ]
