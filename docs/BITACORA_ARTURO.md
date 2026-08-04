@@ -2693,3 +2693,46 @@ python3 scripts/ventana_mantenimiento.py estado
 ```
 Hoy debería decirle "encolados: 0" — es lo esperado, sus skills están al
 día. El día que alguna pase los 180 días, ahí sí vería un registro real.
+
+---
+
+## 03 ago 2026 (loop) — Los refrescos ya cuentan en su saldo real (F7-2)
+
+### Qué se arregló
+
+El analizador de refrescos (que ya calculaba bien cuánto le deja esa venta,
+r.16) estaba desconectado del resto de su dinero: cuando registraba una
+compra de caja o una venta de refrescos, **eso nunca llegaba a la tabla de
+ingresos/gastos real** que usa el resumen de cierre del día.
+
+### Antes / ahora concreto
+
+- **Antes:** un día que vendió refrescos y no reportó ningún otro gasto o
+  ingreso, el cierre del día le hubiera dicho "no registré gastos ni
+  ingresos hoy" — aunque sí hubo dinero moviéndose de verdad.
+- **Ahora:** cada compra de caja se anota también como gasto real
+  (categoría `negocio_refresco`) y cada venta como ingreso real (fuente
+  `negocio_refresco`), separado de su sueldo/otros ingresos para que se
+  pueda distinguir. El saldo del día y el balance semanal ya los suman.
+
+### Cómo lo prueba usted
+
+Con la libreta de simulación (nunca la real), usando una fecha que no choca
+con datos viejos de pruebas:
+```
+cat > /tmp/verificar_f7_2.py <<'PYEOF'
+from scripts.libreta import Libreta
+with Libreta('simulacion') as lib:
+    lib.registrar_compra_negocio(328, fecha='2099-01-01')
+    lib.registrar_venta_negocio(unidades=10, precio_unitario=20, fecha='2099-01-01')
+    print(lib.balance(desde='2099-01-01', hasta='2099-01-01'))
+PYEOF
+cd ~/.hermes/hermes-agent && PYTHONPATH=. python3 /tmp/verificar_f7_2.py
+```
+Debería ver `'ingresos': 200.0, 'gastos': 328.0, 'saldo': -128.0` (compró una
+caja de 328 y solo vendió 10 piezas) — antes de este arreglo esos dos
+números salían en 0. Verificado en vivo antes de escribir esto.
+
+**Notas de Arturo:**
+
+---
