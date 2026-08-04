@@ -247,3 +247,13 @@ resuelve con `TELEGRAM_QA_CHANNEL=8727618189` en `.env` (pendiente de confirmaci
 para tocar ese archivo, regla dura de CLAUDE.md "tocar .env... siempre" pregunta). Lección: antes de
 declarar "no existe" un recurso, buscar más a fondo en el propio sistema (aquí, `state.db`) antes de
 asumir que hace falta crear algo nuevo.
+
+**03 ago 2026 · Ítem 19 resuelto: `media_files`/`retention_class=permanent` NO existía — no había nada
+que rehacer.** Verificado en este bloque (F7-1, OT-7): `~/.hermes/state.db` (la BD real del gateway)
+tiene 27 tablas y ninguna se llama `media_files` ni tiene columna `retention_class`; el `state.db` en la
+raíz del repo (plantilla) está vacío. Lo que HAS §Fase 1/E1 describía como "ya creado" nunca se
+implementó para el uso personal de Arturo — es la misma clase de hallazgo que el canal QA de Telegram
+arriba: verificar en disco antes de asumir. Impacto: F7-1 crea la tabla `archivos` (equivalente a
+`media_files`, con `retention_class` desde el día uno) en `libreta.db` vía migración v6, NO en
+`state.db` — sigue el mismo patrón que `gastos`/`horario`/etc: la vida de Arturo vive en la libreta,
+`state.db` es del gateway y no se toca para esto (ver `libreta_migrar.py` docstring).

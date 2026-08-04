@@ -2538,3 +2538,53 @@ con datos de prueba (no los suyos).
 "pizarrón" por materia (foto del pizarrón → explicación + guardado por
 materia) y el repaso proactivo antes de que arranque el cuatrimestre —
 ambos dependían de que el horario ya existiera, así que iban después.
+
+## 03 ago 2026 (loop) — Ya tiene dónde guardar sus tickets y sus fotos para siempre, no solo un rato
+
+**Lo que cambió en su día a día.** Antes, cualquier foto que le mandara a
+Hermes (un ticket, una foto familiar) se quedaba en una carpeta de "caché"
+temporal en la laptop — sin garantía de que siguiera ahí en un mes. Ahora
+existe la biblioteca permanente en el disco externo, con su propio librero
+por tipo: `finanzas/2026-08/` para tickets del mes, `familia/2026/` para
+fotos de familia, `escuela/<materia>/` para lo del cuatrimestre, etc.
+Nada de ahí se borra solo por viejo — ni por un cron, ni por accidente:
+la única forma de que algo se mueva de ahí es que usted mismo lo autorice.
+
+**Antes:** no había diferencia entre "esto es temporal" y "esto es para
+siempre" — todo vivía junto, y con el tiempo algo importante se pudo haber
+perdido en una limpieza de caché sin que nadie se diera cuenta.
+
+**Ahora, cuando mande la foto de un ticket (aún NO hecho en vivo — falta
+lo mismo que al horario, ver abajo), así queda registrado en su lista de
+gastos, con la foto de respaldo enlazada:**
+
+```
+Clasificado como: ticket — $450.0 MXN en Gasolinera Pemex (gasolina)
+✅ archivado en finanzas/2026-08/20260803T175834_188bc8e7.jpg
+```
+
+Si algún día quiere comprobar un gasto (o si Hacienda o alguien le pide
+evidencia), la foto sigue ahí, enlazada directo a ese renglón — no hay que
+buscarla a mano entre miles de fotos del teléfono.
+
+**Lo que TODAVÍA no hace, y por qué (mismo motivo que el horario).**
+Construí la parte que decide dónde va cada foto y la guarda, pero NO la
+parte que "ve" la foto todavía — mismo candado que el horario: sus fotos
+familiares o de pizarrón pueden traer caras o nombres, y sigo sin
+confirmar si la llave de Gemini que uso para ver fotos es de pago o
+gratuita. Los MONTOS de tickets sí están aprobados para API gratis (ya lo
+habíamos hablado), pero como el mismo lector de fotos sirve para todo, no
+lo prendo a medias — espero la misma respuesta que el horario para
+prender los dos a la vez.
+
+**Para probarlo usted mismo, sin foto real todavía:**
+```
+python3 scripts/archivo_biblioteca.py --simular --aplicar
+```
+Eso clasifica un ticket de prueba (no uno suyo) y lo archiva de verdad en
+la biblioteca de pruebas, para que vea el resultado tal cual quedaría.
+
+**Lo que sigue de este frente (pendiente, no en esta sesión):** el reporte
+mensual en PDF con todos los tickets del mes (día 1 de cada mes), y la
+limpieza mensual de lo que ya no sirve — esa última **siempre** le va a
+preguntar antes de borrar cualquier cosa, nunca sola.
