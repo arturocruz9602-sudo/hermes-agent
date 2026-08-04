@@ -72,9 +72,60 @@ def test_mensaje_de_messenger_no_es_compras():
     assert cat == "ruido"
 
 
+# ── redes (04 ago, petición de Arturo): marca, infracciones, monetización, política ──
+def test_infraccion_de_tiktok_es_redes_no_ruido():
+    """El punto central: el MISMO dominio (tiktok.com) manda ruido social Y
+    avisos reales -- un aviso real no debe perderse en 'ruido' solo por
+    venir de un dominio que normalmente calla."""
+    cat, motivo = vcp.clasificar("TikTok <no-reply@tiktok.com>",
+                                  "Tu cuenta ha sido suspendida por infraccion de nuestras normas")
+    assert cat == "redes"
+    assert "infraccion" in motivo
+
+
+def test_monetizacion_de_youtube_es_redes():
+    cat, _ = vcp.clasificar("YouTube <no-reply@youtube.com>",
+                             "Felicidades, tu canal ya es elegible para monetizacion")
+    assert cat == "redes"
+
+
+def test_cambio_de_politica_es_redes():
+    cat, _ = vcp.clasificar("Instagram <security@mail.instagram.com>",
+                             "Actualizacion de terminos de servicio")
+    assert cat == "redes"
+
+
+def test_propuesta_de_marca_es_redes():
+    cat, _ = vcp.clasificar("Contacto Marca X <marketing@marcax.com>",
+                             "Propuesta de colaboracion para tu contenido")
+    assert cat == "redes"
+
+
+def test_ruido_social_normal_de_tiktok_sigue_siendo_ruido():
+    """Regresión: agregar 'redes' NO debe convertir todo lo de TikTok en
+    prioritario -- el 'te siguio'/'te comento' normal se sigue callando."""
+    cat, _ = vcp.clasificar("alguien en TikTok <notification@service.tiktok.com>",
+                             "alguien te empezo a seguir")
+    assert cat == "ruido"
+
+
+# ── escolar por correo personal (04 ago): compañeros mandando tareas ────
+def test_documento_de_companero_es_escolar():
+    """Caso real hallado el 04 ago: este correo cayó en 'neutral' antes de
+    agregar la categoría -- r.108 nunca definió 'escolar' para el personal."""
+    cat, motivo = vcp.clasificar("Cruz Roman <cruzrr1996@gmail.com>", "unidad IV_complemento.docx")
+    assert cat == "escolar"
+    assert motivo
+
+
+def test_tarea_de_companero_es_escolar():
+    cat, _ = vcp.clasificar("Ana <ana@gmail.com>", "Tarea de la practica 3, equipo de trabajo")
+    assert cat == "escolar"
+
+
 # ── sugerir() ─────────────────────────────────────────────────────────────
 def test_sugerencias_no_vacias_para_prioritarios():
-    for cat in ("banco", "compras", "eventos"):
+    for cat in ("banco", "compras", "eventos", "redes", "escolar"):
         s = vcp.sugerir(cat)
         assert s and isinstance(s, str)
 

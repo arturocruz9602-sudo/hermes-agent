@@ -99,6 +99,55 @@ CLAVES_EVENTOS = (
     "confirmar asistencia", "rsvp", "cumpleanos",
 )
 
+# Redes sociales que le importan a Arturo (r.45/54/55: YouTube/TikTok/
+# Instagram/Facebook) -> PRIORITARIO. Agregado 04 ago a peticion de Arturo,
+# tras encontrar que "unidad IV_complemento.docx" de un compañero cayo en
+# "neutral" -- pidio ademas esta categoria para: comunicacion de marca,
+# infracciones/strikes, logros de monetizacion, y cambios de politica.
+# OJO: estas mismas plataformas viven en RUIDO_DOMINIOS (facebookmail.com,
+# instagram.com, tiktok.com...) porque la mayoria de sus correos SI son
+# ruido ("alguien te siguio"). clasificar() revisa CLAVES_REDES ANTES del
+# filtro de ruido, para que un aviso real (ej. "tu cuenta fue suspendida")
+# no se calle solo por venir del mismo dominio que el ruido.
+CLAVES_REDES = (
+    # infracciones / strikes / suspensiones
+    "infraccion", "violacion de", "viola nuestras", "viola nuestros",
+    "normas de la comunidad", "community guidelines", "derechos de autor",
+    "copyright strike", "copyright claim", "reclamo de copyright",
+    "cuenta suspendida", "cuenta restringida", "contenido eliminado",
+    "advertencia de la comunidad", "penalizacion", "shadowban",
+    "account suspended", "account restricted", "content removed",
+    "strike en tu cuenta", "strike received",
+    # monetizacion
+    "monetizacion", "monetizar tu", "elegible para monetizacion",
+    "programa de socios", "partner program", "ingresos por publicidad",
+    "ad revenue", "pago disponible", "umbral de pago", "payout disponible",
+    "creator fund", "fondo de creadores", "ya eres monetizable",
+    "monetization enabled", "youtube partner",
+    # cambios de politica
+    "actualizacion de terminos", "terminos de servicio actualizados",
+    "nueva politica", "nuevas politicas", "cambios en la politica",
+    "cambios en las politicas", "politica de privacidad actualizada",
+    "policy update", "updated terms", "terms of service update",
+    # comunicacion de marca / colaboracion
+    "colaboracion", "propuesta de colaboracion", "patrocinio",
+    "auspicio", "brand deal", "sponsored content", "partnership opportunity",
+    "oportunidad de colaboracion", "queremos trabajar contigo",
+)
+
+# Contenido escolar que llega por el correo PERSONAL, no el institucional
+# (compañeros mandando tareas/documentos por Gmail) -> PRIORITARIO.
+# Agregado 04 ago: "unidad IV_complemento.docx" de un compañero cayo en
+# "neutral" porque r.108 nunca definio "escolar" como categoria del correo
+# personal (solo del institucional). Mismas claves que vigilar_correo_
+# escuela.py, mas patrones de nombre de archivo escolar.
+CLAVES_ESCOLAR = (
+    "tarea", "entrega", "examen", "proyecto", "practica", "unidad",
+    "complemento", "apuntes", "resumen", "exposicion", "equipo de trabajo",
+    "trabajo en equipo", "materia", "profesor", "profesora", "maestro",
+    "maestra", "clase de", ".docx", ".pptx", ".xlsx",
+)
+
 DOMINIO_PROPIO = "gmail.com"
 
 
@@ -134,12 +183,21 @@ def normalizar(texto):
 
 def clasificar(remitente, asunto):
     """Devuelve (categoria, motivo). categoria in
-    {"banco", "compras", "eventos", "ruido", "neutral"}. Reglas locales
-    por r.108, sin modelo -- ningun dato personal sale a una API (regla
-    del 30 jul, misma que vigilar_correo_escuela.py)."""
+    {"banco", "compras", "eventos", "redes", "escolar", "ruido", "neutral"}.
+    Reglas locales por r.108, sin modelo -- ningun dato personal sale a una
+    API (regla del 30 jul, misma que vigilar_correo_escuela.py).
+
+    CLAVES_REDES se revisa ANTES del filtro de ruido a proposito: TikTok/
+    Instagram/Facebook mandan tanto ruido (alguien te siguio) como avisos
+    reales (infraccion, monetizacion) desde el MISMO dominio -- si el ruido
+    se checara primero, los avisos reales se callarian por error."""
     r = normalizar(remitente)
     a = normalizar(asunto)
     junto = f"{r} {a}"
+
+    for clave in CLAVES_REDES:
+        if clave in junto:
+            return "redes", f"dice '{clave}'"
 
     if any(d in r for d in RUIDO_DOMINIOS) or any(f in a for f in RUIDO_FRASES):
         return "ruido", "notificacion social / automatizada"
@@ -153,6 +211,9 @@ def clasificar(remitente, asunto):
     for clave in CLAVES_EVENTOS:
         if clave in junto:
             return "eventos", f"dice '{clave}'"
+    for clave in CLAVES_ESCOLAR:
+        if clave in junto:
+            return "escolar", f"dice '{clave}'"
 
     return "neutral", "sin señales de que sea prioritario"
 
@@ -164,6 +225,8 @@ def sugerir(categoria):
         "banco": "revisa el movimiento; si no lo reconoces, entra al banco directo (no des clic en el correo)",
         "compras": "confirma que el pedido/envio sea tuyo y sigue el rastreo si aplica",
         "eventos": "decide si asistes -- si quieres que lo agende, dimelo y pregunto antes de tocar el calendario (r.89)",
+        "redes": "revisalo -- si es infraccion o cambio de politica, evalua que ajustar; si es una marca, decide si te interesa (yo no respondo por ti)",
+        "escolar": "puede ser tarea/material de un compañero -- si trae fecha de entrega, dimelo y lo agrego a seguimiento",
     }.get(categoria, "revisalo cuando tengas tiempo")
 
 
