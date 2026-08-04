@@ -7,6 +7,34 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 03 Ago 2026 (loop) — Hermes ya sabe armar recordatorios recurrentes ("los domingos a las 8pm")
+
+### Lo que hay ahora
+
+Le construí la pieza que faltaba de proactividad: cuando usted diga algo como
+"recuérdame sacar la basura los domingos a las 8pm", Hermes arma la regla y
+**le pregunta antes de activarla** — nunca la prende solo. Si usted dice que sí,
+queda activa y se dispara sola cada domingo a esa hora, sin repetirse dos veces
+el mismo día aunque el barrido corra varias veces.
+
+También corregí un hueco chico pero real: si algo fallaba a medio proceso, el
+registro de ese fallo se podía perder junto con el error (porque esperaba a
+que terminara todo para guardarse). Ahora el registro de fallo se guarda al
+instante, así que si algo truena, va a quedar la huella de qué pasó.
+
+### Lo que todavía NO hace (y por qué)
+
+El "entender lenguaje natural" todavía usa una versión de prueba con reglas de
+texto fijas, no un modelo de verdad — falta la misma decisión pendiente que ya
+tiene el horario de la escuela: qué modelo gratis/pago usar para leer estas
+frases. Tampoco elige solo por qué canal avisarle (Telegram vs. bocina) ni
+lleva el registro de sus metas (peso, ahorro) — esas partes siguen en la lista.
+
+### Mensaje que puede mandar para entenderlo
+
+> "Hermes, explícame cómo funcionaría si te pido que me recuerdes algo todos
+> los lunes a las 7am."
+
 ## 02 Ago 2026 (loop) — Ya está armado el laboratorio de trading (dinero de mentiritas)
 
 ### Lo que hay ahora

@@ -1,11 +1,24 @@
-# ESTADO — actualizado: 03 ago 2026 (F7-2 COMPLETO: analizador refrescos)
+# ESTADO — actualizado: 03 ago 2026 (F9 loop: reglas explícitas + fix log inmediato)
 **Se SOBREESCRIBE cada sesión, máx 80 líneas (gate). Histórico: `docs/archivo/`. Voz de Arturo: `CUESTIONARIO_MAESTRO.md` = misma jerarquía que MANDATO.**
 
 ## Fases HAS
-F0-F4 ✅ | F5 🔄 ~50% | F6 🔄 en curso | F7 🔄 BLOQUES 1+2 hecho | F8-F14 ⬜ | **F11 laboratorio VALIDADO (AQ)**. **E10 → v1.7** (meta capital $100k/31-dic-2027).
+F0-F4 ✅ | F5 🔄 ~50% | F6 🔄 en curso | F7 🔄 BLOQUES 1+2 hecho | F9 🔄 puntos 1+2 hechos | F8,F10-F14 ⬜ | **F11 laboratorio VALIDADO (AQ)**. **E10 → v1.7** (meta capital $100k/31-dic-2027).
 
 ## REGLA QUE CAMBIA TODO (r.20, permanente — ya en CLAUDE.md, regla 6)
 Todo dato de fechas/pagos/citas mencionado en pruebas = **SIMULADO** salvo que Arturo marque "dato real". Inventar escenarios y adelantar el reloj: SOLO en el laboratorio Docker. Producción jamás.
+
+## ✅ F9 puntos 1+2 HECHOS (03 ago, loop autónomo) — proactividad (Fase 9/OT-9)
+`scripts/reglas_recordatorio.py` (punto 1, nuevo): MotorReglas — proponer() nunca
+activa, solo confirmar(aprobado=True) activa, disparar_hoy() encola vía cola_v2
+idempotente/día. 17/17 pruebas. Commit 9d23fd1ae.
+Fix en `scripts/deteccion_espontanea.py` (punto 2, ya existía): `_log()` ahora
+commitea de inmediato — evita perder logs de fallo si el caller revienta después
+(regla 3). 16/16 pruebas siguen pasando.
+PENDIENTE de F9: punto 3 (canal por contexto Telegram/TTS), punto 4 (metas de
+vida), y "reglas de comportamiento aprendidas" (B9 — depende de Fase 4/barrido
+de memoria nocturno, que aún no corre; NO confundir con OT-9). Parser real
+(modelo gratuito) de reglas_recordatorio sigue INYECTABLE/pendiente, misma
+decisión de tier que horario_por_foto/archivo_biblioteca.
 
 ## ✅ F7-2 HECHO (03 ago, loop autónomo) — analizador refrescos (Fase 7/OT-6, HAS §E10)
 `scripts/analizador_refrescos.py`: detecta patrón real de venta de refrescos (r.16).
