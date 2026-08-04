@@ -262,6 +262,21 @@ COLA = [
 
     # ---- Transversales permanentes ------------------------------------------
     {
+        "id": "P3",
+        "titulo": "Watchdog: alarma falsa de cuota con arquitectura AN",
+        "descripcion": (
+            "El watchdog (~/.hermes/scripts/watchdog.sh) alertaba 'Gemini y Groq "
+            "agotaron su cuota → pausa' al ver un 429 en los logs de LiteLLM, sin "
+            "chequear que el PRINCIPAL (DeepSeek, desde el Bloque AN del 30 jul) "
+            "siguiera vivo; la escalera gratuita es RESPALDO y su caída es diseño "
+            "normal. Su texto además prometía 'NO se usará DeepSeek automáticamente', "
+            "falso desde el 30 jul. Corregido el 04 ago: alerta solo si cae TODA la "
+            "escalera, DeepSeek incluido. Pruebas: scripts/test_watchdog_p3.sh."
+        ),
+        "has": "Transversal / operación", "cuestionario": [],
+        "entorno": "repo", "depende_de": [], "estado": "hecho",
+    },
+    {
         "id": "P2",
         "titulo": "Presupuesto de contexto como regresión del arnés",
         "descripcion": (
