@@ -331,3 +331,29 @@ autenticación real del vigilante de correo personal (P6/P7); (2) si se quiere s
 +a` o exportar con comillas), no editar el valor. Lección (misma que ya dejó P3): un hallazgo de "dato
 corrupto" reportado por un log de error necesita verificarse contra el archivo real antes de proponer
 limpiarlo — un síntoma de parseo se puede confundir con datos corruptos.
+
+**04 ago 2026 · EXCEPCIÓN ACOTADA a r.91: fotos de horario escolar SÍ pueden ir a Gemini Vision gratis
+(nombres de profesores incluidos), confirmada por Arturo.** La regla general de r.91 sigue intacta en
+todo lo demás: "NUNCA a APIs gratis: correos, contraseñas, **nombres**, salud". El horario trae nombres
+reales de 7 profesores — Claude Code lo marcó como contradicción antes de actuar (no lo pasó por alto) y
+preguntó explícitamente; Arturo confirmó la excepción con conciencia de la contradicción, eligiendo la
+opción "(a) excepción puntual acotada" sobre "(b) mantener la regla, esperar tier de pago". Acotada al
+string EXACTO del caso de uso: **fotos de horario escolar para `horario_por_foto.py`** — no es una puerta
+abierta a nombres en general en ningún otro flujo (correo, tickets, etc. siguen bajo la regla original sin
+cambio). Impacto: `extractor_gemini_vision()` en `scripts/horario_por_foto.py` queda cableado al alias
+`vision` de LiteLLM (`gemini-2.5-flash`, `GEMINI_VISION_KEY_NEW`, cuota propia). Verificado en vivo contra
+la foto real de Arturo (Grupo 301 DSM, UTRNG, mayo-agosto 2026): 18/18 clases extraídas correctamente,
+nombres de profesores incluidos, sin tocar la libreta (`--foto` sin `--aplicar`).
+
+**04 ago 2026 · Hallazgo de eficiencia: `thinking_config: {"thinking_budget": 0}` en llamadas de extracción
+simple a Gemini 2.5 — sin esto, ~95% del presupuesto de tokens se va en "razonamiento" interno que no
+hace falta.** Encontrado al cablear `extractor_gemini_vision()`: la primera llamada con `max_tokens=2000`
+cortó el JSON a medias (`finish_reason=length`) — el desglose de `usage` mostró `reasoning_tokens=1917` de
+2000 totales, dejando 79 para el texto visible. Es un modelo de "pensamiento" por default (gemini-2.5-flash),
+y una tarea de puro OCR/transcripción de tabla no necesita razonar. Con `thinking_config.thinking_budget=0`
+(parámetro ya soportado por `agent/gemini_native_adapter.py::_normalize_thinking_config`, vía `extra_body`
+del lado del cliente o directo en el body del lado del proxy): 0 tokens de razonamiento, respuesta completa
+en ~7s en vez de agotar el límite o expirar por timeout. Impacto: cualquier llamada FUTURA a un modelo
+Gemini "thinking" para una tarea mecánica (extracción, clasificación, OCR — no las que sí necesitan
+razonar) debe evaluar este parámetro antes de simplemente subir `max_tokens` a ciegas; subir el límite sin
+apagar el razonamiento solo tapa el síntoma y es más lento/caro.

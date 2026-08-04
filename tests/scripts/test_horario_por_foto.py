@@ -9,16 +9,21 @@ Clavan el doble candado antes de tocar la libreta real:
   (4) reaplicar el mismo cuatrimestre es idempotente (no duplica filas).
 
 Todo con SQLite en memoria y el extractor de vision INYECTADO -- nada de
-red, nada de la libreta real (el extractor real sigue pendiente: r.91
-prohíbe mandar nombres de profesores a una API gratis, ver docstring del
-módulo).
+red, nada de la libreta real.
+
+extractor_gemini_vision() (04 ago, excepción a r.91 confirmada por Arturo
+-- ver DECISIONES.md) sí es el extractor REAL, probado a mano contra la
+foto real de Arturo (18/18 clases). Sus pruebas aquí mockean la llamada de
+red (urllib) para no gastar cuota ni depender de internet en la suite.
 """
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -28,6 +33,7 @@ sys.path.insert(0, str(RAIZ / "scripts"))
 from horario_por_foto import (  # noqa: E402
     ConfirmacionRequerida,
     aplicar_horario,
+    extractor_gemini_vision,
     formatear_propuesta,
     normalizar_dia,
     normalizar_hora,
@@ -201,3 +207,117 @@ def test_gym_y_taqueria_no_se_ven_afectados_por_archivado_de_escuela(conn):
         "SELECT activo FROM horario WHERE actividad='taqueria'"
     ).fetchone()
     assert taqueria[0] == 1
+
+
+# ── extractor_gemini_vision (04 ago, excepción r.91) ─────────────────────
+def _mock_response(body_dict):
+    resp = MagicMock()
+    resp.read.return_value = json.dumps(body_dict).encode("utf-8")
+    resp.__enter__.return_value = resp
+    resp.__exit__.return_value = False
+    return resp
+
+
+@patch("agent.complexity_detector._resolve_litellm_credentials",
+       return_value=("http://fake-litellm/v1", "fake-key"))
+def test_extractor_gemini_vision_apaga_razonamiento_y_manda_imagen(mock_creds, monkeypatch):
+    """Hallazgo real 04 ago: sin thinking_budget=0, gemini-2.5-flash gasta
+    ~95% del presupuesto de tokens 'pensando' una tarea de puro OCR y el
+    JSON se corta a medias. Esta prueba clava que el payload SIEMPRE lo pide."""
+    capturado = {}
+
+    def fake_urlopen(req, timeout=None):
+        capturado["payload"] = json.loads(req.data)
+        capturado["timeout"] = timeout
+        return _mock_response({"choices": [{"message": {"content": "[]"}}]})
+
+    monkeypatch.setattr("horario_por_foto.urllib.request.urlopen", fake_urlopen)
+    extractor_gemini_vision(b"foto-falsa")
+
+    payload = capturado["payload"]
+    assert payload["thinking_config"] == {"thinking_budget": 0}
+    assert payload["model"] == "vision"
+    assert payload["max_tokens"] >= 3000
+    # la imagen viaja como data URI base64, no como archivo aparte
+    contenido = payload["messages"][0]["content"]
+    partes_imagen = [c for c in contenido if c["type"] == "image_url"]
+    assert len(partes_imagen) == 1
+    assert partes_imagen[0]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+
+
+@patch("agent.complexity_detector._resolve_litellm_credentials",
+       return_value=("http://fake-litellm/v1", "fake-key"))
+def test_extractor_gemini_vision_parsea_respuesta_real(mock_creds, monkeypatch):
+    filas_esperadas = [
+        {"dia": "lunes", "hora_inicio": "8:00", "hora_fin": "10:00",
+         "materia": "Bases de Datos", "profesor": "L.I. Diana Hernández", "aula": None},
+    ]
+
+    def fake_urlopen(req, timeout=None):
+        contenido = json.dumps(filas_esperadas)
+        return _mock_response({"choices": [{"message": {"content": contenido}}]})
+
+    monkeypatch.setattr("horario_por_foto.urllib.request.urlopen", fake_urlopen)
+    filas = extractor_gemini_vision(b"foto-falsa")
+    assert filas == filas_esperadas
+
+
+@patch("agent.complexity_detector._resolve_litellm_credentials",
+       return_value=("http://fake-litellm/v1", "fake-key"))
+def test_extractor_gemini_vision_quita_cercas_markdown(mock_creds, monkeypatch):
+    """Gemini a veces envuelve el JSON en ```json ... ``` pese al prompt."""
+    def fake_urlopen(req, timeout=None):
+        contenido = '```json\n[{"dia": "martes", "hora_inicio": "9:00", "materia": "X"}]\n```'
+        return _mock_response({"choices": [{"message": {"content": contenido}}]})
+
+    monkeypatch.setattr("horario_por_foto.urllib.request.urlopen", fake_urlopen)
+    filas = extractor_gemini_vision(b"foto-falsa")
+    assert len(filas) == 1
+    assert filas[0]["dia"] == "martes"
+
+
+@patch("agent.complexity_detector._resolve_litellm_credentials",
+       return_value=("http://fake-litellm/v1", "fake-key"))
+def test_extractor_gemini_vision_fallo_de_red_no_truena(mock_creds, monkeypatch):
+    def fake_urlopen(req, timeout=None):
+        raise TimeoutError("simulado: la red no respondió")
+
+    monkeypatch.setattr("horario_por_foto.urllib.request.urlopen", fake_urlopen)
+    filas = extractor_gemini_vision(b"foto-falsa")
+    assert filas == []  # nunca lanza, regla 3: se loguea y sigue
+
+
+@patch("agent.complexity_detector._resolve_litellm_credentials",
+       return_value=("http://fake-litellm/v1", "fake-key"))
+def test_extractor_gemini_vision_respuesta_no_lista_no_truena(mock_creds, monkeypatch):
+    def fake_urlopen(req, timeout=None):
+        return _mock_response({"choices": [{"message": {"content": '{"no": "es lista"}'}}]})
+
+    monkeypatch.setattr("horario_por_foto.urllib.request.urlopen", fake_urlopen)
+    filas = extractor_gemini_vision(b"foto-falsa")
+    assert filas == []
+
+
+@patch("agent.complexity_detector._resolve_litellm_credentials",
+       return_value=("http://fake-litellm/v1", "fake-key"))
+def test_extractor_gemini_vision_json_roto_no_truena(mock_creds, monkeypatch):
+    def fake_urlopen(req, timeout=None):
+        return _mock_response({"choices": [{"message": {"content": "esto no es json {{{"}}]})
+
+    monkeypatch.setattr("horario_por_foto.urllib.request.urlopen", fake_urlopen)
+    filas = extractor_gemini_vision(b"foto-falsa")
+    assert filas == []
+
+
+def test_extractor_real_produce_filas_que_parsear_horario_acepta():
+    """Integración: la forma exacta que devuelve el extractor real encaja
+    sin fricciones con parsear_horario (mismo contrato que el simulado)."""
+    filas_tipicas = [
+        {"dia": "lunes", "hora_inicio": "8:00", "hora_fin": "10:00",
+         "materia": "Bases de Datos", "profesor": "L.I. Diana Hernández", "aula": None},
+        {"dia": "martes", "hora_inicio": "9:00", "hora_fin": None,
+         "materia": "Ingles III", "profesor": None, "aula": None},
+    ]
+    entradas, errores = parsear_horario(filas_tipicas)
+    assert len(entradas) == 2
+    assert errores == []

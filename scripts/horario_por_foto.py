@@ -4,13 +4,17 @@ horario_por_foto.py -- BLOQUE 1 de OT-6 (tutor academico, F6-2): foto del
 horario escolar -> tabla `horario` en la libreta.
 
 Extractor de vision INYECTABLE (mismo patron que el transcriptor Whisper de
-corte_silencios.py y el ejecutor SSH de edicion_m1.py): este modulo NUNCA
-llama red por su cuenta. Motivo, no capricho -- hallazgo de este bloque: el
-horario trae nombres de profesores, y r.91 (DECISIONES.md 01 ago) prohibe
-mandar NOMBRES a una API gratuita; la llave GEMINI_VISION_KEY_NEW configurada
-en litellm no tiene verificado si es tier de pago. Cablear el extractor real
-(modelo local o proveedor de paga verificado) queda PENDIENTE de esa decision
--- anotado en ESTADO.md, no se resuelve aqui a ciegas.
+corte_silencios.py y el ejecutor SSH de edicion_m1.py) -- por defecto sigue
+sin llamar red por su cuenta (el simulado de --simular).
+
+EXCEPCION ACOTADA a r.91, confirmada por Arturo el 04 ago (ver DECISIONES.md):
+el horario trae nombres reales de profesores, y la regla general dice "nunca
+nombres a API gratis" -- GEMINI_VISION_KEY_NEW SI es tier gratis (confirmado
+por Arturo, no supuesto). La excepcion es puntual para FOTOS DE HORARIO
+ESCOLAR unicamente, no abre la puerta a nombres en general en ningun otro
+flujo. `extractor_gemini_vision()` es el extractor REAL, activado con
+--foto RUTA; usa el alias `vision` de LiteLLM (gemini-2.5-flash,
+GEMINI_VISION_KEY_NEW, cuota propia sin compartir con chat/voz).
 
 Doble candado antes de tocar la libreta real (mismo espiritu que
 PublicadorYouTube.aprobado y r.89 "pregunta antes de crear"):
@@ -28,12 +32,19 @@ USO (CLI de prueba, no toca la libreta real salvo --aplicar):
   python3 horario_por_foto.py --simular              -> corre con foto/extractor
                                                           sinteticos, imprime la
                                                           propuesta, no escribe
+  python3 horario_por_foto.py --foto RUTA.jpg         -> extractor REAL (Gemini
+                                                          Vision), imprime la
+                                                          propuesta, no escribe
+                                                          salvo --aplicar
 """
 
+import base64
+import json
 import os
 import re
 import sqlite3
 import sys
+import urllib.request
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -226,14 +237,92 @@ def _extractor_simulado(foto: bytes) -> list:
     ]
 
 
+_PROMPT_VISION = """Extrae la tabla de horario escolar de esta imagen. Devuelve
+SOLO un array JSON, sin texto extra, sin markdown, con esta forma exacta por
+cada clase (una fila por bloque de horario; si varias horas seguidas son la
+misma materia, es UN bloque con hora_inicio/hora_fin, no lo repitas):
+[{{"dia": "lunes", "hora_inicio": "8:00", "hora_fin": "10:00", "materia": "...",
+"profesor": "...", "aula": null}}]
+dia en minusculas sin acento (lunes/martes/miercoles/jueves/viernes/sabado).
+hora en formato H:MM o HH:MM, 24 horas. Si no hay profesor o aula visibles en
+esa celda, usa null. No inventes clases que no veas en la imagen."""
+
+
+def extractor_gemini_vision(foto: bytes) -> list:
+    """Extractor REAL vía Gemini Vision (alias `vision` en LiteLLM,
+    GEMINI_VISION_KEY_NEW, cuota propia, no comparte con chat/voz).
+
+    EXCEPCIÓN ACOTADA a r.91 (DECISIONES.md 04 ago, confirmada por Arturo):
+    ver docstring del módulo. Solo para fotos de horario escolar.
+
+    Nunca lanza: cualquier fallo devuelve [] y se loguea a stderr (HAS
+    regla 3, el silencio no es un estado válido de fallo) -- parsear_horario
+    ya sabe convertir una lista vacía en "0 entradas, revisa la foto"."""
+    try:
+        from agent.complexity_detector import _resolve_litellm_credentials
+        base_url, api_key = _resolve_litellm_credentials()
+        b64 = base64.b64encode(foto).decode("ascii")
+        payload = {
+            "model": "vision",
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": _PROMPT_VISION},
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+                ],
+            }],
+            "max_tokens": 3000,
+            "temperature": 0,
+            # sin esto, gemini-2.5-flash gasta ~1900 de 2000 tokens en
+            # "razonamiento" interno para una tarea de puro OCR/transcripcion
+            # -- se corta el JSON a medias (hallazgo real, 04 ago: probado
+            # contra la foto real, finish_reason="length" con solo esto
+            # apagado se resuelve). thinking_budget=0 -> respuesta directa,
+            # ~6-7s en vez de timeout, cero tokens desperdiciados en pensar
+            # una extraccion de tabla.
+            "thinking_config": {"thinking_budget": 0},
+        }
+        req = urllib.request.Request(
+            base_url.rstrip("/") + "/chat/completions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+        raw = (body.get("choices") or [{}])[0].get("message", {}).get("content", "")
+        raw = raw.strip()
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw).strip()
+        filas = json.loads(raw)
+        if not isinstance(filas, list):
+            raise ValueError(f"esperaba una lista JSON, llegó {type(filas).__name__}")
+        return filas
+    except Exception as e:
+        print(f"[horario_por_foto] extractor de visión falló: {e}", file=sys.stderr)
+        return []
+
+
 def main():
-    if "--simular" not in sys.argv:
-        print("uso: python3 horario_por_foto.py --simular [--aplicar]")
+    if "--simular" in sys.argv:
+        filas = _extractor_simulado(b"")
+        cuatrimestre = "2026-SIMULADO"
+    elif "--foto" in sys.argv:
+        idx = sys.argv.index("--foto")
+        if idx + 1 >= len(sys.argv):
+            print("uso: python3 horario_por_foto.py --foto RUTA.jpg [--aplicar]")
+            sys.exit(2)
+        with open(sys.argv[idx + 1], "rb") as f:
+            foto_bytes = f.read()
+        filas = extractor_gemini_vision(foto_bytes)
+        cuatrimestre = "detectado (confirma con Arturo antes de aplicar)"
+    else:
+        print("uso: python3 horario_por_foto.py --simular|--foto RUTA.jpg [--aplicar]")
         sys.exit(2)
+
     entorno = entorno_activo("simulacion")
-    filas = _extractor_simulado(b"")
     entradas, errores = parsear_horario(filas)
-    cuatrimestre = "2026-SIMULADO"
     print(formatear_propuesta(entradas, errores, cuatrimestre))
     if "--aplicar" in sys.argv:
         conn = sqlite3.connect(str(RUTAS[entorno]))

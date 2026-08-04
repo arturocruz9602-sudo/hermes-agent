@@ -1,78 +1,67 @@
-# ESTADO — actualizado: 04 ago 2026 (F6-3/P6/P7 + corrección: .env NO corrupto, 5 pendientes resueltos)
+# ESTADO — actualizado: 04 ago 2026 (F6-2 cerrado: horario por foto YA con vision real, excepción r.91)
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.4**
 **Se SOBREESCRIBE cada sesión, máx 80 líneas (gate). Histórico: `docs/archivo/`. Voz de Arturo: `CUESTIONARIO_MAESTRO.md` = misma jerarquía que MANDATO.**
 
 ## Fases HAS
-F0-F4 ✅ | F5 🔄 ~50% | F6 🔄 en curso (F6-3 ✅) | F7 🔄 bloques 1+2+3 hecho | F9 🔄 puntos 1+2 hechos | F10 🔄 recetario listo, falta índice semántico | F11-1 ✅ | F11-2 🔄 en curso | E14 🔄 motor+1a fuente lista, falta disparo automático | **P3/P5/P6/P7/F6-3 ✅ CERRADOS** | F12-F14 ⬜ | E10 → v1.7 (meta capital $100k/31-dic-2027).
+F0-F4 ✅ | F5 🔄 ~50% | F6 🔄 (F6-2 ✅ vision real, F6-3 ✅) | F7 🔄 bloques 1+2+3 | F9 🔄 pts 1+2 | F10 🔄 recetario listo | F11-1 ✅ | F11-2 🔄 | E14 🔄 falta disparo automático | **P3/P5/P6/P7/P8/F6-2/F6-3 ✅ CERRADOS** | F12-F14 ⬜ | E10 → v1.7.
 
-## ✅ F6-3/P6/P7 CERRADOS ESTA SESIÓN (detalle completo en BLOQUES.md)
-**F6-3** — correo escolar: `categorizar()`+`extraer_fecha_limite()` arman
-el aviso con el formato EXACTO de Arturo ("te llegó un correo, es tarea
-para hoy a las 11, ¿qué quieres que realice?"); seguimiento r.64 (aviso 1h
-antes + después preguntando si se subió, JSON propio no `cola_v2`, ver
-DECISIONES). 23 pruebas, 403/403.
-**P6** — correo personal: categorías "redes" (marca/infracciones/
-monetización/cambios de política YouTube/TikTok/Instagram/Facebook) y
-"escolar". `clasificar()` reordenado: `CLAVES_REDES` se revisa ANTES del
-filtro de ruido (mismas plataformas mandan ambas cosas). 7 pruebas, 410/410.
-**P7** — bug real: correo personal reavisaba el mismo email para siempre
-(Arturo reportó 3 avisos duplicados). Causa: gotcha de IMAP (RFC 3501) —
-con la frontera ya al día, "UID N:*" NO regresa vacío, el servidor regresa
-el último correo de todos modos. Fix: `_fetch_uids_desde` filtra
-`> desde_uid` del lado de acá. Verificado en vivo (antes: reavisaba;
-después: "Sin correos nuevos"). 2 pruebas, 412/412 `tests/scripts/` verde.
-
-## ✅ CORRECCIÓN ESTA SESIÓN (Hermes señaló, verificado antes de aceptar — ver DECISIONES)
-`.env` línea 503 NO está corrupta — es el app password real de Gmail; el
-"zxei" era `watchdog.sh` leyéndola con `source` sin comillas (bug de
-parseo, no de dato). NUNCA se toca esa línea. De paso, verificado y
-RESUELTO: equipos propios (SSH `macbook` ya en `~/.ssh/config`), Vision
-(`GEMINI_VISION_KEY_NEW` ya en `.env`, usada por `archivo_biblioteca.py`
-y `horario_por_foto.py`), r.91/r.40 (ya estaban confirmados desde 01 ago,
-`CUESTIONARIO_MAESTRO.md` solo estaba desincronizado), F7-3 dispara
-domingo AM (r.18 ya lo decía), E14 evidencia va en el brief 6:30, hora
-del cierre nocturno → **23:00** (timer ya actualizado, falta que Arturo
-corra `daemon-reload`), protocolo de pesaje → MENSUAL (ver LIBRETA_SEED).
+## ✅ F6-2 CERRADO ESTA SESIÓN — horario por foto YA lee de verdad (excepción r.91 confirmada)
+Arturo confirmó la foto real (`img_8cb21472cfba.jpg`, Grupo 301 DSM UTRNG,
+mayo-agosto 2026) y, tras marcarle la contradicción con r.91 ("nunca
+nombres a API gratis" vs. el horario trae 7 nombres de profesores), eligió
+**abrir excepción puntual acotada** (ver DECISIONES) en vez de esperar un
+tier de pago. `extractor_gemini_vision()` cableado al alias `vision` de
+LiteLLM (Gemini 2.5 Flash, `GEMINI_VISION_KEY_NEW`). **Hallazgo de
+eficiencia real:** sin `thinking_config.thinking_budget=0`, el modelo
+gastaba ~95% del límite de tokens "pensando" una tarea de puro OCR y el
+JSON se cortaba a medias — con el parámetro apagado, 0 tokens de
+razonamiento, ~7s de respuesta. Verificado en vivo contra la foto real:
+**18/18 clases extraídas correctamente**, nombres incluidos, sin tocar la
+libreta (solo `--foto`, sin `--aplicar`). 7 pruebas nuevas (mockean red),
+36/36 del módulo, 419/419 `tests/scripts/` verde.
 
 ## ⚠️ Hallazgos sin arreglar (arrastrados, no son de esta sesión)
 1. Ruido cosmético en `watchdog.log`: "Tubería rota" al cortar con grep -q.
 
 ## Decisiones pendientes ARTURO
 1. Autorizar llave SSH `hermes-portable` + authkey Tailscale reales.
-2. Horario escuela (r.61): espera a sept-dic; foto de prueba mencionada,
-   no localizada en 6 candidatas revisadas del historial — reenviar si aplica.
+2. Horario escuela sept-dic (r.61): espera a que la escuela lo publique.
+   La foto de mayo-agosto ya usada es de PRUEBA (r.20), no el definitivo.
 3. F6-3: ¿el segundo aviso de seguimiento (después del límite) también
-   dispara si Arturo nunca contestó el primero, o se calla si ya intervino
-   por su cuenta? Hoy dispara siempre a su hora, sin leer si hubo respuesta.
-4. Correr `systemctl --user daemon-reload` para que el cierre a las 23:00
-   quede activo (Claude Code no puede, mismo candado de servicios).
+   dispara si Arturo nunca contestó el primero, o se calla si ya intervino?
+4. Correr `systemctl --user daemon-reload` para que el cierre nocturno a
+   las 23:00 quede activo (Claude Code no puede, candado de servicios).
+5. ¿Aplicar de verdad el horario mayo-agosto a la libreta (`--aplicar`),
+   o esperar directo al de sept-dic ya que este cuatrimestre casi termina?
 
 ## 🔄 EN CURSO (arrastrados)
-**E14:** motor+gate+1ra fuente 17/17. Falta timer systemd, 2 fuentes, decisión 5.
-**F11-2:** candado+lanzador Linux 25/25. Falta USB físico, launchers mac/win, decisiones 1-2.
+**E14:** motor+gate+1ra fuente 17/17. Falta timer systemd, 2 fuentes, decisión 3 (ver arriba, era 5).
+**F11-2:** candado+lanzador Linux 25/25. Falta USB físico, launchers mac/win, decisión 1.
 
 ## Bloques recientes CERRADOS
-P7: bug real IMAP (reaviso infinito) corregido, 2/2. · P6: correo personal, categorías redes+escolar, 7/7. · F6-3: correo escolar analiza+sugiere, 23/23. · P5: correo
-escolar, alarma de frescura, 7/7. · P3: watchdog cuota, 11/11. · F7-3:
-rieles semanales, 24/24. · F7-2: refrescos, 8/8+1. · AT: trading testnet
-17/17. · AU: 75/75. · F6-1: correo personal vigilado+deployed. · F6-2:
-horario_por_foto 29/29. · F9 pts 1+2: 33/33. · F11-1: voz+cola 26/26.
+F6-2: horario por foto con vision real, excepción r.91, 7/7. · P8:
+corroboración 6 pendientes (.env no corrupto, 3 ya resueltos, 2 nuevos
+registrados). · P7: bug IMAP (reaviso infinito), 2/2. · P6: correo
+personal categorías redes+escolar, 7/7. · F6-3: correo escolar
+analiza+sugiere, 23/23. · P5: alarma de frescura, 7/7. · P3: watchdog
+cuota, 11/11. · F7-3: rieles semanales, 24/24. · AT/AU/F6-1/F9/F11-1: ver archivo.
 
 ## No tocar / reglas de equipo
 - M1 PRESTADA: reversa antes 6:00. · Correo solo-lectura. · Pruebas masivas
-  SOLO Docker QA. · Nada personal a API gratis (r.91). · `has_progress.py`
-  NO se usa. · Ninguna credencial real se genera/instala en automático.
+  SOLO Docker QA. · **Nada personal a API gratis (r.91), EXCEPTO fotos de
+  horario escolar → Gemini Vision (excepción acotada 04 ago, ver
+  DECISIONES) — no es puerta abierta a nombres en general.**
+- `.env` línea 503 (app password Gmail): NUNCA se toca, no está corrupta.
 - Watchdog vive FUERA del repo; sus pruebas sí van al repo.
 - `vigilar_correo_escuela.py` depende de que Thunderbird esté VIVO — si
-  falla, ya avisa solo (P5), pero arreglarlo de raíz es cosa de Arturo.
+  falla, ya avisa solo (P5).
 
 ## Próximos candidatos
-Cerrar E14 (timer + fuentes + decisión 5). Terminar F11-2. F7-1 bloques
-2/3. F6-2 bloques 2/3. F5 resto de vistas. Classroom (r.63): pedir acceso
-real a los 2 correos institucionales que Arturo mencionó (hoy solo hay
-acceso vía Claude Code, no vía Hermes).
+Cerrar E14 (timer + fuentes + decisión). Terminar F11-2. F7-1 bloques 2/3.
+F6-2 resto de OT-6 (foto de pizarrón, seguimiento de entregas escalonado).
+F5 resto de vistas.
 
 ## Al cierre
 ESTADO ≤80 · BLOQUES 1 línea · commit+push · TEMP-DIAG=0 · temp HP normal.
-Esta sesión: 403/403 `tests/scripts/` ✅, correo escolar con capa de
-análisis+sugerencia completa (r.62-64) probada contra el buzón real.
+Esta sesión: 419/419 `tests/scripts/` ✅, extractor de visión real probado
+contra la foto real de Arturo con evidencia pegada (18/18 clases).
