@@ -316,22 +316,33 @@ def _uidnext(imap):
 
 def _fetch_uids_desde(imap, desde_uid, hasta_uid=None):
     """Trae remitente/asunto/fecha de los UIDs > desde_uid. BODY.PEEK
-    para no tocar la bandera \\Seen (solo-lectura real)."""
+    para no tocar la bandera \\Seen (solo-lectura real).
+
+    GOTCHA REAL de IMAP (hallado 04 ago, reproducido contra Gmail real --
+    reporte de Arturo de 3 avisos duplicados del mismo correo): cuando
+    `desde_uid` ya es el UID mas alto del buzon, el rango "N:*" NO regresa
+    vacio como cabria esperar. RFC 3501: "*" siempre representa el UID mas
+    grande que exista, incluso si N lo rebasa -- el servidor regresa ese
+    ultimo correo de todos modos. Sin el filtro `> desde_uid` de abajo,
+    esto reavisa el ULTIMO correo en CADA corrida para siempre, una vez
+    alcanzada la frontera real, hasta que llegue un correo genuinamente
+    nuevo. Nunca confiar en que el servidor respeto el rango pedido --
+    filtrar del lado de aca."""
     rango_hasta = "*" if hasta_uid is None else str(hasta_uid)
     typ, data = imap.uid("SEARCH", None, f"UID {desde_uid + 1}:{rango_hasta}")
     if typ != "OK" or not data or not data[0]:
         return []
-    uids = data[0].split()
+    uids = [u for u in (int(x) for x in data[0].split()) if u > desde_uid]
     correos = []
     for uid in uids:
         typ, msg_data = imap.uid(
-            "FETCH", uid, "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])"
+            "FETCH", str(uid), "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])"
         )
         if typ != "OK" or not msg_data or not msg_data[0]:
             continue
         raw = msg_data[0][1]
         remitente, asunto, fecha = _parse_headers(raw)
-        correos.append({"uid": int(uid), "de": remitente, "asunto": asunto, "fecha": fecha})
+        correos.append({"uid": uid, "de": remitente, "asunto": asunto, "fecha": fecha})
     return correos
 
 

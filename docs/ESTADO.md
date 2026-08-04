@@ -1,28 +1,26 @@
-# ESTADO — actualizado: 04 ago 2026 (F6-3 cerrado + P6: correo personal con categorías redes/escolar)
+# ESTADO — actualizado: 04 ago 2026 (F6-3, P6 categorías redes/escolar, P7 bug real de IMAP corregido)
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.4**
 **Se SOBREESCRIBE cada sesión, máx 80 líneas (gate). Histórico: `docs/archivo/`. Voz de Arturo: `CUESTIONARIO_MAESTRO.md` = misma jerarquía que MANDATO.**
 
 ## Fases HAS
-F0-F4 ✅ | F5 🔄 ~50% | F6 🔄 en curso (F6-3 ✅) | F7 🔄 bloques 1+2+3 hecho | F9 🔄 puntos 1+2 hechos | F10 🔄 recetario listo, falta índice semántico | F11-1 ✅ | F11-2 🔄 en curso | E14 🔄 motor+1a fuente lista, falta disparo automático | **P3/P5/F6-3 ✅ CERRADOS** | F12-F14 ⬜ | E10 → v1.7 (meta capital $100k/31-dic-2027).
+F0-F4 ✅ | F5 🔄 ~50% | F6 🔄 en curso (F6-3 ✅) | F7 🔄 bloques 1+2+3 hecho | F9 🔄 puntos 1+2 hechos | F10 🔄 recetario listo, falta índice semántico | F11-1 ✅ | F11-2 🔄 en curso | E14 🔄 motor+1a fuente lista, falta disparo automático | **P3/P5/P6/P7/F6-3 ✅ CERRADOS** | F12-F14 ⬜ | E10 → v1.7 (meta capital $100k/31-dic-2027).
 
-## ✅ F6-3 CERRADO ESTA SESIÓN — Correo escolar: analiza + sugiere (r.62-64)
-`categorizar()`+`extraer_fecha_limite()` (reglas locales, r.91) arman el
-aviso con el formato EXACTO de Arturo: "te llegó un correo, es tarea para
-hoy a las 11, ¿qué quieres que realice?" — nunca asume/actúa solo.
-Seguimiento r.64: aviso 1h antes + aviso después preguntando si se subió
-(JSON propio, no `cola_v2` — ver DECISIONES). Detalle completo en BLOQUES.
-23 pruebas + 8 de frescura = 403/403 verde.
-
-## ✅ P6 CERRADO ESTA SESIÓN — Correo personal: categorías "redes" y "escolar"
-Arturo encontró en vivo un correo real ("unidad IV_complemento.docx" de un
-compañero) que cayó en "neutral" — r.108 nunca definió "escolar" para el
-personal. Pidió además "redes" (marca/infracciones/monetización/cambios de
-política de YouTube/TikTok/Instagram/Facebook). Hallazgo de diseño: esas
-plataformas viven en `RUIDO_DOMINIOS` — `clasificar()` reordenado para
-revisar `CLAVES_REDES` ANTES del filtro de ruido, si no un aviso real
-("cuenta suspendida") se callaría por venir del mismo dominio que el
-ruido social normal. Verificado contra el correo real + regresión (ruido
-social sigue callándose). 7 pruebas nuevas, 410/410 `tests/scripts/` verde.
+## ✅ F6-3/P6/P7 CERRADOS ESTA SESIÓN (detalle completo en BLOQUES.md)
+**F6-3** — correo escolar: `categorizar()`+`extraer_fecha_limite()` arman
+el aviso con el formato EXACTO de Arturo ("te llegó un correo, es tarea
+para hoy a las 11, ¿qué quieres que realice?"); seguimiento r.64 (aviso 1h
+antes + después preguntando si se subió, JSON propio no `cola_v2`, ver
+DECISIONES). 23 pruebas, 403/403.
+**P6** — correo personal: categorías "redes" (marca/infracciones/
+monetización/cambios de política YouTube/TikTok/Instagram/Facebook) y
+"escolar". `clasificar()` reordenado: `CLAVES_REDES` se revisa ANTES del
+filtro de ruido (mismas plataformas mandan ambas cosas). 7 pruebas, 410/410.
+**P7** — bug real: correo personal reavisaba el mismo email para siempre
+(Arturo reportó 3 avisos duplicados). Causa: gotcha de IMAP (RFC 3501) —
+con la frontera ya al día, "UID N:*" NO regresa vacío, el servidor regresa
+el último correo de todos modos. Fix: `_fetch_uids_desde` filtra
+`> desde_uid` del lado de acá. Verificado en vivo (antes: reavisaba;
+después: "Sin correos nuevos"). 2 pruebas, 412/412 `tests/scripts/` verde.
 
 ## ⚠️ Hallazgos sin arreglar (arrastrados, no son de esta sesión)
 1. `~/.hermes/.env` línea 503 corrupta: cada corrida del watchdog escupe
@@ -46,7 +44,7 @@ social sigue callándose). 7 pruebas nuevas, 410/410 `tests/scripts/` verde.
 **F11-2:** candado+lanzador Linux 25/25. Falta USB físico, launchers mac/win, decisiones 1-2.
 
 ## Bloques recientes CERRADOS
-P6: correo personal, categorías redes+escolar, 7/7. · F6-3: correo escolar analiza+sugiere, 23/23. · P5: correo
+P7: bug real IMAP (reaviso infinito) corregido, 2/2. · P6: correo personal, categorías redes+escolar, 7/7. · F6-3: correo escolar analiza+sugiere, 23/23. · P5: correo
 escolar, alarma de frescura, 7/7. · P3: watchdog cuota, 11/11. · F7-3:
 rieles semanales, 24/24. · F7-2: refrescos, 8/8+1. · AT: trading testnet
 17/17. · AU: 75/75. · F6-1: correo personal vigilado+deployed. · F6-2:

@@ -172,3 +172,61 @@ def test_frontera_solo_avanza_nunca_retrocede_en_uso_normal(tmp_path, monkeypatc
     vcp.guardar_estado(100)
     vcp.guardar_estado(150)
     assert vcp.cargar_estado() == 150
+
+
+# ── _fetch_uids_desde: gotcha real de IMAP (04 ago) ─────────────────────
+# Reporte real de Arturo: el mismo correo ("unidad IV_complemento.docx")
+# se avisó 3 veces seguidas, 15 min aparte, con la frontera YA al día.
+# Causa raíz reproducida contra Gmail real: cuando desde_uid es el UID más
+# alto del buzón, el rango "N:*" NO regresa vacío -- RFC 3501 dice que "*"
+# siempre es el UID más grande que exista, así que el servidor regresa ese
+# último correo de todos modos, sin importar N. El fix filtra del lado de
+# acá: nunca confiar en que el servidor respetó el rango pedido.
+
+class _FakeIMAP:
+    """Simula el SEARCH/FETCH de imaplib, incluido el gotcha real de Gmail
+    (N:* regresando el último UID aunque N lo rebase)."""
+
+    def __init__(self, search_result: bytes, fetch_map: dict):
+        self._search_result = search_result
+        self._fetch_map = fetch_map
+
+    def uid(self, command, *args):
+        if command == "SEARCH":
+            return "OK", [self._search_result]
+        if command == "FETCH":
+            uid = int(args[0])
+            raw = self._fetch_map.get(uid)
+            if raw is None:
+                return "NO", [None]
+            return "OK", [(b"1 (BODY[...])", raw)]
+        raise NotImplementedError(command)
+
+
+def _raw_headers(de, asunto, fecha="Tue, 04 Aug 2026 12:00:00 -0600"):
+    return (f"From: {de}\r\nSubject: {asunto}\r\nDate: {fecha}\r\n").encode()
+
+
+def test_gotcha_imap_frontera_al_dia_no_reavisa():
+    """El caso exacto del bug: desde_uid=4255 (ya es el UID más alto real),
+    pero el servidor (simulado igual que Gmail) regresa '4255' de todos
+    modos -- _fetch_uids_desde debe filtrarlo y devolver vacío."""
+    imap = _FakeIMAP(
+        search_result=b"4255",  # el gotcha: servidor regresa el ultimo UID
+        fetch_map={4255: _raw_headers("Cruz Roman <cruzrr1996@gmail.com>",
+                                       "unidad IV_complemento.docx")},
+    )
+    correos = vcp._fetch_uids_desde(imap, desde_uid=4255)
+    assert correos == []
+
+
+def test_gotcha_imap_correo_genuinamente_nuevo_si_avisa():
+    """Regresión inversa: el filtro no debe volverse tan agresivo que
+    calle un correo REAL nuevo."""
+    imap = _FakeIMAP(
+        search_result=b"4256",
+        fetch_map={4256: _raw_headers("Alguien <alguien@example.com>", "Hola")},
+    )
+    correos = vcp._fetch_uids_desde(imap, desde_uid=4255)
+    assert len(correos) == 1
+    assert correos[0]["uid"] == 4256

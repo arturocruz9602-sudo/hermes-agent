@@ -304,3 +304,14 @@ archivo para `SALUD`/`vistos` — sin nueva arquitectura, solo el patrón existe
 estado. Si en el futuro aparece más de un caso de "recordatorio a hora futura" (HAS §OT-9 ya menciona una
 `tabla reglas_recordatorio` pendiente, sin construir), vale la pena evaluar un motor de recordatorios
 programados compartido — hoy solo hay un consumidor real, no amerita esa inversión todavía.
+
+**04 ago 2026 · Gotcha de IMAP "UID N:*" con N mayor al máximo real — filtrar SIEMPRE del lado del
+cliente, nunca confiar en que el servidor respetó el rango (P7).** Hallazgo real (reportado por Arturo:
+el mismo correo se avisó 3 veces) y reproducido en vivo contra Gmail: cuando `desde_uid` ya es el UID más
+alto del buzón, `imap.uid("SEARCH", None, f"UID {desde_uid+1}:*")` NO regresa vacío — RFC 3501 define "*"
+como el UID más grande que exista, así que el servidor regresa ese último correo de todos modos, sin
+importar si el rango pedido lo excluye. Cualquier código futuro que use rangos `N:*` de IMAP (no solo
+`vigilar_correo_personal.py`) debe filtrar los UIDs devueltos con `> desde_uid` del lado del cliente antes
+de procesarlos — el servidor no es de fiar en este caso límite. Impacto: patrón a reusar si se agrega otro
+vigilante de correo por IMAP en vivo (el escolar no aplica, usa un mbox local con set de "vistos", no UID
+ranges).
