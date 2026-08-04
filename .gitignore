@@ -202,3 +202,5 @@ scripts/.loop_estado.json
 scripts/loop_tokens.jsonl
 scripts/.loop_alto
 scripts/loop_run.log
+scripts/loop_f73_run.log
+scripts/loop_p3_run.log

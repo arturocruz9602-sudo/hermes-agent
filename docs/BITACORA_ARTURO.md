@@ -2854,6 +2854,31 @@ editarlo). Hoy no rompe nada, pero cada 3 minutos ensucia la bitácora con un
 error. **No lo toqué porque ese archivo guarda sus contraseñas y llaves, y
 ahí no meto mano sin su permiso.** ¿Se la limpio?
 
+### 04 ago — el correo de la escuela llevaba 3 días ciego, sin que nadie se diera cuenta
+
+Usted preguntó por qué no le avisé de un correo. Investigué y encontré algo
+serio: el programa que revisa su correo institucional no se conecta directo
+a Gmail — depende de que Thunderbird esté abierto y sincronizando en la HP.
+Thunderbird se cayó el 01 de agosto a las 2:55 de la madrugada, y nadie —ni
+Hermes, ni yo hasta que usted preguntó— se dio cuenta. El vigilante seguía
+revisando fielmente cada 15 minutos, pero siempre veía la misma foto vieja
+del correo, y por eso decía "todo bien" con toda honestidad, aunque en
+realidad no podía ver nada nuevo. Una tarea real, "Plan de pruebas", se
+quedó sin avisarle los 3 días completos.
+
+**Antes:** si Thunderbird se caía, usted se enteraba solo si notaba que
+algo no le llegó — como pasó ahora.
+**Ahora:** si el correo escolar lleva más de 4 horas sin sincronizar de
+verdad, le llega un aviso aparte diciéndolo — y otro cuando se recupera.
+
+Usted mismo reinició Thunderbird por SSH y quedó resuelto sin necesitar
+abrir la laptop.
+
+**Sigue pendiente, aparte de esto:** hoy el aviso de correo escolar solo le
+dice quién lo mandó y de qué trata — no analiza el contenido ni le sugiere
+qué hacer, como usted pidió para el correo personal. Es trabajo para otra
+sesión.
+
 **Notas de Arturo:**
 
 ---
