@@ -47,3 +47,29 @@ Cuerpo, en este orden:
 5. **Cuándo NO aplica** — si la causa raíz tiene condiciones
    específicas, decirlas explícitas para que no se aplique la receta a
    un síntoma parecido pero de causa distinta.
+
+## Herramienta: `scripts/recetario.py`
+
+No hay que grepear el directorio a mano ni escribir el front-matter de
+memoria — el módulo hace las tres operaciones del ciclo de F10:
+
+```bash
+# consultar ANTES de razonar un problema desde cero (F10-b)
+python3 scripts/recetario.py buscar "telethon phone code expired"
+
+# validar el formato (candado que usa nueva_receta() y la prueba de humo)
+python3 scripts/recetario.py validar
+
+# crear una receta nueva ya validada (F10-a/c) — nunca escribe un
+# archivo que no cumpla el formato de arriba
+python3 scripts/recetario.py nueva --nombre mi-problema-nuevo \
+  --autor claude-code --sintoma-corto "..." --componente "..." \
+  --sintoma-archivo /tmp/sintoma.txt --diagnostico-archivo /tmp/diag.txt \
+  --solucion-archivo /tmp/sol.txt --verificacion-archivo /tmp/ver.txt \
+  --cuando-no-aplica-archivo /tmp/na.txt
+```
+
+Igual de importable desde Python (`from recetario import buscar,
+nueva_receta, validar_todas`) para Hermes o para cualquier script que
+quiera consultar el recetario antes de escalar a Claude/DeepSeek.
+Pruebas: `tests/scripts/test_recetario.py`.
