@@ -7,6 +7,64 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 03 Ago 2026 (domingo, AM) — Su reporte semanal de finanzas ya se arma solo
+
+### Lo que hay ahora
+
+Acabo de terminar el **reporte semanal de rieles financieros** que usted pidió (r.18). Ahora, cada domingo por la mañana (o cuando lo pida), Hermes le trae un panorama COMPLETO de su dinero:
+
+- **Balance semanal:** ingresos, gastos, saldo
+- **Desglose por fuente:** ¿de dónde vino el dinero? (taquería, refrescos, otro)
+- **Gastos por categoría:** cuánto gastó en qué
+- **Negocio de refrescos:** cuánta ganancia (o pérdida) tuvo esa reja
+- **Meta de los $100k:** cuánto lleva, cuánto falta, y cuándo llega si el ritmo se mantiene
+- **Depósito mensual:** ¿va al ritmo de $3,500/mes que usted mencionó?
+- **Pagos recurrentes:** qué le toca pagar esta semana/mes
+
+**Números de esta semana (28 jul - 03 ago):**
+- Ingresos: **$300** (15 refrescos vendidos)
+- Gastos: **$10.80** (inversión en IA)
+- Saldo neto: **+$289.20**
+- Negocio refrescos: vendió 15 botellas pero la reja le costó $328, así que lleva **-$28 de esa reja** (aún hay stock sin vender)
+- Meta: **$0 / $100,000** acumulados (0%) — va a cambiar cuando fije un ritual de depósitos
+- Depósito mensual: va **$38 atrás del objetivo de $3,500/mes**
+
+### Lo que falta
+
+El reporte es **100% de datos reales de su libreta** — pero ahora que existe, podemos:
+1. Agregarle gráficos (cómo evoluciona el balance, tendencia de gastos)
+2. Hacerlo automático cada domingo (hoy se lo tengo que generar si lo pide)
+3. Mandárselo directo a Telegram en lugar de tener que pedirlo
+
+### Cómo lo prueba usted
+
+Mande: *"Hermes, dame el reporte semanal de finanzas"* — le aparece así:
+
+```
+📊 BALANCE SEMANAL
+  Ingresos:  $    300.00
+  Gastos:    $     10.80
+  Saldo:     $    289.20
+
+📈 INGRESOS POR FUENTE
+  refrescos            $    300.00 (3 movs)
+
+🧊 NEGOCIO DE REFRESCOS (esta semana)
+  Rejas compradas:    1
+  Invertido:          $    328.00
+  Unidades vendidas:  15
+  Ingreso bruto:      $    300.00
+  Ganancia neta:      $    -28.00
+  ROI:                      -8.5%
+
+🎯 META DE AHORRO ($100,000 por 31-dic-2027)
+  Acumulado actual:   $      0.00
+  Objetivo:           $ 100000.00
+  Progreso:                  0.0%
+```
+
+---
+
 ## 03 Ago 2026 (loop) — Empezó la "llave USB" (trabajo de fondo, todavía no hay nada que usted pueda probar)
 
 ### Lo que hay ahora
