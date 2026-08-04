@@ -165,11 +165,15 @@ class DetectorEspontaneo:
         )
 
     def _log(self, captura_id: int | None, evento: str, ok: bool, *, detalle: str = "") -> None:
+        """Commitea de inmediato (no espera al commit del caller): un log de
+        fallo que se pierde si el caller revienta después es exactamente el
+        "silencio como estado de fallo" que CLAUDE.md regla 3 prohíbe."""
         self.con.execute(
             "INSERT INTO capturas_espontaneas_log (captura_id, ts, evento, ok, detalle) "
             "VALUES (?, ?, ?, ?, ?)",
             (captura_id, _ahora(), evento, 1 if ok else 0, detalle),
         )
+        self.con.commit()
         nivel = logging.INFO if ok else logging.WARNING
         log.log(nivel, "captura=%s %s ok=%s %s", captura_id, evento, ok, detalle)
 
@@ -291,11 +295,12 @@ class DetectorEspontaneo:
                 "WHERE id = ?",
                 (nuevo_estado, tarea_id, _ahora(), captura_id),
             )
-            self.con.commit()
             self._log(captura_id, "confirmar", True,
                       detalle=f"aprobado={aprobado} tarea_id={tarea_id}")
+            self.con.commit()
         except Exception as exc:
             self._log(captura_id, "confirmar", False, detalle=str(exc))
+            self.con.commit()
             raise
         return self.obtener(captura_id)
 
