@@ -7,6 +7,37 @@ cada sesión (regla permanente en `CLAUDE.md`).
 
 ---
 
+## 03 Ago 2026 (loop) — Empezó la "llave USB" (trabajo de fondo, todavía no hay nada que usted pueda probar)
+
+### Lo que hay ahora
+
+Esto es la primera pieza de la "llave USB" de la que hablamos en el diseño: un
+USB que, conectado en cualquier computadora prestada, abre un túnel seguro
+hacia Hermes en su HP — sin que Hermes ni sus datos salgan nunca de casa.
+Hoy construí dos piezas de fondo, ninguna visible todavía porque falta el USB
+físico y las credenciales reales:
+
+1. El "candado": antes de que el USB pueda tocar una computadora que no es
+   suya, tiene que quedar registrado quién dio permiso, para qué, y hasta
+   cuándo — nunca permiso indefinido sobre equipo ajeno.
+2. El lanzador de Linux: el script que, al conectar el USB, monta la bóveda
+   cifrada, levanta la conexión, y lo lleva directo a hablar con Hermes en la
+   HP. Ya está probado con piezas simuladas; falta probarlo con la bóveda y
+   el USB de verdad.
+
+### Lo que necesito de usted para seguir
+
+Dos decisiones que no me tocan a mí solo:
+1. **La lista de sus equipos propios** (HP, MacBook — ¿algún otro?) para que
+   el candado nunca les pida registro a ELLOS, solo a equipo ajeno.
+2. **Su autorización** para generar la llave de acceso y la conexión reales
+   que va a llevar el USB — es tocar credenciales de producción, así que no
+   lo hago solo sin que usted diga que sí primero.
+
+Sin esas dos cosas no puedo avanzar más en esta pieza sin exponerlo a un
+riesgo que no debo tomar por mi cuenta. Lo demás (el USB físico, los
+lanzadores de macOS/Windows) sigue en la lista.
+
 ## 03 Ago 2026 (loop) — Hermes ya sabe armar recordatorios recurrentes ("los domingos a las 8pm")
 
 ### Lo que hay ahora
