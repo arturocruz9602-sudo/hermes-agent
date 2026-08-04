@@ -2794,3 +2794,66 @@ números salían en 0. Verificado en vivo antes de escribir esto.
 **Notas de Arturo:**
 
 ---
+
+## 04 ago 2026 (loop) — La alarma de esta mañana era falsa: Hermes nunca se detuvo (P3)
+
+### Qué pasó
+
+Hoy a las 6:54 le llegó este mensaje:
+
+> ⚠️ Gemini y Groq agotaron su cuota al mismo tiempo. Hermes entra en pausa
+> para tareas no urgentes... NO se usará DeepSeek automáticamente.
+
+**Era falso, jefe, y le pido una disculpa por el susto.** Hermes estuvo
+trabajando normal todo el tiempo. Le explico con una analogía: usted tiene
+una moto (la buena, la que usa a diario) y una bicicleta de repuesto por si
+la moto falla. Esta mañana se ponchó la llanta de *la bicicleta* — y el
+vigilante le mandó un aviso urgente diciendo "te quedaste sin transporte".
+La moto siempre estuvo encendida.
+
+La "moto" es DeepSeek: desde el 30 de julio es el motor principal de Hermes.
+Gemini y Groq pasaron a ser el repuesto. Pero el vigilante (el watchdog, un
+programita que revisa la salud de Hermes cada 3 minutos) se quedó con la
+idea vieja de que Gemini era el principal, así que cada vez que el repuesto
+tropezaba, le anunciaba una emergencia. Y encima le prometía "no se usará
+DeepSeek automáticamente", que ya no era cierto desde el 30 de julio.
+
+### Antes / ahora
+
+- **Antes:** el repuesto tropieza (cosa normal, para eso es repuesto) →
+  usted recibe un mensaje de alarma y Hermes se marca en pausa sin razón.
+- **Ahora:** si el motor principal responde, el vigilante lo anota en su
+  bitácora interna y **no lo molesta a usted**. Solo le escribe si se cae
+  *todo*, principal incluido — y ese aviso ahora dice la verdad, sin la
+  promesa vieja de DeepSeek.
+
+Ya pasó en vivo hoy a las 7:08:38, con una falla real del repuesto: el
+vigilante escribió en su bitácora *"DeepSeek — el principal — responde
+(HTTP 200) — resolviendo en silencio, sin alertar a Arturo"*. Cero mensajes
+para usted. Eso es exactamente lo que le pedí que hiciera.
+
+### Cómo lo prueba usted
+
+No hay que mandarle nada a Hermes: esto se ve en la bitácora del vigilante.
+Pegue esto en la terminal para ver las últimas 15 líneas:
+
+```
+tail -15 ~/.hermes/logs/watchdog.log
+```
+
+Si ve renglones con 🟢 y la frase "resolviendo en silencio", ese es el
+vigilante callándose problemas que ya se resolvieron solos. Si algún día ve
+uno con 🔴 "Escalera COMPLETA caida", ahí sí me habla: significa que se
+cayó todo.
+
+### Un pendiente que le toca decidir a usted
+
+Encontré que su archivo de configuración `~/.hermes/.env` tiene basura en la
+línea 503 (dice `zxei`, parece que se le fue un manotazo al teclado al
+editarlo). Hoy no rompe nada, pero cada 3 minutos ensucia la bitácora con un
+error. **No lo toqué porque ese archivo guarda sus contraseñas y llaves, y
+ahí no meto mano sin su permiso.** ¿Se la limpio?
+
+**Notas de Arturo:**
+
+---
