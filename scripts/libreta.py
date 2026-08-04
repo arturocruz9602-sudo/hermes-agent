@@ -254,20 +254,34 @@ class Libreta:
     # ── el negocio de reventa (taqueria) ────────────────────────────────
     def registrar_compra_negocio(self, costo, producto="refresco", unidad="reja",
                                  fecha=None, nota=None) -> int:
+        """Registra la compra Y su gasto real en `gastos` (categoria
+        'negocio_<producto>'), por separado del resto de gastos -- si no se
+        anota aqui, el saldo diario/semanal (balance(), r.18) nunca refleja
+        que ese dinero salio de verdad."""
+        fecha = fecha or self.hoy()
         cur = self.con.execute(
             "INSERT INTO negocio_compras (fecha, producto, unidad, costo_mxn, nota) "
             "VALUES (?,?,?,?,?)",
-            (fecha or self.hoy(), producto, unidad, float(costo), nota),
+            (fecha, producto, unidad, float(costo), nota),
         )
+        self.registrar_gasto(costo, f"negocio_{producto}",
+                             nota or f"compra de {producto} ({unidad})", fecha=fecha)
         return cur.lastrowid
 
     def registrar_venta_negocio(self, unidades, precio_unitario=20, producto="refresco",
                                 fecha=None, nota=None) -> int:
+        """Registra la venta Y su ingreso bruto real en `ingresos` (fuente
+        'negocio_<producto>'), por separado del resto de ingresos (r.16) --
+        mismo motivo que en registrar_compra_negocio: sin esto el ingreso de
+        refrescos nunca aparece en el balance real de Arturo."""
+        fecha = fecha or self.hoy()
         cur = self.con.execute(
             "INSERT INTO negocio_ventas (fecha, producto, unidades, "
             "precio_unitario_mxn, nota) VALUES (?,?,?,?,?)",
-            (fecha or self.hoy(), producto, int(unidades), float(precio_unitario), nota),
+            (fecha, producto, int(unidades), float(precio_unitario), nota),
         )
+        self.registrar_ingreso(unidades * precio_unitario, f"negocio_{producto}",
+                              nota or f"venta de {unidades} {producto}(s)", fecha=fecha)
         return cur.lastrowid
 
     def registrar_gasto_ia_del_mes(self, año=None, mes=None) -> int | None:

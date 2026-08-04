@@ -151,6 +151,26 @@ def test_balance_solo_cuenta_el_rango_pedido(entorno):
     assert b["ingresos"] == 2000 and b["gastos"] == 300 and b["saldo"] == 1700
 
 
+def test_negocio_refresco_se_refleja_en_balance_real(entorno):
+    """r.16/F7-2: la compra y venta de refrescos deben aparecer en el balance
+    real (gastos/ingresos), no solo en las tablas negocio_compras/ventas --
+    si no, el cierre del dia (cierre_del_dia_audio.py) diria 'no registre
+    ingresos' en un dia donde si hubo venta de refrescos."""
+    with libreta_mod.Libreta("simulacion") as lib:
+        lib.registrar_compra_negocio(328, fecha="2026-08-01")
+        lib.registrar_venta_negocio(unidades=10, precio_unitario=20, fecha="2026-08-02")
+        b = lib.balance(desde="2026-08-01", hasta="2026-08-31")
+        gasto = lib.con.execute(
+            "SELECT categoria FROM gastos WHERE fecha='2026-08-01'"
+        ).fetchone()
+        ingreso = lib.con.execute(
+            "SELECT fuente FROM ingresos WHERE fecha='2026-08-02'"
+        ).fetchone()
+    assert b["gastos"] == 328 and b["ingresos"] == 200 and b["saldo"] == -128
+    assert gasto["categoria"] == "negocio_refresco"
+    assert ingreso["fuente"] == "negocio_refresco"
+
+
 def test_meta_de_ahorro_acumula_y_no_se_duplica(entorno):
     with libreta_mod.Libreta("simulacion") as lib:
         lib.meta_ahorro("Mac Mini", objetivo=16500)
