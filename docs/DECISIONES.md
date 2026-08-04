@@ -290,3 +290,17 @@ evidencia nueva si algún día vuelve a fallar en silencio varios días sin que 
 Además, Arturo especificó el FORMATO exacto que sí quiere para correos reales (no para salud): "te llegó
 tal correo, es una tarea para hoy a las 11, ¿qué quieres que realice?" — analizar contenido + preguntar
 acción, nunca asumir. Ya incorporado a la guía de F6-3 en `scripts/loop_cola.py`.
+
+**04 ago 2026 · F6-3 — el seguimiento de r.64 (aviso antes/después de la hora límite) usa un JSON propio,
+NO `cola_v2.py`.** El mapa de reuso del bloque sugería reusar `cola_v2` (garantía dura
+encolada->resuelta->notificada) para no inventar "un sistema de recordatorios nuevo". Al implementarlo se
+encontró que no encaja: `cola_v2.procesar_pendientes()`/`procesar_una()` toman una tarea `encolada` y la
+resuelven YA, con una escalera de proveedores (solver inyectable) — no existe un campo "no antes de esta
+hora" en su esquema ni en su máquina de estados, y agregarlo tocaría infraestructura compartida por otros
+bloques (F9-2, E14) fuera del alcance de esta sesión. `cola_v2` es la herramienta correcta para "esto hay
+que resolverlo YA con reintentos", no para "avisa en un momento futuro de reloj de pared". Se optó por un
+JSON de pendientes en `scripts/vigilar_correo_escuela.py` (`SEGUIMIENTOS`), mismo patrón ya usado en ese
+archivo para `SALUD`/`vistos` — sin nueva arquitectura, solo el patrón existente aplicado a un tercer
+estado. Si en el futuro aparece más de un caso de "recordatorio a hora futura" (HAS §OT-9 ya menciona una
+`tabla reglas_recordatorio` pendiente, sin construir), vale la pena evaluar un motor de recordatorios
+programados compartido — hoy solo hay un consumidor real, no amerita esa inversión todavía.

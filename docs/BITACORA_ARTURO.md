@@ -2882,3 +2882,42 @@ sesión.
 **Notas de Arturo:**
 
 ---
+
+### 04 ago — el correo de la escuela ya no solo avisa, ahora analiza y le pregunta qué hacer
+
+Esto era justo el pendiente de la entrada anterior. Ya quedó.
+
+**Antes:** el aviso de un correo de la escuela decía nada más quién lo
+mandó y el asunto — usted tenía que abrir el correo para saber si era
+tarea, examen o aviso, y si tenía fecha límite.
+
+**Ahora:** el aviso le dice qué ES y cierra preguntando qué hacer, nunca
+decide solo. Ejemplo real, con el formato que usted pidió textual:
+
+> Arturo, te llegó un correo de la escuela, es una tarea para hoy a las
+> 11, ¿qué quieres que realice?
+>
+> De: [profesor/Classroom]
+> Asunto: [el asunto real]
+> (te aviso porque viene de la escuela)
+
+Cuando una tarea/entrega/examen SÍ trae fecha límite, además le va a
+llegar un segundo aviso una hora antes ("solo faltan estos detalles,
+revísalo y súbelo antes de las X") y un tercero después de esa hora
+preguntando si ya lo subió — nunca da por hecho que ya lo hizo.
+
+**Cómo lo prueba usted:** no tiene que mandar nada — la próxima tarea,
+entrega o examen real que le llegue por Classroom va a traer este formato
+solo. Si quiere forzar una corrida ahora mismo (por si ya hay algo nuevo
+sin avisar) puede pedirme, en cualquier momento: "revisa el correo de la
+escuela ahora" y yo corro el vigilante y le reporto qué encontró.
+
+**Hallazgo que corregí en el camino:** al probar contra su buzón real, la
+primera versión confundía la hora en que Classroom PUBLICÓ el correo
+("Publicado el 5:01 p.m.") con la hora de entrega de la tarea — un falso
+positivo. Ya no pasa: solo cuenta una hora como límite si el correo
+realmente la anuncia como tal ("a las", "antes de las").
+
+**Notas de Arturo:**
+
+---
