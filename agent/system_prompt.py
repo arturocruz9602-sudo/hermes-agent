@@ -563,7 +563,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         if agent._user_profile_enabled:
             user_block = agent._memory_store.format_for_system_prompt("user")
             if user_block:
-                volatile_parts.append(user_block)
+                volatile_parts.append(_memoria_como_indice(user_block))
 
     # External memory provider system prompt block (additive to built-in)
     if agent._memory_manager:
