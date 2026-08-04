@@ -1,8 +1,8 @@
-# ESTADO — actualizado: 03 ago 2026 (F9 loop: reglas explícitas + fix log inmediato)
+# ESTADO — actualizado: 03 ago 2026 (F11-1 loop: voz interina + integración cola)
 **Se SOBREESCRIBE cada sesión, máx 80 líneas (gate). Histórico: `docs/archivo/`. Voz de Arturo: `CUESTIONARIO_MAESTRO.md` = misma jerarquía que MANDATO.**
 
 ## Fases HAS
-F0-F4 ✅ | F5 🔄 ~50% | F6 🔄 en curso | F7 🔄 BLOQUES 1+2 hecho | F9 🔄 puntos 1+2 hechos | F8,F10-F14 ⬜ | **F11 laboratorio VALIDADO (AQ)**. **E10 → v1.7** (meta capital $100k/31-dic-2027).
+F0-F4 ✅ | F5 🔄 ~50% | F6 🔄 en curso | F7 🔄 BLOQUES 1+2 hecho | F9 🔄 puntos 1+2 hechos | F8,F10 ⬜ | **F11-1 ✅ HECHO (03 ago, loop)** | F12-F14 ⬜ | **E10 → v1.7** (meta capital $100k/31-dic-2027).
 
 ## REGLA QUE CAMBIA TODO (r.20, permanente — ya en CLAUDE.md, regla 6)
 Todo dato de fechas/pagos/citas mencionado en pruebas = **SIMULADO** salvo que Arturo marque "dato real". Inventar escenarios y adelantar el reloj: SOLO en el laboratorio Docker. Producción jamás.
@@ -34,7 +34,7 @@ decisión de tier que horario_por_foto/archivo_biblioteca.
 F7-1 bloques 2/3 (reporte PDF, limpieza) NO empezados.
 
 ## Bloques recientes CERRADOS
-AQ/AR: Docker validado + libreta v4 prod. · AS: brief+cierre audio+STT. · F5-1: Notion Finanzas 2/6. · F5-2: cola v2 11/11 pruebas. · AT: trading testnet 17/17. · AU: 75/75 pruebas motor+pipeline. · F6-1: correo vigilado+deployed. · F6-2: horario_por_foto 29/29 (vision pendiente).
+AQ/AR: Docker validado + libreta v4 prod. · AS: brief+cierre audio+STT. · F5-1: Notion Finanzas 2/6. · F5-2: cola v2 11/11 pruebas. · AT: trading testnet 17/17. · AU: 75/75 pruebas motor+pipeline. · F6-1: correo vigilado+deployed. · F6-2: horario_por_foto 29/29 (vision pendiente). · **F11-1: notif_voz + integracion cola 26/26 tests.**
 
 ## Decisiones pendientes ARTURO (actualizado 03 ago)
 1. Vision: tier pago/local/gratis? Bloquea 2 extractores (r.91).
