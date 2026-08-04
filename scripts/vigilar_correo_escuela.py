@@ -46,6 +46,15 @@ SALUD = os.path.join(HOME, ".hermes/state/correo_escuela_salud.json")
 UMBRAL_STALE_HORAS = 4
 REALERTA_HORAS = 4
 
+# Arturo (04 ago, tras la primera alerta real): no quiere avisos de salud del
+# vigilante por Telegram -- solo quiere que le avisen de CORREOS reales. El
+# hallazgo que motivó esto (Thunderbird 3 días caído en silencio) sigue
+# detectándose y quedando en el log para diagnóstico; solo se apagó el canal
+# de Telegram. Criterio para volver a prenderlo: si alguna vez el vigilante
+# se queda ciego de verdad varios días de nuevo sin que Arturo lo note antes
+# que Hermes, vale la pena reabrir esta decisión con esa evidencia.
+AVISAR_FRESCURA_POR_TELEGRAM = False
+
 # Remitentes que son publicidad pura. Se callan siempre.
 RUIDO = (
     "canva.com",
@@ -210,11 +219,12 @@ def verificar_frescura(ahora=None):
 
     if fresco:
         if salud.get("alertando"):
-            if avisar("🟢 El correo escolar volvió a sincronizar normal — "
-                       "ya puedo confiar de nuevo en lo que vigilo."):
+            msg = ("🟢 El correo escolar volvió a sincronizar normal — "
+                    "ya puedo confiar de nuevo en lo que vigilo.")
+            if AVISAR_FRESCURA_POR_TELEGRAM and avisar(msg):
                 log("✅ Frescura recuperada, aviso de vuelta enviado")
             else:
-                log("🔴 Frescura recuperada pero no pude avisar de vuelta")
+                log("✅ Frescura recuperada (solo log, Arturo pidió no avisar por Telegram)")
         _guardar_salud({"alertando": False, "ultima_alerta": None})
         return True
 
@@ -229,10 +239,14 @@ def verificar_frescura(ahora=None):
         msg = (f"⚠️ No puedo confirmar que el correo escolar esté sincronizando: "
                f"{razon}. Puede que me esté perdiendo correos reales sin avisarte "
                f"— revisa Thunderbird.")
-        if avisar(msg):
-            log(f"⚠️  Alerta de frescura enviada: {razon}")
+        if AVISAR_FRESCURA_POR_TELEGRAM:
+            if avisar(msg):
+                log(f"⚠️  Alerta de frescura enviada: {razon}")
+            else:
+                log(f"🔴 No pude avisar de la falta de frescura ({razon}) — Telegram también falló")
         else:
-            log(f"🔴 No pude avisar de la falta de frescura ({razon}) — Telegram también falló")
+            log(f"⚠️  {razon} (solo log, Arturo pidió no avisar por Telegram — "
+                f"04 ago, ver AVISAR_FRESCURA_POR_TELEGRAM)")
         _guardar_salud({"alertando": True, "ultima_alerta": ahora.isoformat()})
     else:
         log(f"⚠️  Buzón sigue sin fresco ({razon}) — ya avisado, no reavisar aún")

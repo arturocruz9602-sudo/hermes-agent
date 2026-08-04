@@ -277,3 +277,16 @@ de la regla de Arturo "no quiero estar viendo problemas, yo me estreso; que solo
 que me entere" — la misma que originó el fix del 30 jul (ledger <240s). Corolario operativo: cuando
 cambie el modelo principal, hay que revisar el watchdog en la misma sesión — es la segunda vez que se
 queda con una idea vieja de quién es el principal.
+
+**04 ago 2026 · Correo escolar: alerta de frescura (P5) SIN Telegram por default — mismo principio que
+el watchdog.** La primera vez que la alerta de P5 disparó de verdad (buzón 4.1h sin tocarse) resultó ser
+falsa: Thunderbird estaba vivo y conectado (socket IMAP establecido), simplemente no había correo nuevo.
+Arturo, textual: "como tal no quiero avisos, lo único que quiero es que cuando llegue el correo me
+avise". Aplica el MISMO principio ya documentado arriba (30 jul, watchdog): no quiere ver problemas de
+infraestructura, solo resultados. Impacto: `AVISAR_FRESCURA_POR_TELEGRAM = False` en
+`vigilar_correo_escuela.py` — la detección y el log siguen intactos (así se ve en diagnóstico si hace
+falta), pero no se manda nada por Telegram. Interruptor documentado en el propio código para reabrir con
+evidencia nueva si algún día vuelve a fallar en silencio varios días sin que Arturo lo note primero.
+Además, Arturo especificó el FORMATO exacto que sí quiere para correos reales (no para salud): "te llegó
+tal correo, es una tarea para hoy a las 11, ¿qué quieres que realice?" — analizar contenido + preguntar
+acción, nunca asumir. Ya incorporado a la guía de F6-3 en `scripts/loop_cola.py`.

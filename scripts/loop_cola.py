@@ -317,10 +317,14 @@ COLA = [
         "descripcion": (
             "vigilar_correo_escuela.py hoy solo reenvía remitente/asunto/motivo. "
             "Falta la capa que r.62-64 pide: analizar el contenido y SUGERIR qué "
-            "hacer (no solo avisar que llegó). Incluye el flujo de seguimiento de "
-            "r.64: si una tarea se entrega a una hora dada, avisar ANTES con lo que "
-            "falta, y DESPUÉS volver a preguntar si ya se subió/resolvió — nunca "
-            "asumir que se hizo."
+            "hacer (no solo avisar que llegó). FORMATO EXACTO pedido por Arturo "
+            "(04 ago, textual): 'Arturo, te llegó tal correo, es una tarea para "
+            "hoy a las 11, ¿qué quieres que realice?' — todo de acuerdo a lo que "
+            "dice el correo (extraer: qué es, fecha/hora límite si la trae, y "
+            "cerrar preguntando qué acción tomar — nunca asumir ni actuar solo). "
+            "Incluye el flujo de seguimiento de r.64: si una tarea se entrega a "
+            "una hora dada, avisar ANTES con lo que falta, y DESPUÉS volver a "
+            "preguntar si ya se subió/resolvió — nunca asumir que se hizo."
         ),
         "guia": (
             "MAPA DE REUSO (verificado 04 ago; NO reinventes, ya existe el patrón "

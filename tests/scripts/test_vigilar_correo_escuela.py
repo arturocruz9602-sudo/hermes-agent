@@ -6,14 +6,22 @@ novedades" con toda honestidad -- porque para él no había nada nuevo. Una
 tarea real ("Plan de pruebas") se quedó sin avisar. Arturo lo notó por su
 cuenta, no Hermes.
 
-Estas pruebas clavan el arreglo (HAS regla 3: el silencio nunca es un
-estado válido de fallo):
-  1. Buzón fresco -> no avisa, sigue confiando.
-  2. Buzón viejo -> SÍ avisa la primera vez que lo detecta.
-  3. Buzón sigue viejo, ya avisado hace poco -> NO reavisa (no satura).
-  4. Buzón sigue viejo, pasó el margen de reaviso -> SÍ reavisa.
-  5. Buzón se recupera -> avisa que ya volvió y limpia el estado.
-  6. El archivo del mbox ni siquiera existe -> también avisa (no solo mtime viejo).
+Corrección del mismo día: la primera alerta real (buzón quieto 4h, con
+Thunderbird en realidad vivo y conectado) resultó ser una falsa alarma --
+Arturo pidió que estos avisos de SALUD ya no lleguen por Telegram, solo
+quiere avisos de correos reales. AVISAR_FRESCURA_POR_TELEGRAM=False por
+default: el hallazgo se sigue detectando y queda en el log (para
+diagnóstico), pero no se envía nada. El interruptor sigue existiendo por
+si algún día hace falta reactivarlo con evidencia nueva.
+
+Estas pruebas clavan:
+  1. Buzón fresco -> nunca avisa.
+  2-6. Buzón viejo/recuperado/inexistente, CON el interruptor apagado
+       (default de Arturo) -> se detecta y se loguea, pero NUNCA se llama
+       a avisar() (Telegram).
+  7-8. Con el interruptor prendido explícitamente -> se preserva el
+       comportamiento viejo (avisa, dedupe, reavisa tras el margen), por
+       si se reactiva en el futuro.
 """
 
 from __future__ import annotations
@@ -60,29 +68,67 @@ def test_buzon_fresco_no_avisa(tmp_path, monkeypatch):
     assert llamadas == []
 
 
-def test_buzon_viejo_avisa_la_primera_vez(tmp_path, monkeypatch):
+# ── default de Arturo (04 ago): SIN Telegram, solo log ──────────────────
+def test_buzon_viejo_por_default_NO_avisa_por_telegram(tmp_path, monkeypatch):
+    _preparar(tmp_path, monkeypatch, horas_de_viejo=5)
+    llamadas = _mock_avisar(monkeypatch, [])
+    assert vce.verificar_frescura() is False
+    assert llamadas == []  # el punto central del cambio: nunca llama avisar()
+
+    salud = json.loads((tmp_path / "salud.json").read_text())
+    assert salud["alertando"] is True  # el estado SÍ se sigue registrando
+
+    log = (tmp_path / "log.txt").read_text()
+    assert "sin sincronizar" in log  # queda evidencia para diagnóstico
+
+
+def test_mbox_inexistente_por_default_NO_avisa_por_telegram(tmp_path, monkeypatch):
+    monkeypatch.setattr(vce, "MBOX", str(tmp_path / "no_existe"))
+    monkeypatch.setattr(vce, "SALUD", str(tmp_path / "salud.json"))
+    monkeypatch.setattr(vce, "LOG", str(tmp_path / "log.txt"))
+    llamadas = _mock_avisar(monkeypatch, [])
+    assert vce.verificar_frescura() is False
+    assert llamadas == []
+    assert "no existe" in (tmp_path / "log.txt").read_text()
+
+
+def test_buzon_se_recupera_por_default_NO_avisa_de_vuelta(tmp_path, monkeypatch):
+    _preparar(tmp_path, monkeypatch, horas_de_viejo=5)
+    _mock_avisar(monkeypatch, [])
+    vce.verificar_frescura()  # cae
+
+    _preparar(tmp_path, monkeypatch, horas_de_viejo=0.1)  # se repara
+    llamadas = _mock_avisar(monkeypatch, [])
+    assert vce.verificar_frescura() is True
+    assert llamadas == []
+
+    salud = json.loads((tmp_path / "salud.json").read_text())
+    assert salud["alertando"] is False  # el estado igual se limpia
+
+
+def test_dedupe_sigue_funcionando_aunque_no_avise_por_telegram(tmp_path, monkeypatch):
+    """El registro de 'ya sé que está caído' no depende del canal de aviso."""
+    _preparar(tmp_path, monkeypatch, horas_de_viejo=5)
+    _mock_avisar(monkeypatch, [])
+    vce.verificar_frescura()
+
+    assert vce.verificar_frescura() is False  # sigue detectando, sin tronar
+    salud = json.loads((tmp_path / "salud.json").read_text())
+    assert salud["alertando"] is True
+
+
+# ── interruptor prendido explícitamente: se preserva el código viejo ────
+def test_con_telegram_prendido_avisa_la_primera_vez(tmp_path, monkeypatch):
+    monkeypatch.setattr(vce, "AVISAR_FRESCURA_POR_TELEGRAM", True)
     _preparar(tmp_path, monkeypatch, horas_de_viejo=5)
     llamadas = _mock_avisar(monkeypatch, [True])
     assert vce.verificar_frescura() is False
     assert len(llamadas) == 1
     assert "sincronizando" in llamadas[0]
 
-    salud = json.loads((tmp_path / "salud.json").read_text())
-    assert salud["alertando"] is True
-    assert salud["ultima_alerta"] is not None
 
-
-def test_buzon_sigue_viejo_no_reavisa_de_inmediato(tmp_path, monkeypatch):
-    _preparar(tmp_path, monkeypatch, horas_de_viejo=5)
-    llamadas = _mock_avisar(monkeypatch, [True])
-    vce.verificar_frescura()  # primera alerta
-
-    llamadas2 = _mock_avisar(monkeypatch, [])
-    assert vce.verificar_frescura() is False
-    assert llamadas2 == []  # no reavisó, sigue dentro del margen
-
-
-def test_buzon_sigue_viejo_reavisa_tras_el_margen(tmp_path, monkeypatch):
+def test_con_telegram_prendido_reavisa_tras_el_margen(tmp_path, monkeypatch):
+    monkeypatch.setattr(vce, "AVISAR_FRESCURA_POR_TELEGRAM", True)
     _preparar(tmp_path, monkeypatch, horas_de_viejo=5)
     _mock_avisar(monkeypatch, [True])
     vce.verificar_frescura()  # primera alerta
@@ -97,32 +143,8 @@ def test_buzon_sigue_viejo_reavisa_tras_el_margen(tmp_path, monkeypatch):
     assert len(llamadas2) == 1  # sí reavisó
 
 
-def test_buzon_se_recupera_avisa_de_vuelta_y_limpia_estado(tmp_path, monkeypatch):
-    _preparar(tmp_path, monkeypatch, horas_de_viejo=5)
-    _mock_avisar(monkeypatch, [True])
-    vce.verificar_frescura()  # cae
-
-    _preparar(tmp_path, monkeypatch, horas_de_viejo=0.1)  # se repara
-    llamadas = _mock_avisar(monkeypatch, [True])
-    assert vce.verificar_frescura() is True
-    assert len(llamadas) == 1
-    assert "volvió" in llamadas[0]
-
-    salud = json.loads((tmp_path / "salud.json").read_text())
-    assert salud["alertando"] is False
-
-
-def test_mbox_inexistente_tambien_avisa(tmp_path, monkeypatch):
-    monkeypatch.setattr(vce, "MBOX", str(tmp_path / "no_existe"))
-    monkeypatch.setattr(vce, "SALUD", str(tmp_path / "salud.json"))
-    monkeypatch.setattr(vce, "LOG", str(tmp_path / "log.txt"))
-    llamadas = _mock_avisar(monkeypatch, [True])
-    assert vce.verificar_frescura() is False
-    assert "no existe" in llamadas[0]
-
-
-def test_avisar_fallido_no_truena(tmp_path, monkeypatch):
-    """Si Telegram también está caído, no debe reventar -- solo loguear."""
+def test_con_telegram_prendido_avisar_fallido_no_truena(tmp_path, monkeypatch):
+    monkeypatch.setattr(vce, "AVISAR_FRESCURA_POR_TELEGRAM", True)
     _preparar(tmp_path, monkeypatch, horas_de_viejo=5)
     _mock_avisar(monkeypatch, [False])
     assert vce.verificar_frescura() is False  # no lanza excepción

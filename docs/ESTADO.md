@@ -1,4 +1,4 @@
-# ESTADO — actualizado: 04 ago 2026 (correo escolar: Thunderbird caído 3 días en silencio, arreglado + alarma de frescura)
+# ESTADO — actualizado: 04 ago 2026 (correo escolar arreglado; alarma de frescura SIN Telegram por pedido de Arturo; YouTube/Binance/QA con llaves reales)
 **Se SOBREESCRIBE cada sesión, máx 80 líneas (gate). Histórico: `docs/archivo/`. Voz de Arturo: `CUESTIONARIO_MAESTRO.md` = misma jerarquía que MANDATO.**
 
 ## Fases HAS
@@ -22,7 +22,13 @@ avisa por Telegram en vez de reportar "todo bien" a ciegas; no satura
 7/7 pruebas nuevas, 387/387 `tests/scripts/` verde.
 **Pendiente real, más grande:** el vigilante hoy solo reenvía
 remitente/asunto — NO analiza ni sugiere qué hacer (r.62-64 lo pide).
-Construido el 31 jul, antes de que el cuestionario pidiera esa capa.
+Construido el 31 jul, antes de que el cuestionario pidiera esa capa. Ya en
+cola como F6-3 con el formato exacto que pidió Arturo (ver DECISIONES).
+**Corrección la misma sesión:** la primera alerta real de frescura fue
+falsa (Thunderbird vivo, solo sin correo nuevo). Arturo pidió apagar el
+canal de Telegram de esta alarma (mismo principio que el watchdog del 30
+jul: "no quiero ver problemas, solo resultados") — `AVISAR_FRESCURA_POR_TELEGRAM
+= False`, detección y log intactos. 388/388 `tests/scripts/` verde.
 
 ## ⚠️ Hallazgos sin arreglar (arrastrados, no son de esta sesión)
 1. `~/.hermes/.env` línea 503 corrupta: cada corrida del watchdog escupe
