@@ -45,7 +45,7 @@ producción exige el "sí" de Arturo (CLAUDE.md regla de acciones irreversibles)
 7. Horario escuela (r.61): espera a sept-dic; `horario_por_foto.py` listo si se resuelve decisión 3.
 
 ## Bloques recientes CERRADOS
-AQ/AR: Docker validado + libreta v4 prod. · AS: brief+cierre audio+STT. · F5-1: Notion Finanzas 2/6. · F5-2: cola v2 11/11 pruebas. · AT: trading testnet 17/17. · AU: 75/75 pruebas motor+pipeline. · F6-1: correo vigilado+deployed. · F6-2: horario_por_foto 29/29 (vision pendiente). · F9 pts 1+2: reglas+detección, 33/33. · **F11-1: notif_voz + integracion cola 26/26 tests.**
+AQ/AR: Docker validado + libreta v4 prod. · AS: brief+cierre audio+STT. · F5-1: Notion Finanzas 2/6. · F5-2: cola v2 11/11 pruebas. · AT: trading testnet 17/17. · AU: 75/75 pruebas motor+pipeline. · F6-1: correo vigilado+deployed. · F6-2: horario_por_foto 29/29 (vision pendiente). · F9 pts 1+2: reglas+detección, 33/33. · **F11-1: notif_voz + integracion cola 26/26 tests.** · **P2: presupuesto de contexto — guarda de punta a punta en tests/, 4/4 pruebas, 3/3 corridas estables.**
 
 ## No tocar / reglas de equipo
 - M1 PRESTADA (r.102): reversa antes 6:00.
