@@ -33,9 +33,9 @@ Construido el 31 jul, antes de que el cuestionario pidiera esa capa.
 1. Lista "equipos propios" (`HERMES_EQUIPOS_PROPIOS` vacío hoy).
 2. Autorizar llave SSH `hermes-portable` + authkey Tailscale reales.
 3. Vision: ¿tier pago/local/gratis? Bloquea 2 extractores (r.91).
-4. YouTube: sacar las 2 llaves — guía en `docs/YOUTUBE_LLAVES_GUIA.md`.
-5. Telegram QA: falta `TELEGRAM_QA_CHANNEL=8727618189` en `.env`.
-6. Binance testnet: llaves en guía `docs/BINANCE_TESTNET_GUIA.md`.
+4. ~~YouTube~~ — RESUELTO 04 ago: las 6 vars (API key + OAuth completo, incl. tokens) ya en `.env`. Desbloquea AU-1/AU-2 hacia 🚀.
+5. ~~Telegram QA~~ — RESUELTO 04 ago: `TELEGRAM_QA_CHANNEL=8727618189` ya en `.env` (Arturo lo agregó). Desbloquea envío real en bloques `docker_qa` (AS-2, AT, etc.).
+6. ~~Binance testnet~~ — RESUELTO 04 ago: `BINANCE_TESTNET_API_KEY/_SECRET` ya en `.env`. Desbloquea AT hacia 🚀 (falta correr en Docker/QA, r.119).
 7. Horario escuela (r.61): espera a sept-dic.
 8. E14: ¿evidencia nocturna al brief matutino, o prefiere otro canal?
 9. F7-3: ¿reporte semanal se dispara solo domingo AM, o sigue a demanda?
