@@ -192,6 +192,8 @@ def libreta_sim(tmp_path, monkeypatch):
         )
         assert r.returncode == 0, r.stderr
     yield libreta_mod
+    # deshacer el entorno ANTES de recargar (ver test_libreta.py, bug 04 ago F7-3)
+    monkeypatch.undo()
     importlib.reload(libreta_mod)
 
 

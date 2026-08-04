@@ -56,6 +56,11 @@ def entorno(tmp_path, monkeypatch):
         )
         assert r.returncode == 0, r.stderr
     yield dict(libreta_mod.RUTAS)
+    # deshacer las variables de entorno ANTES de recargar: si se recarga con
+    # HERMES_DISCO_PRUEBAS todavia apuntando al tmp_path, el modulo se queda
+    # envenenado para el resto de la sesion de pytest despues de que
+    # monkeypatch revierta el entorno (bug real, encontrado 04 ago F7-3).
+    monkeypatch.undo()
     importlib.reload(libreta_mod)
 
 

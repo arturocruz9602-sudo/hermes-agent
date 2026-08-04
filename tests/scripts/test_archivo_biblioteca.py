@@ -49,6 +49,8 @@ def modulo(tmp_path, monkeypatch):
     importlib.reload(mod)
     monkeypatch.setattr(mod, "_verificar_disco_de_pruebas", lambda: None)
     yield mod
+    # deshacer el entorno ANTES de recargar (ver test_libreta.py, bug 04 ago F7-3)
+    monkeypatch.undo()
     importlib.reload(libreta_mod)
 
 
