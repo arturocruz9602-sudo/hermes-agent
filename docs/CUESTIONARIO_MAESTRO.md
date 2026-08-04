@@ -357,8 +357,27 @@ despedirte de la siguiente manera"; o en el momento: "Hermes, no sé cómo zafar
 ## Qué pasa con estas respuestas (para Claude Code)
 1. Los datos ya están estructurados en `LIBRETA_SEED.md` → se cargan en el Bloque AR, tras validar en laboratorio.
 2. Las contradicciones quedaron resueltas: recarga $230 · meta = capital $100,000 con Mac Studio (Mini
-   descartada) · privacidad con propuesta default pendiente de un "ok".
+   descartada) · privacidad RESUELTA (ver DECISIONES.md 01 ago).
 3. Las respuestas 97 y 104 fijaron la cola de agosto (ver `ESTADO.md`).
 4. Este archivo SUSTITUYE a las suposiciones: donde un documento viejo lo contradiga, gana este.
-5. Pendientes de Arturo registrados: horario sept-dic (r.61) · direcciones de los 2 correos (r.63) ·
-   "ok" privacidad (r.91) · "ok" freno -3% (r.40) · protocolo de pesaje (r.69) · hora del cierre nocturno (r.90).
+5. **Pendientes de Arturo — actualizado 04 ago (verificado contra DECISIONES.md, no de memoria):**
+   único pendiente real vivo: **horario sept-dic (r.61)**, en espera de que la escuela lo publique, no es
+   algo que falte de Arturo. Todo lo demás de esta lista original YA se resolvió y quedó documentado:
+   direcciones de los 2 correos (r.63, en uso real desde 02-03 ago) · "ok" privacidad (r.91, DECISIONES
+   01 ago) · "ok" freno -3% (r.40, DECISIONES 01 ago, cita textual "que quede así -3%") · protocolo de
+   pesaje (r.69) y hora del cierre nocturno (r.90) — ambos respondidos 04 ago, ver apéndice abajo.
+
+## Apéndice — respuestas ampliadas 04 ago 2026 (vía Hermes, verificadas contra el repo antes de registrar)
+- **r.69, protocolo de pesaje: MENSUAL.** Arturo se pesa y le da el dato a Hermes; queda listo para cuando
+  él dé la fecha. Progresión de EJEMPLO (datos ficticios, r.20, solo para probar el registro, NUNCA datos
+  reales): mes 1=115kg, mes 2=110, mes 3=100, mes 4=95, mes 5=90... hasta que Arturo indique su peso ideal
+  (90 u 85, él decide). A partir de ahí, solo registro mensual real, sin más datos ficticios.
+- **r.90, hora del cierre nocturno: 23:00.** Reemplaza el default visual de 22:45 (nunca fue dato duro).
+  Ya aplicado: `~/.config/systemd/user/hermes-cierre-dia.timer` actualizado a `23:00:00` — falta que Arturo
+  corra `systemctl --user daemon-reload` (Claude Code no puede, mismo candado de reinicio de servicios).
+- **E14 (mantenimiento nocturno):** la evidencia de lo hecho esa noche SÍ va en el brief de las 6:30.
+  Aclaración de Arturo: "mantenimiento" = ventana 2:00-5:00 (respaldos, logs/bugs, skills desactualizadas,
+  tareas acumuladas) — no implica que algo se haya dañado.
+- **Horario por foto — PENDIENTE DE VERIFICAR:** se menciona que Arturo compartió una foto de su horario
+  actual (de prueba, no definitivo) para usar con `horario_por_foto.py`. Busqué en las 6 fotos sin procesar
+  del historial de subidas y NINGUNA es un horario escolar — si existe, Arturo necesita volver a mandarla.

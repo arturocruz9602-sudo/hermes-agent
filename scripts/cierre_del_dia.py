@@ -12,10 +12,10 @@ Que hace este script, y que NO hace:
     libreta.py (ver skills/finanzas/SKILL.md, seccion 3). Un cron no puede
     "escuchar" la respuesta; la conversacion si.
 
-Hora por defecto 22:45, porque su bloque de trabajo real termina ~22:30 casi
-todos los dias (ver docs/DISENO_INTERFACES.md) -- es una referencia visual
-"por confirmar", no un dato duro, asi que si a Arturo le cae mal la hora, se
-ajusta el timer sin tocar este script.
+Hora: 23:00 (r.90, CONFIRMADO por Arturo 04 ago -- reemplaza el default
+visual anterior de 22:45, que nunca fue un dato duro). El timer vive en
+~/.config/systemd/user/hermes-cierre-dia.timer, se ajusta ahi sin tocar
+este script.
 """
 
 from __future__ import annotations

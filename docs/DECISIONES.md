@@ -315,3 +315,19 @@ importar si el rango pedido lo excluye. Cualquier código futuro que use rangos 
 de procesarlos — el servidor no es de fiar en este caso límite. Impacto: patrón a reusar si se agrega otro
 vigilante de correo por IMAP en vivo (el escolar no aplica, usa un mbox local con set de "vistos", no UID
 ranges).
+
+**04 ago 2026 · CORRECCIÓN: `.env` línea 503 NO está corrupta — es el app password legítimo de Gmail;
+NUNCA limpiarla.** El hallazgo del loop (03/04 ago: "línea 503 corrupta, escupe `zxei: orden no
+encontrada`") fue un mal diagnóstico, señalado por Hermes y verificado directo en el archivo (sin
+mostrar el valor): `EMAIL_PASSWORD`, 19 caracteres, forma `XXXX XXXX XXXX XXXX` — exactamente el formato
+de un App Password de Google (16 caracteres en 4 grupos de 4). Causa real del error: `watchdog.sh` lee
+`.env` con `source` SIN comillas; bash, al toparse con espacios dentro de un valor sin comillas, trata
+cada palabra como un token nuevo — la primera palabra queda asignada a `EMAIL_PASSWORD`, pero las
+siguientes palabras del password se intentan EJECUTAR como comandos, de ahí "orden no encontrada". El
+dato nunca estuvo corrupto; el bug (si vale la pena arreglarlo) está en cómo `watchdog.sh` carga el
+archivo, no en el archivo mismo. Impacto: (1) esta línea NUNCA se toca — borrarla rompería la
+autenticación real del vigilante de correo personal (P6/P7); (2) si se quiere silenciar el ruido en
+`watchdog.log`, la corrección correcta es citar la variable al hacer `source` (`set -a; source .env; set
++a` o exportar con comillas), no editar el valor. Lección (misma que ya dejó P3): un hallazgo de "dato
+corrupto" reportado por un log de error necesita verificarse contra el archivo real antes de proponer
+limpiarlo — un síntoma de parseo se puede confundir con datos corruptos.

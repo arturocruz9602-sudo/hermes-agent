@@ -1,4 +1,4 @@
-# ESTADO — actualizado: 04 ago 2026 (F6-3, P6 categorías redes/escolar, P7 bug real de IMAP corregido)
+# ESTADO — actualizado: 04 ago 2026 (F6-3/P6/P7 + corrección: .env NO corrupto, 5 pendientes resueltos)
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.4**
 **Se SOBREESCRIBE cada sesión, máx 80 líneas (gate). Histórico: `docs/archivo/`. Voz de Arturo: `CUESTIONARIO_MAESTRO.md` = misma jerarquía que MANDATO.**
 
@@ -22,22 +22,30 @@ el último correo de todos modos. Fix: `_fetch_uids_desde` filtra
 `> desde_uid` del lado de acá. Verificado en vivo (antes: reavisaba;
 después: "Sin correos nuevos"). 2 pruebas, 412/412 `tests/scripts/` verde.
 
+## ✅ CORRECCIÓN ESTA SESIÓN (Hermes señaló, verificado antes de aceptar — ver DECISIONES)
+`.env` línea 503 NO está corrupta — es el app password real de Gmail; el
+"zxei" era `watchdog.sh` leyéndola con `source` sin comillas (bug de
+parseo, no de dato). NUNCA se toca esa línea. De paso, verificado y
+RESUELTO: equipos propios (SSH `macbook` ya en `~/.ssh/config`), Vision
+(`GEMINI_VISION_KEY_NEW` ya en `.env`, usada por `archivo_biblioteca.py`
+y `horario_por_foto.py`), r.91/r.40 (ya estaban confirmados desde 01 ago,
+`CUESTIONARIO_MAESTRO.md` solo estaba desincronizado), F7-3 dispara
+domingo AM (r.18 ya lo decía), E14 evidencia va en el brief 6:30, hora
+del cierre nocturno → **23:00** (timer ya actualizado, falta que Arturo
+corra `daemon-reload`), protocolo de pesaje → MENSUAL (ver LIBRETA_SEED).
+
 ## ⚠️ Hallazgos sin arreglar (arrastrados, no son de esta sesión)
-1. `~/.hermes/.env` línea 503 corrupta: cada corrida del watchdog escupe
-   `zxei: orden no encontrada` al hacer `source`. Requiere el sí de Arturo.
-2. Ruido cosmético en `watchdog.log`: "Tubería rota" al cortar con grep -q.
+1. Ruido cosmético en `watchdog.log`: "Tubería rota" al cortar con grep -q.
 
 ## Decisiones pendientes ARTURO
-1. Lista "equipos propios" (`HERMES_EQUIPOS_PROPIOS` vacío hoy).
-2. Autorizar llave SSH `hermes-portable` + authkey Tailscale reales.
-3. Vision: ¿tier pago/local/gratis? Bloquea 2 extractores (r.91).
-4. Horario escuela (r.61): espera a sept-dic.
-5. E14: ¿evidencia nocturna al brief matutino, o prefiere otro canal?
-6. F7-3: ¿reporte semanal se dispara solo domingo AM, o sigue a demanda?
-7. `.env` línea 503 corrupta: ¿la limpio?
-8. F6-3: ¿el segundo aviso de seguimiento (después del límite) también
+1. Autorizar llave SSH `hermes-portable` + authkey Tailscale reales.
+2. Horario escuela (r.61): espera a sept-dic; foto de prueba mencionada,
+   no localizada en 6 candidatas revisadas del historial — reenviar si aplica.
+3. F6-3: ¿el segundo aviso de seguimiento (después del límite) también
    dispara si Arturo nunca contestó el primero, o se calla si ya intervino
    por su cuenta? Hoy dispara siempre a su hora, sin leer si hubo respuesta.
+4. Correr `systemctl --user daemon-reload` para que el cierre a las 23:00
+   quede activo (Claude Code no puede, mismo candado de servicios).
 
 ## 🔄 EN CURSO (arrastrados)
 **E14:** motor+gate+1ra fuente 17/17. Falta timer systemd, 2 fuentes, decisión 5.

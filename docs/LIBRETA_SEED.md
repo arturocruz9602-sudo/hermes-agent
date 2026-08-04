@@ -70,14 +70,17 @@ entrenar · estudiar · comer_limpio (detallado, registro de comidas — r.70) �
 descanso_estrategico · sueño_horas (r.77) · + los que promuevan salud/automejora (r.72, abierto).
 - cero_chelas en situación de riesgo (r.71): explicar el trabajo que se echa a perder Y las ventajas de no ir de farra.
 - Gym: asistencia + pesos/series si él los da; mínimo garantizado: asistencia + cardio 30 min (r.74). Sin lesiones (r.75).
-- Peso: dato real actual 111.5 kg (r.68 confirma) · meta y ritmo: NULL (no definidos) · protocolo de pesaje: NULL (r.69).
+- Peso: dato real actual 111.5 kg (r.68 confirma) · meta: 90 u 85 kg, Arturo decide cuál al acercarse ·
+  protocolo de pesaje: MENSUAL (r.69, confirmado 04 ago) — Arturo se pesa y le da el dato a Hermes cuando
+  él marque la fecha; progresión de EJEMPLO ficticia para probar el registro (r.20, nunca dato real):
+  mes1=115, mes2=110, mes3=100, mes4=95, mes5=90 → de ahí en adelante solo registro mensual real.
 - Autoevaluación dominical: preguntas que lo hagan cuestionarse, ligadas a las metas del proyecto (r.76).
 
 ## tabla: comunicacion (config)
 - Trato: "jefe"/"señor", español; estilo secretaria inteligente eficiente, tipo Viernes de Tony Stark (r.84).
 - Brief 6:30 (r.86, r.98): panorama del día + clima CRUZADO con agenda (lluvia vs gym/trabajo) + noticias
-  de trading + todo lo que deba saber. Cierre nocturno: TODO el día resumido, EN AUDIO, a la hora en que
-  él va a descansar (r.90).
+  de trading + todo lo que deba saber. Cierre nocturno: TODO el día resumido, EN AUDIO, a las **23:00**
+  (r.90, confirmado 04 ago — reemplaza el default visual de 22:45).
 - Recordatorios: default 2 horas antes; si no da señales de vida, insistir por otra vía (r.80). Pagos: 1 día antes (r.81).
 - Captura espontánea: SIEMPRE preguntar "¿lo agendo?" antes de crear recordatorio (r.89) + regla de
   simulación r.20 (en pruebas todo es simulado salvo marca explícita).
