@@ -85,6 +85,44 @@ CLAVES = (
 
 DOMINIO_ESCUELA = "utrng.edu.mx"
 
+# ── análisis + sugerencia (r.62-64): no basta avisar, hay que decir qué es
+# y preguntar qué hacer -- nunca asumir ni actuar solo (r.64, r.89).
+CATEGORIAS_ORDEN = (
+    ("examen", ("examen", "evaluacion", "quiz")),
+    ("entrega", ("entrega", "entregar", "fecha limite", "vencimiento")),
+    ("tarea", ("tarea", "actividad", "proyecto", "practica")),
+    ("aviso", ("aviso", "comunicado", "convocatoria", "urgente", "recordatorio",
+               "inscripcion", "reinscripcion", "beca", "colegiatura", "kardex",
+               "constancia", "certificado", "credencial", "pago", "adeudo",
+               "documentacion", "titulo", "titulacion", "servicio social",
+               "estadia", "tramite")),
+)
+
+ARTICULO_CATEGORIA = {
+    "examen": "un examen",
+    "entrega": "una entrega",
+    "tarea": "una tarea",
+    "aviso": "un aviso",
+    "correo": "un correo importante",
+}
+
+MESES = {
+    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+    "julio": 7, "agosto": 8, "septiembre": 9, "octubre": 10, "noviembre": 11,
+    "diciembre": 12,
+}
+
+# Classroom manda la fecha de entrega abreviada ("Fecha de entrega: 13 dic").
+MESES_ABR = {
+    "ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6,
+    "jul": 7, "ago": 8, "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dic": 12,
+}
+
+# Seguimiento r.64: aviso ANTES de la hora límite y aviso DESPUÉS
+# preguntando si ya se subió -- nunca asumir que se hizo.
+SEGUIMIENTOS = os.path.join(HOME, ".hermes/state/correo_escuela_seguimientos.json")
+MARGEN_ANTES_MIN = 60
+
 
 def log(msg):
     """Deja rastro de exito Y de fallo. Nunca falla en silencio (HAS L6/L14)."""
@@ -133,6 +171,225 @@ def clasificar(remitente, asunto):
             return True, f"dice '{clave}'"
 
     return False, "sin señales de que importe"
+
+
+def categorizar(asunto, cuerpo=""):
+    """Qué ES el correo (r.62): tarea/entrega/examen/aviso/correo. Solo
+    reglas locales sobre texto ya en disco -- nada sale a ninguna API
+    (r.91: correos jamás a API gratis)."""
+    t = normalizar(f"{asunto} {cuerpo[:500]}")
+    for categoria, claves in CATEGORIAS_ORDEN:
+        if any(c in t for c in claves):
+            return categoria
+    return "correo"
+
+
+def _texto_fecha(dia, ahora, hora_min):
+    if dia == ahora.date():
+        base = "hoy"
+    elif dia == ahora.date() + datetime.timedelta(days=1):
+        base = "mañana"
+    else:
+        base = dia.strftime("%d/%m")
+    if hora_min:
+        return f"{base} a las {hora_min[0]:02d}:{hora_min[1]:02d}"
+    return base
+
+
+def extraer_fecha_limite(texto, ahora=None):
+    """Busca fecha/hora límite en el texto (asunto+cuerpo) con reglas
+    locales -- 'hoy a las 11', 'antes de las 12', '5 de agosto', 'dd/mm',
+    y el campo estructurado que ya manda Classroom ('Fecha de entrega: 13
+    dic'). Devuelve (texto_legible, datetime) o (None, None) si no
+    encuentra nada. Sin día explícito pero con hora -> se asume HOY
+    (correo recién llegado, mismo criterio del ejemplo de Arturo: r.64).
+
+    Deliberadamente NO busca una hora "suelta" (\\d:\\d\\d sin más contexto):
+    probado contra el buzón real (04 ago), esa regla capturaba basura del
+    pie de los correos de Classroom ("Publicado el 5:01 p.m." se leía como
+    hora límite). La hora solo cuenta si viene pegada a una frase que
+    realmente la anuncia ('a las'/'antes de las'/'hasta las')."""
+    ahora = ahora or datetime.datetime.now()
+    t = normalizar(texto)
+
+    hora = minuto = None
+    m = re.search(r"(?:antes de las|hasta las|a las)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", t)
+    if m:
+        hora = int(m.group(1))
+        minuto = int(m.group(2)) if m.group(2) else 0
+        ampm = m.group(3)
+        if ampm == "pm" and hora < 12:
+            hora += 12
+        elif ampm == "am" and hora == 12:
+            hora = 0
+        if not (0 <= hora <= 23 and 0 <= minuto <= 59):
+            hora = minuto = None
+
+    dia = None
+    # Fuente más confiable primero: el campo propio de Classroom.
+    fc = re.search(r"fecha de entrega:\s*(\d{1,2})\s*(" + "|".join(MESES_ABR) + r")\b", t)
+    if fc:
+        d, mo = int(fc.group(1)), MESES_ABR[fc.group(2)]
+        try:
+            dia = datetime.date(ahora.year, mo, d)
+            if dia < ahora.date() - datetime.timedelta(days=30):
+                dia = datetime.date(ahora.year + 1, mo, d)
+        except ValueError:
+            dia = None
+
+    if dia is None:
+        if "hoy" in t:
+            dia = ahora.date()
+        elif "manana" in t:
+            dia = (ahora + datetime.timedelta(days=1)).date()
+        else:
+            fm = re.search(r"\b(\d{1,2})\s*de\s*(" + "|".join(MESES) + r")\b", t)
+            if fm:
+                d, mo = int(fm.group(1)), MESES[fm.group(2)]
+                try:
+                    dia = datetime.date(ahora.year, mo, d)
+                    if dia < ahora.date():
+                        dia = datetime.date(ahora.year + 1, mo, d)
+                except ValueError:
+                    dia = None
+            else:
+                fm2 = re.search(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b", t)
+                if fm2:
+                    d, mo = int(fm2.group(1)), int(fm2.group(2))
+                    anio = int(fm2.group(3)) if fm2.group(3) else ahora.year
+                    if anio < 100:
+                        anio += 2000
+                    try:
+                        dia = datetime.date(anio, mo, d)
+                    except ValueError:
+                        dia = None
+
+    if hora is None and dia is None:
+        return None, None
+    if dia is None:
+        dia = ahora.date()
+
+    if hora is None:
+        dt = datetime.datetime.combine(dia, datetime.time(23, 59))
+        texto_legible = _texto_fecha(dia, ahora, None)
+    else:
+        dt = datetime.datetime.combine(dia, datetime.time(hora, minuto))
+        texto_legible = _texto_fecha(dia, ahora, (hora, minuto))
+
+    return texto_legible, dt
+
+
+def construir_mensaje(remitente, asunto, categoria, fecha_texto, motivo):
+    """Formato EXACTO pedido por Arturo (04 ago): avisa qué es y CIERRA
+    preguntando qué hacer -- nunca asume ni actúa solo (r.62-64, r.89)."""
+    frase_cat = ARTICULO_CATEGORIA.get(categoria, "un correo importante")
+    frase_fecha = f" para {fecha_texto}" if fecha_texto else ""
+    pregunta = (f"Arturo, te llegó un correo de la escuela, es {frase_cat}"
+                f"{frase_fecha}, ¿qué quieres que realice?")
+    remitente_limpio = re.sub(r"\s*<.*?>", "", remitente).strip() or remitente
+    return (f"📧 {pregunta}\n\n"
+            f"De: {remitente_limpio}\n"
+            f"Asunto: {asunto}\n"
+            f"(te aviso porque {motivo})")
+
+
+def cargar_seguimientos():
+    if not os.path.exists(SEGUIMIENTOS):
+        return []
+    try:
+        with open(SEGUIMIENTOS, encoding="utf-8") as f:
+            return json.load(f).get("pendientes", [])
+    except Exception as e:
+        log(f"⚠️  No pude leer seguimientos ({e}) — empiezo vacío")
+        return []
+
+
+def guardar_seguimientos(pendientes):
+    os.makedirs(os.path.dirname(SEGUIMIENTOS), exist_ok=True)
+    tmp = SEGUIMIENTOS + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump({"pendientes": pendientes,
+                   "actualizado": datetime.datetime.now().isoformat()},
+                  f, ensure_ascii=False)
+    os.replace(tmp, SEGUIMIENTOS)
+
+
+def registrar_seguimiento(correo_id, asunto, categoria, deadline_dt):
+    """r.64: solo tareas/entregas/exámenes con hora límite resuelta entran
+    al seguimiento de dos avisos (antes/después)."""
+    if categoria not in ("tarea", "entrega", "examen") or deadline_dt is None:
+        return
+    pendientes = cargar_seguimientos()
+    if any(p["id"] == correo_id for p in pendientes):
+        return
+    pendientes.append({
+        "id": correo_id,
+        "asunto": asunto,
+        "categoria": categoria,
+        "deadline": deadline_dt.isoformat(),
+        "aviso_antes_enviado": False,
+        "aviso_despues_enviado": False,
+    })
+    guardar_seguimientos(pendientes)
+    log(f"🗓️  Seguimiento registrado: {asunto[:60]} — vence {deadline_dt.isoformat()}")
+
+
+def verificar_seguimientos(ahora=None):
+    """r.64: ANTES de la hora límite avisa qué falta y hay que subirlo;
+    DESPUÉS pregunta si ya se subió -- nunca asume que se hizo. No dispara
+    dos veces el mismo aviso (se marca por separado antes/después)."""
+    ahora = ahora or datetime.datetime.now()
+    pendientes = cargar_seguimientos()
+    if not pendientes:
+        return
+    quedan = []
+    for p in pendientes:
+        deadline = datetime.datetime.fromisoformat(p["deadline"])
+        margen = deadline - datetime.timedelta(minutes=MARGEN_ANTES_MIN)
+
+        if not p["aviso_antes_enviado"] and ahora >= margen:
+            msg = (f"⏰ Solo faltan estos detalles: revisa y sube "
+                   f"\"{p['asunto']}\" antes de las {deadline.strftime('%H:%M')}.")
+            if avisar(msg):
+                p["aviso_antes_enviado"] = True
+                log(f"✅ Aviso ANTES enviado: {p['asunto'][:60]}")
+            else:
+                log(f"🔴 NO se pudo avisar (antes) de: {p['asunto'][:60]}")
+
+        if not p["aviso_despues_enviado"] and ahora >= deadline:
+            msg = (f"❓ ¿Ya subiste/resolviste \"{p['asunto']}\"? La hora "
+                   f"límite ({deadline.strftime('%H:%M')}) ya pasó -- "
+                   f"confírmame para cerrar el pendiente.")
+            if avisar(msg):
+                p["aviso_despues_enviado"] = True
+                log(f"✅ Aviso DESPUÉS enviado: {p['asunto'][:60]}")
+            else:
+                log(f"🔴 NO se pudo avisar (después) de: {p['asunto'][:60]}")
+
+        if not (p["aviso_antes_enviado"] and p["aviso_despues_enviado"]):
+            quedan.append(p)
+    guardar_seguimientos(quedan)
+
+
+def cuerpo_texto(m, limite=4000):
+    """Cuerpo en texto plano del mensaje, local -- nunca sale a ninguna
+    API (r.91). Solo se usa para extraer fecha límite con regex."""
+    try:
+        if m.is_multipart():
+            for parte in m.walk():
+                if parte.get_content_type() == "text/plain":
+                    payload = parte.get_payload(decode=True)
+                    if payload:
+                        charset = parte.get_content_charset() or "utf-8"
+                        return payload.decode(charset, errors="replace")[:limite]
+            return ""
+        payload = m.get_payload(decode=True)
+        if payload:
+            charset = m.get_content_charset() or "utf-8"
+            return payload.decode(charset, errors="replace")[:limite]
+        return ""
+    except Exception:
+        return ""
 
 
 def cargar_vistos():
@@ -270,7 +527,8 @@ def leer_correos():
         except Exception:
             dt = None
         correos.append({"id": mid or f"{remitente}|{asunto}|{fecha}",
-                        "de": remitente, "asunto": asunto, "fecha": dt})
+                        "de": remitente, "asunto": asunto, "fecha": dt,
+                        "cuerpo": cuerpo_texto(m)})
     return correos
 
 
@@ -279,6 +537,7 @@ def main():
 
     if not probar:
         verificar_frescura()
+        verificar_seguimientos()
 
     correos = leer_correos()
     if correos is None:
@@ -326,15 +585,13 @@ def main():
 
     nuevos_importantes.sort(key=lambda x: x[0]["fecha"] or datetime.datetime.min)
     for c, motivo in nuevos_importantes:
-        f = c["fecha"].strftime("%d %b %H:%M") if c["fecha"] else "sin fecha"
-        remitente = re.sub(r"\s*<.*?>", "", c["de"]).strip() or c["de"]
-        msg = (f"📧 Correo de la escuela\n\n"
-               f"De: {remitente}\n"
-               f"Asunto: {c['asunto']}\n"
-               f"Recibido: {f}\n\n"
-               f"(te aviso porque {motivo})")
+        categoria = categorizar(c["asunto"], c.get("cuerpo", ""))
+        fecha_texto, deadline_dt = extraer_fecha_limite(
+            f"{c['asunto']} {c.get('cuerpo', '')}")
+        msg = construir_mensaje(c["de"], c["asunto"], categoria, fecha_texto, motivo)
         if avisar(msg):
-            log(f"✅ Avisado: {c['asunto'][:60]} — {motivo}")
+            log(f"✅ Avisado [{categoria}]: {c['asunto'][:60]} — {motivo}")
+            registrar_seguimiento(c["id"], c["asunto"], categoria, deadline_dt)
         else:
             log(f"🔴 NO se pudo avisar de: {c['asunto'][:60]}")
 

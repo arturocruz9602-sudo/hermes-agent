@@ -148,3 +148,159 @@ def test_con_telegram_prendido_avisar_fallido_no_truena(tmp_path, monkeypatch):
     _preparar(tmp_path, monkeypatch, horas_de_viejo=5)
     _mock_avisar(monkeypatch, [False])
     assert vce.verificar_frescura() is False  # no lanza excepción
+
+
+# ── F6-3 (r.62-64): analiza + sugiere, no solo avisa ─────────────────────
+# vigilar_correo_escuela.py solo reenviaba remitente/asunto. r.62-64 pide
+# que analice el correo y SUGIERA qué hacer, con el formato EXACTO que dio
+# Arturo el 04 ago: "Arturo, te llegó tal correo, es una tarea para hoy a
+# las 11, ¿qué quieres que realice?" -- y con seguimiento de dos avisos
+# para entregas: uno ANTES de la hora límite y uno DESPUÉS preguntando si
+# ya se subió (nunca asumir que se hizo).
+
+def test_categorizar_por_asunto():
+    assert vce.categorizar("Examen de programación el lunes") == "examen"
+    assert vce.categorizar("Fecha límite de entrega del proyecto final") == "entrega"
+    assert vce.categorizar("Nueva tarea de base de datos") == "tarea"
+    assert vce.categorizar("Convocatoria de becas 2026") == "aviso"
+    assert vce.categorizar("Hola, ¿cómo estás?") == "correo"
+
+
+def test_categorizar_usa_tambien_el_cuerpo():
+    # el asunto solo no dice nada, pero el cuerpo sí
+    assert vce.categorizar("Aviso importante", "Recuerden que hay examen mañana") == "examen"
+
+
+def test_extraer_fecha_limite_hoy_con_hora():
+    ahora = datetime.datetime(2026, 8, 4, 7, 0)
+    texto, dt = vce.extraer_fecha_limite(
+        "Es tarea para hoy a las 11, no lo olvides", ahora=ahora)
+    assert texto == "hoy a las 11:00"
+    assert dt == datetime.datetime(2026, 8, 4, 11, 0)
+
+
+def test_extraer_fecha_limite_solo_hora_asume_hoy():
+    ahora = datetime.datetime(2026, 8, 4, 7, 0)
+    texto, dt = vce.extraer_fecha_limite("Entrega antes de las 18:30", ahora=ahora)
+    assert texto == "hoy a las 18:30"
+    assert dt == datetime.datetime(2026, 8, 4, 18, 30)
+
+
+def test_extraer_fecha_limite_manana():
+    ahora = datetime.datetime(2026, 8, 4, 7, 0)
+    texto, dt = vce.extraer_fecha_limite("Sube el archivo mañana a las 9", ahora=ahora)
+    assert texto == "mañana a las 09:00"
+    assert dt == datetime.datetime(2026, 8, 5, 9, 0)
+
+
+def test_extraer_fecha_limite_fecha_explicita():
+    ahora = datetime.datetime(2026, 8, 4, 7, 0)
+    texto, dt = vce.extraer_fecha_limite("Entrega el 10 de agosto a las 23:00", ahora=ahora)
+    assert texto == "10/08 a las 23:00"
+    assert dt == datetime.datetime(2026, 8, 10, 23, 0)
+
+
+def test_extraer_fecha_limite_sin_senales_devuelve_none():
+    texto, dt = vce.extraer_fecha_limite("Bienvenidos al nuevo cuatrimestre")
+    assert texto is None
+    assert dt is None
+
+
+def test_construir_mensaje_formato_exacto_de_arturo():
+    msg = vce.construir_mensaje(
+        "Coordinación <coord@utrng.edu.mx>", "Tarea de base de datos",
+        "tarea", "hoy a las 11", "viene de la escuela")
+    assert ("Arturo, te llegó un correo de la escuela, es una tarea para hoy "
+            "a las 11, ¿qué quieres que realice?") in msg
+    assert "De: Coordinación" in msg
+    assert "Asunto: Tarea de base de datos" in msg
+
+
+def test_construir_mensaje_sin_fecha_no_inventa_una():
+    msg = vce.construir_mensaje(
+        "prof@utrng.edu.mx", "Aviso general", "aviso", None, "viene de la escuela")
+    assert "es un aviso, ¿qué quieres que realice?" in msg
+
+
+def _preparar_seguimientos(tmp_path, monkeypatch):
+    monkeypatch.setattr(vce, "SEGUIMIENTOS", str(tmp_path / "seguimientos.json"))
+    monkeypatch.setattr(vce, "LOG", str(tmp_path / "log.txt"))
+
+
+def test_registrar_seguimiento_solo_para_categorias_con_entregable(tmp_path, monkeypatch):
+    _preparar_seguimientos(tmp_path, monkeypatch)
+    deadline = datetime.datetime(2026, 8, 4, 11, 0)
+    vce.registrar_seguimiento("id-1", "Tarea X", "aviso", deadline)
+    assert vce.cargar_seguimientos() == []  # "aviso" no tiene entregable
+
+    vce.registrar_seguimiento("id-2", "Tarea X", "tarea", deadline)
+    pendientes = vce.cargar_seguimientos()
+    assert len(pendientes) == 1
+    assert pendientes[0]["id"] == "id-2"
+    assert pendientes[0]["aviso_antes_enviado"] is False
+    assert pendientes[0]["aviso_despues_enviado"] is False
+
+
+def test_registrar_seguimiento_no_duplica(tmp_path, monkeypatch):
+    _preparar_seguimientos(tmp_path, monkeypatch)
+    deadline = datetime.datetime(2026, 8, 4, 11, 0)
+    vce.registrar_seguimiento("id-1", "Tarea X", "tarea", deadline)
+    vce.registrar_seguimiento("id-1", "Tarea X", "tarea", deadline)
+    assert len(vce.cargar_seguimientos()) == 1
+
+
+def test_verificar_seguimientos_avisa_antes_una_hora_antes(tmp_path, monkeypatch):
+    _preparar_seguimientos(tmp_path, monkeypatch)
+    deadline = datetime.datetime(2026, 8, 4, 11, 0)
+    vce.registrar_seguimiento("id-1", "Tarea X", "tarea", deadline)
+    llamadas = _mock_avisar(monkeypatch, [True])
+
+    vce.verificar_seguimientos(ahora=datetime.datetime(2026, 8, 4, 10, 30))
+
+    assert len(llamadas) == 1
+    assert "Tarea X" in llamadas[0]
+    assert "antes de las 11:00" in llamadas[0]
+    pendientes = vce.cargar_seguimientos()
+    assert pendientes[0]["aviso_antes_enviado"] is True
+    assert pendientes[0]["aviso_despues_enviado"] is False  # aún no toca
+
+
+def test_verificar_seguimientos_no_avisa_antes_de_tiempo(tmp_path, monkeypatch):
+    _preparar_seguimientos(tmp_path, monkeypatch)
+    deadline = datetime.datetime(2026, 8, 4, 11, 0)
+    vce.registrar_seguimiento("id-1", "Tarea X", "tarea", deadline)
+    llamadas = _mock_avisar(monkeypatch, [])
+
+    vce.verificar_seguimientos(ahora=datetime.datetime(2026, 8, 4, 9, 0))
+
+    assert llamadas == []
+
+
+def test_verificar_seguimientos_pregunta_despues_si_ya_se_subio(tmp_path, monkeypatch):
+    _preparar_seguimientos(tmp_path, monkeypatch)
+    deadline = datetime.datetime(2026, 8, 4, 11, 0)
+    vce.registrar_seguimiento("id-1", "Tarea X", "tarea", deadline)
+    _mock_avisar(monkeypatch, [True])
+    vce.verificar_seguimientos(ahora=datetime.datetime(2026, 8, 4, 10, 30))  # aviso antes
+
+    llamadas = _mock_avisar(monkeypatch, [True])
+    vce.verificar_seguimientos(ahora=datetime.datetime(2026, 8, 4, 12, 0))  # aviso después
+
+    assert len(llamadas) == 1
+    assert "ya subiste" in llamadas[0].lower()
+    assert "Tarea X" in llamadas[0]
+    # ambos avisos mandados -> se limpia de pendientes
+    assert vce.cargar_seguimientos() == []
+
+
+def test_verificar_seguimientos_no_reenvia_el_mismo_aviso(tmp_path, monkeypatch):
+    _preparar_seguimientos(tmp_path, monkeypatch)
+    deadline = datetime.datetime(2026, 8, 4, 11, 0)
+    vce.registrar_seguimiento("id-1", "Tarea X", "tarea", deadline)
+    _mock_avisar(monkeypatch, [True])
+    vce.verificar_seguimientos(ahora=datetime.datetime(2026, 8, 4, 10, 30))
+
+    llamadas = _mock_avisar(monkeypatch, [])
+    vce.verificar_seguimientos(ahora=datetime.datetime(2026, 8, 4, 10, 45))  # sigue antes del deadline
+
+    assert llamadas == []  # ya avisado, no reavisa
