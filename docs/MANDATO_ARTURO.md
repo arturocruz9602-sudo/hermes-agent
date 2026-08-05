@@ -183,8 +183,12 @@ tengan que hacer."*
 Sigue vigente sin cambios todo lo de `~/.hermes/CLAUDE.md` y
 `hermes-agent/CLAUDE.md`, en particular:
 
-- DeepSeek **nunca automático** fuera de las dos excepciones escritas (reporte
-  semanal de `/memoria`, y el presupuesto de pruebas con sus cortacircuitos).
+- DeepSeek (`chat-primary`, principal desde el 30 jul 2026) responde el chat
+  normal AUTOMÁTICO, sin pedir autorización caso por caso — protegido por
+  `max_turns=25`+`hard_stop`+el techo de $100 MXN/mes, no por un aviso
+  (regla actualizada 04 ago 2026 en `~/.hermes/CLAUDE.md`, corrige la
+  versión vieja de esta misma línea). Sigue el presupuesto de pruebas con
+  sus cortacircuitos ($10 MXN/día, $3 MXN/corrida, $80 MXN/mes de aviso).
 - Respaldo antes de modificar skills o memoria; memoria solo vía `memory_tool.py`.
 - Nada de auto-reportes: verificación con evidencia pegada (HAS §F8, L5).
 - Las 4 cosas que aprueba Arturo: gastos fuera de presupuesto, acciones

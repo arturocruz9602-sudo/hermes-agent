@@ -381,3 +381,20 @@ HP↔MacBook, equipos propios, sin relación con F11-2). Impacto: código traíd
 borrado (reversibilidad). Corrección adicional al reporte de Hermes: la lista negra de comandos peligrosos
 (`evaluarComando`, 12 patrones regex) y el router multi-dispositivo por alias (`resolverAlias`) YA estaban
 implementados en el código encontrado — no eran pendientes como decía el reporte inicial.
+
+**04 ago 2026 · Corregidos 3 documentos con la regla vieja de "DeepSeek nunca automático" (obsoleta desde
+el 30 jul, generó una alarma falsa real).** Hermes reportó un incidente real (429 de Gemini/Groq, 6
+llamadas de fallback a DeepSeek, ~$0.011 USD) enmarcándolo como posible violación de "DeepSeek solo con
+autorización explícita, nunca automático" — regla que SÍ era correcta antes del 30 jul, pero quedó
+obsoleta el mismo 30 jul cuando DeepSeek pasó a ser `chat-primary` (Bloque AN). Verificado antes de
+corregir: `litellm/config.yaml` confirma `chat-primary: deepseek/deepseek-v4-flash` real y activo. Tres
+documentos cargaban la regla vieja sin actualizar: `~/.hermes/CLAUDE.md` (reglas núcleo + la "excepción"
+del 28 jul, que en los hechos ya estaba generalizada desde el 30 jul), `docs/MANDATO_ARTURO.md` (cross-
+referencia a CLAUDE.md), y `docs/HAS.md` (regla L17, que pedía un aviso "sí/no" antes de usar DeepSeek en
+caída total de la escalera gratuita). Arturo confirmó actualizar con lo más actual ("apégate a lo más
+actual que tengas"). Los tres quedaron alineados: DeepSeek automático es el diseño vigente desde el 30
+jul, protegido por `max_turns=25`+`hard_stop`+el techo de $100 MXN/mes — no por un aviso caso por caso.
+Respaldo del `CLAUDE.md` original guardado en `~/.hermes/CLAUDE.md.bak-20260804_deepseek_rule_correction`
+(el archivo no tiene control de versiones). Mismo patrón de raíz que P3 (watchdog, mismo día): una
+suposición vieja sobre "quién es el principal" sobrevive en varios lugares después de que la arquitectura
+cambió, y sigue generando alarmas falsas hasta que se corrige en la fuente, no solo en el síntoma.

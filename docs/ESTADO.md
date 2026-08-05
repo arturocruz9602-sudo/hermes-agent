@@ -1,28 +1,29 @@
-# ESTADO — actualizado: 04 ago 2026 (F11-2 REALINEADO: agente Go al repo, corrige desviación VeraCrypt/SSH)
+# ESTADO — actualizado: 04 ago 2026 (F11-2 realineado + regla vieja de DeepSeek corregida en 3 documentos)
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.4**
 **Se SOBREESCRIBE cada sesión, máx 80 líneas (gate). Histórico: `docs/archivo/`. Voz de Arturo: `CUESTIONARIO_MAESTRO.md` = misma jerarquía que MANDATO.**
 
 ## Fases HAS
 F0-F4 ✅ | F5 🔄 ~50% | F6 🔄 (F6-2 ✅, F6-3 ✅) | F7 🔄 bloques 1+2+3 | F9 🔄 pts 1+2 | F10 🔄 recetario listo | F11-1 ✅ | **F11-2 🔄 REALINEADO** | E14 🔄 falta disparo automático | **P3/P5/P6/P7/P8/F6-2/F6-3 ✅** | F12-F14 ⬜ | E10 → v1.7.
 
-## ✅ F11-2 REALINEADO ESTA SESIÓN — agente Go al repo (corrige desviación VeraCrypt/Tailscale/SSH)
-Hermes señaló que la implementación anterior (VeraCrypt+Tailscale+SSH a
-equipos ajenos) se DESVIÓ del diseño aprobado del skill `hermes-portable-
-usb`: la USB es vehículo de un AGENTE Go que habla por Telegram+ntfy.sh,
-NUNCA SSH/Tailscale a equipos que no son de Arturo. Verificado antes de
-aceptar: el skill existe con esas reglas exactas, y el agente/gateway YA
-estaban escritos y compilados desde julio — pero vivían sin control de
-versiones en `~/Desktop/hermes_portable/`. Traído a
-`usb_llave/agente-go/` (paquetes `agente/` + `gateway/`, Go módulo propio,
-sin dependencias externas). **Corrección al propio reporte de Hermes:**
-la lista negra de comandos peligrosos y el router multi-dispositivo por
-alias YA estaban implementados (no eran pendientes). Compilación cruzada
-verificada real: Linux+Windows+**macOS** (amd64 y arm64, antes faltaba).
-12/12 pruebas Go nuevas (lista negra, alias, device_id estable).
-`usb_llave/start-linux.sh` (VeraCrypt) marcado SUPERADO, no borrado.
-**Sigue pendiente:** `device_id` de la HP hardcodeado en el gateway,
-token cifrado local, mensaje `bye`/limpieza, prueba real en ALMENDRA sin
-Tailscale, fases 5-7 del skill.
+## ✅ F11-2 REALINEADO — agente Go al repo (detalle completo en BLOQUES)
+Corrige desviación VeraCrypt/Tailscale/SSH del diseño aprobado
+(`hermes-portable-usb`). Traído a `usb_llave/agente-go/` desde
+`~/Desktop/hermes_portable/` (sin control de versiones ahí). Probado en
+vivo con infraestructura real hoy: agente→ntfy.sh→gateway→Telegram
+round-trip exitoso, `device_id` estable confirmado. 12/12 pruebas Go.
+Falta: `device_id` HP dinámico, token cifrado, `bye`/limpieza, prueba
+real en ALMENDRA, fases 5-7.
+
+## ✅ CORREGIDA regla vieja de DeepSeek en 3 documentos (obsoleta desde 30 jul)
+Hermes reportó un incidente (429 Gemini/Groq, fallback a DeepSeek
+~$0.011 USD) como posible violación de "DeepSeek nunca automático" —
+esa regla quedó obsoleta el 30 jul cuando DeepSeek pasó a `chat-primary`
+(Bloque AN), mismo bug de raíz que P3 (hoy) pero viviendo en documentos,
+no en código. Verificado: `litellm/config.yaml` confirma chat-primary=
+DeepSeek real. Corregidos `~/.hermes/CLAUDE.md` (+ respaldo del original,
+no tiene git), `docs/MANDATO_ARTURO.md`, `docs/HAS.md` (regla L17) — los
+3 ya dicen que DeepSeek automático es el diseño vigente, protegido por
+`max_turns`+`hard_stop`+presupuesto, no por un aviso sí/no.
 
 ## ✅ F6-3: segundo aviso de seguimiento DESACTIVADO (confirmado por Arturo)
 "Si un correo llega aunque yo no te diga nada, que no se vuelva a mandar
