@@ -221,6 +221,25 @@ COLA = [
         "has": "Fase 7 / E10", "cuestionario": ["r.18", "r.28-31", "r.35"],
         "entorno": "repo", "depende_de": ["F7-2"], "estado": "pendiente",
     },
+    {
+        "id": "F8-1",
+        "titulo": "Motor de sugerencias de gasto (evaluación proactiva)",
+        "descripcion": (
+            "scripts/motor_sugerencias_gasto.py — evalúa gastos de libreta.db y "
+            "SUGIERE (nunca decide) apenas detecta un patrón + consolidado dominical "
+            "(r.25). Dos hallazgos con reglas locales (r.91): gasto individual "
+            "atípico (≥2.5x el promedio histórico de su categoría, piso $150, "
+            "mínimo 3 gastos previos) avisado de inmediato; categoría disparada en "
+            "la semana (≥50% sobre el promedio de las 4 semanas previas, piso $100) "
+            "para el consolidado dominical. Ninguna categoría excluida (r.24/r.26), "
+            "método de pago irrelevante (r.27, libreta.db no lo distingue). No "
+            "duplica F7-3 (números): este solo dice cuándo algo se sale de lo normal "
+            "y pregunta qué hacer. 20/20 pruebas nuevas, 439/439 tests/scripts/ "
+            "verde. Commits 52948caa7 + 02be93957."
+        ),
+        "has": "Fase 7 / E10", "cuestionario": ["r.24", "r.25", "r.26", "r.27", "r.91"],
+        "entorno": "repo", "depende_de": ["F7-2"], "estado": "hecho",
+    },
 
     # ---- Proactividad (necesita memoria+cola+horario) -----------------------
     {
