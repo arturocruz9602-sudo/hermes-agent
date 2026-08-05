@@ -163,9 +163,16 @@ def construir_mensaje_atipico(h):
     )
 
 
-def evaluar_inmediato(lib, *, avisar_fn=avisar, marcar_estado=True):
+def evaluar_inmediato(lib, *, avisar_fn=None, marcar_estado=True):
     """Revisa los gastos registrados desde la última corrida y avisa los
-    atípicos apenas se detectan (r.25). Devuelve los hallazgos avisados."""
+    atípicos apenas se detectan (r.25). Devuelve los hallazgos avisados.
+
+    avisar_fn=None (default) resuelve avisar() en el momento de la llamada,
+    no al definir la función -- así un monkeypatch de pruebas sobre el
+    nombre del módulo sí se respeta (si quedara ligado al valor por default
+    de la firma, quedaría congelado a la función original desde el import)."""
+    if avisar_fn is None:
+        avisar_fn = avisar
     ultimo_id = cargar_ultimo_id()
     if ultimo_id is None:
         ultimo_id = lib.con.execute(
@@ -277,7 +284,9 @@ def construir_consolidado_dominical(lib, hoy_str=None):
     return "\n".join(lineas)
 
 
-def evaluar_dominical(lib, *, avisar_fn=avisar):
+def evaluar_dominical(lib, *, avisar_fn=None):
+    if avisar_fn is None:
+        avisar_fn = avisar
     msg = construir_consolidado_dominical(lib)
     if avisar_fn(msg):
         log("✅ Consolidado dominical enviado")
