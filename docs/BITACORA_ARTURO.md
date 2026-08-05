@@ -2957,3 +2957,45 @@ quede cifrado). Nada de esto necesita que Arturo haga algo todavía.
 **Notas de Arturo:**
 
 ---
+
+### 05 ago — el resumen del domingo ya también vigila los fijos y el negocio de refrescos, no solo gastos sueltos
+
+El motor que le avisa cuando algo se sale de lo normal (el que revisa
+`gastos`) hasta ahora solo veía esa tabla — y hoy casi no tiene nada
+anotado, así que prácticamente no tenía de dónde sacar patrones. Le
+amplié la lectura a dos cosas más que ya existen en su libreta:
+
+- **Sus pagos fijos** (gym, deepseek, colegiatura, servicio de moto,
+  recarga de teléfono, gasolina): si uno de ellos ya tiene historial de
+  haberse registrado antes y en su ciclo actual no aparece nada, se lo
+  señala. Uno que nunca se ha registrado ni una vez no cuenta como
+  "raro" — apenas es falta de dato, no le va a sonar la alarma desde el
+  primer día.
+- **El negocio de los refrescos**: si la reja más reciente costó más que
+  la anterior, si el ritmo de venta (piezas al día) cayó fuerte contra su
+  propio promedio de las últimas semanas, o si ya pasó más de una
+  semana y media desde que compró una reja y las ventas todavía no
+  cubren lo que costó.
+
+**Antes:** el resumen dominical solo miraba categorías de gasto sueltas.
+**Ahora:** también cruza sus fijos y el negocio — mismo formato de
+siempre, nunca asume, cierra preguntando. Ejemplo real de cómo se vería
+si un fijo no aparece registrado:
+
+> • gym: esperaba ~$500.00 (cada 1 mes(es)) y no veo nada registrado en
+> gastos desde 2026-07-10 — ¿lo registraste o no aplicó?
+
+**Cómo lo prueba usted:** no tiene que hacer nada — el domingo a las 8am
+ya le llega solo (el cron de esto ya estaba agendado de antes). Si
+quiere verlo ahora mismo sin que se lo mande de verdad, puede pedirme
+"corre el resumen de gastos en modo prueba" y se lo enseño en pantalla
+sin avisarle por Telegram.
+
+**Sigue pendiente, aparte de esto:** con la libreta casi vacía hoy, hoy
+mismo el resumen no va a decir nada nuevo (probado contra su libreta
+real, sin ruido falso) — esto se va a poner útil según usted vaya
+anotando sus gastos reales con el tiempo.
+
+**Notas de Arturo:**
+
+---

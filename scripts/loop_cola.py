@@ -240,6 +240,24 @@ COLA = [
         "has": "Fase 7 / E10", "cuestionario": ["r.24", "r.25", "r.26", "r.27", "r.91"],
         "entorno": "repo", "depende_de": ["F7-2"], "estado": "hecho",
     },
+    {
+        "id": "F8-2",
+        "titulo": "Motor de sugerencias v2: pagos_recurrentes + negocio (refrescos)",
+        "descripcion": (
+            "Amplía motor_sugerencias_gasto.py más allá de `gastos` (hoy casi vacía): "
+            "cruza `pagos_recurrentes` (fijo sin gasto correspondiente en su ciclo "
+            "actual — solo si ya hubo historial previo, nunca confirmado no es "
+            "desviación) y `negocio_compras`/`negocio_ventas` (reja más cara que la "
+            "anterior, ritmo de ventas piezas/día por debajo del promedio histórico, "
+            "margen_negocio() sin recuperar la reja tras plazo de gracia). Todo se "
+            "integra al consolidado dominical existente (r.25); --evaluar y el cron "
+            "no cambian (ya agendados aparte, jobs 13bea6149ae0/7132f383cb07). 18 "
+            "pruebas nuevas, 38/38 test_motor_sugerencias_gasto.py, 457/457 "
+            "tests/scripts/ verde. Commit 8726a8440."
+        ),
+        "has": "Fase 7 / E10", "cuestionario": ["r.24", "r.25", "r.26", "r.27"],
+        "entorno": "repo", "depende_de": ["F8-1"], "estado": "hecho",
+    },
 
     # ---- Proactividad (necesita memoria+cola+horario) -----------------------
     {
