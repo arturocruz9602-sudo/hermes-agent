@@ -276,20 +276,23 @@ def test_verificar_seguimientos_no_avisa_antes_de_tiempo(tmp_path, monkeypatch):
     assert llamadas == []
 
 
-def test_verificar_seguimientos_pregunta_despues_si_ya_se_subio(tmp_path, monkeypatch):
+def test_verificar_seguimientos_NO_manda_el_aviso_despues(tmp_path, monkeypatch):
+    """Arturo (04 ago): "si un correo llega aunque yo no te diga nada, que
+    no se vuelva a mandar el segundo aviso" -- el aviso DESPUÉS queda solo
+    en el log, nunca por Telegram (no hay forma de saber si respondió al
+    primero). Mismo patrón que la alarma de frescura (P5-b)."""
     _preparar_seguimientos(tmp_path, monkeypatch)
     deadline = datetime.datetime(2026, 8, 4, 11, 0)
     vce.registrar_seguimiento("id-1", "Tarea X", "tarea", deadline)
     _mock_avisar(monkeypatch, [True])
     vce.verificar_seguimientos(ahora=datetime.datetime(2026, 8, 4, 10, 30))  # aviso antes
 
-    llamadas = _mock_avisar(monkeypatch, [True])
-    vce.verificar_seguimientos(ahora=datetime.datetime(2026, 8, 4, 12, 0))  # aviso después
+    llamadas = _mock_avisar(monkeypatch, [])
+    vce.verificar_seguimientos(ahora=datetime.datetime(2026, 8, 4, 12, 0))  # pasó el deadline
 
-    assert len(llamadas) == 1
-    assert "ya subiste" in llamadas[0].lower()
-    assert "Tarea X" in llamadas[0]
-    # ambos avisos mandados -> se limpia de pendientes
+    assert llamadas == []  # NO se llamó avisar() para el "después"
+    # pero igual se marca resuelto internamente y se limpia de pendientes
+    # (evita que este log se repita cada 15 min mientras siga sin resolver)
     assert vce.cargar_seguimientos() == []
 
 

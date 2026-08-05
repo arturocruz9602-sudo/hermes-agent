@@ -335,9 +335,17 @@ def registrar_seguimiento(correo_id, asunto, categoria, deadline_dt):
 
 
 def verificar_seguimientos(ahora=None):
-    """r.64: ANTES de la hora límite avisa qué falta y hay que subirlo;
-    DESPUÉS pregunta si ya se subió -- nunca asume que se hizo. No dispara
-    dos veces el mismo aviso (se marca por separado antes/después)."""
+    """r.64: ANTES de la hora límite avisa qué falta y hay que subirlo.
+
+    El aviso DESPUÉS ("¿ya subiste?") quedó DESACTIVADO por Arturo (04 ago):
+    "si un correo llega aunque yo no te diga nada, que no se vuelva a
+    mandar el segundo aviso" -- no hay forma de saber si respondió al
+    primero (avisar() es de un solo sentido, no lee respuestas de
+    Telegram), así que por default ya no se manda un segundo mensaje sin
+    que él haya dicho algo. Se sigue registrando en el log (evidencia,
+    diagnóstico) pero NO se envía. Mismo patrón que la alarma de frescura
+    de correo (P5-b): log sí, Telegram no, salvo que Arturo pida lo
+    contrario con evidencia de que hace falta."""
     ahora = ahora or datetime.datetime.now()
     pendientes = cargar_seguimientos()
     if not pendientes:
@@ -357,14 +365,12 @@ def verificar_seguimientos(ahora=None):
                 log(f"🔴 NO se pudo avisar (antes) de: {p['asunto'][:60]}")
 
         if not p["aviso_despues_enviado"] and ahora >= deadline:
-            msg = (f"❓ ¿Ya subiste/resolviste \"{p['asunto']}\"? La hora "
-                   f"límite ({deadline.strftime('%H:%M')}) ya pasó -- "
-                   f"confírmame para cerrar el pendiente.")
-            if avisar(msg):
-                p["aviso_despues_enviado"] = True
-                log(f"✅ Aviso DESPUÉS enviado: {p['asunto'][:60]}")
-            else:
-                log(f"🔴 NO se pudo avisar (después) de: {p['asunto'][:60]}")
+            # DESACTIVADO por Arturo (04 ago) -- solo log, nunca Telegram.
+            # Se marca igual como "enviado" para no repetir esta línea de
+            # log cada 15 min mientras el pendiente siga sin resolverse.
+            p["aviso_despues_enviado"] = True
+            log(f"⏸️  Hora límite pasada, SIN segundo aviso (desactivado "
+                f"por Arturo): {p['asunto'][:60]}")
 
         if not (p["aviso_antes_enviado"] and p["aviso_despues_enviado"]):
             quedan.append(p)
