@@ -34,8 +34,9 @@ BITACORA_ARTURO.md actualizada (visible el próximo domingo 8am). Commit
    Hermes aparte (jobs 13bea6149ae0 `--evaluar`/7132f383cb07 `--dominical`
    domingo 8am) — esta línea queda solo como registro, no bloquea nada.
 2. Horario escuela sept-dic (r.61): espera a que la escuela lo publique.
-3. Correr `systemctl --user daemon-reload` para que el cierre nocturno a
-   las 23:00 quede activo (Claude Code no puede, candado de servicios).
+3. **Cierre nocturno en AUDIO: DESPLEGADO 05 ago 23:05** — hermes-cierre-audio.timer
+   enabled+active con daemon-reload corrido, envío verificado en vivo (73KB .ogg
+   opus a Telegram 14:08), candado r.119 superado por autorización explícita.
 4. F11-2: prueba real en ALMENDRA (Windows, sin Tailscale) — falta que
    Arturo tenga el equipo a mano para probar agente+gateway de verdad.
 
