@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-motor_sugerencias_gasto.py — Motor de sugerencias de gasto (Bloque F8-1, Fase 7 / E10).
+motor_sugerencias_gasto.py — Motor de sugerencias de gasto (Bloques F8-1/F8-2, Fase 7 / E10).
 
 Evalúa los gastos reales de libreta.db y le SUGIERE a Arturo -- nunca decide
 por él -- apenas detecta un patrón (r.25: "sí, que me haga sugerencias") y
@@ -9,6 +9,14 @@ en un consolidado los domingos. Todos los gastos cuentan sin excepción
 el método de pago no importa (r.27) porque libreta.db no lo distingue: todo
 entra a `gastos` por igual, así que este motor nunca filtra por categoría
 ni por forma de pago.
+
+F8-2 amplía el consolidado dominical más allá de `gastos` solo (esa tabla
+hoy casi no tiene historial): también cruza `pagos_recurrentes` (¿un fijo
+como gym/deepseek/colegiatura no se registró este ciclo?) y
+`negocio_compras`/`negocio_ventas` (¿la reja subió de precio, cayó el ritmo
+de venta, o el negocio no está recuperando lo invertido?), usando
+margen_negocio() de Libreta. Mismas reglas: sin historial previo no hay
+patrón que romper, así que no avisa desde el día uno.
 
 Reglas locales sobre números ya en disco, sin mandar nada a una API externa
 (r.91). Nunca promete ni actúa: cada aviso cierra preguntando qué quiere
@@ -65,6 +73,24 @@ SEMANAS_HISTORICO_CATEGORIA = 4
 # menos, cualquier número "parece" atípico solo por falta de historial.
 MIN_HISTORICO = 3
 DIAS_HISTORICO_ATIPICO = 90
+
+# ── pagos recurrentes (F8-2): lo esperado vs. lo realmente registrado ──────
+# Ventana del ciclo en dias, aproximada a 30 por mes -- el motor no persigue
+# el calendario exacto (dia_del_mes), solo si el patron se rompio.
+DIAS_POR_MES_APROX = 30
+
+# ── negocio (F8-2): reventa de refrescos, negocio_compras/negocio_ventas ───
+NEGOCIO_PRODUCTO_DEFAULT = "refresco"
+SEMANAS_HISTORICO_NEGOCIO = 4
+# El ritmo actual de ventas cae esto o mas vs. su promedio historico -> avisar.
+UMBRAL_RITMO_VENTAS_PCT = 0.5
+# Piso de unidades vendidas en el periodo historico para confiar en su
+# promedio (mismo espiritu que MIN_HISTORICO arriba).
+MIN_UNIDADES_HISTORICO_RITMO = 5
+# Dias desde la ultima compra antes de esperar que las ventas ya la hayan
+# cubierto -- comprar una reja y no recuperarla en 2 dias es normal, no una
+# desviacion; una semana y media es un piso conservador para no meter ruido.
+DIAS_GRACIA_RECUPERAR_REJA = 10
 
 
 def log(mensaje):
@@ -267,9 +293,172 @@ def construir_mensaje_categoria(h):
     )
 
 
+# ── detección: pagos recurrentes sin registrar (consolidado dominical) ─────
+
+def detectar_pagos_recurrentes_sin_registrar(lib, hoy_str=None):
+    """Fijos (`pagos_recurrentes`) cuyo ciclo mas reciente no tiene un gasto
+    correspondiente en `gastos` (categoria = nombre del fijo, ej. 'gym',
+    'deepseek', 'colegiatura').
+
+    Solo avisa si YA hubo al menos un gasto de ese fijo ANTES del ciclo
+    actual -- sin eso es "nunca confirmado", no una desviacion de un patron
+    (mismo criterio que brief_matutino.py trata `ultimo_pago IS NULL`: falta
+    de dato no es alarma). Evita que un fijo recien dado de alta, o uno que
+    Arturo simplemente no ha empezado a registrar todavia, dispare cada
+    domingo desde el dia uno."""
+    hoy_str = hoy_str or lib.hoy()
+    hallazgos = []
+    pagos = lib.con.execute(
+        "SELECT * FROM pagos_recurrentes WHERE activo = 1"
+    ).fetchall()
+    for p in pagos:
+        desde_ciclo = fecha_hace_n_dias(DIAS_POR_MES_APROX * p["frecuencia_meses"], hoy_str)
+        hubo_antes = lib.con.execute(
+            "SELECT 1 FROM gastos WHERE categoria = ? AND fecha < ? LIMIT 1",
+            (p["nombre"], desde_ciclo),
+        ).fetchone()
+        if not hubo_antes:
+            continue
+        total_ciclo, _ = _total_categoria_periodo(lib, p["nombre"], desde_ciclo, hoy_str)
+        if total_ciclo > 0:
+            continue
+        hallazgos.append({
+            "tipo": "recurrente_sin_registrar", "nombre": p["nombre"],
+            "monto_esperado": p["monto_mxn"], "frecuencia_meses": p["frecuencia_meses"],
+            "desde": desde_ciclo, "hasta": hoy_str,
+        })
+    return hallazgos
+
+
+def construir_mensaje_recurrente_sin_registrar(h):
+    return (
+        f"• {h['nombre']}: esperaba ~${h['monto_esperado']:.2f} (cada "
+        f"{h['frecuencia_meses']} mes(es)) y no veo nada registrado en "
+        f"gastos desde {h['desde']} — ¿lo registraste o no aplicó?"
+    )
+
+
+# ── detección: negocio de reventa de refrescos ──────────────────────────────
+
+def detectar_reja_mas_cara(lib, producto=NEGOCIO_PRODUCTO_DEFAULT):
+    """La compra mas reciente cuesta mas que la compra inmediata anterior.
+    Comparacion directa contra la ultima, no un promedio -- con pocas
+    compras historicas un promedio no dice nada todavia."""
+    compras = lib.con.execute(
+        "SELECT * FROM negocio_compras WHERE producto = ? "
+        "ORDER BY fecha DESC, id DESC LIMIT 2",
+        (producto,),
+    ).fetchall()
+    if len(compras) < 2:
+        return None
+    ultima, anterior = compras[0], compras[1]
+    if ultima["costo_mxn"] <= anterior["costo_mxn"]:
+        return None
+    return {
+        "tipo": "reja_mas_cara", "producto": producto,
+        "costo_actual": ultima["costo_mxn"], "costo_anterior": anterior["costo_mxn"],
+        "fecha": ultima["fecha"],
+    }
+
+
+def construir_mensaje_reja_mas_cara(h):
+    return (
+        f"• {h['producto']}: la última reja costó ${h['costo_actual']:.2f} "
+        f"({h['fecha']}), más que la compra anterior (${h['costo_anterior']:.2f}) "
+        f"— ¿subió el precio o fue otra cosa?"
+    )
+
+
+def _unidades_por_dia(lib, producto, desde, hasta):
+    total = lib.con.execute(
+        "SELECT COALESCE(SUM(unidades),0) FROM negocio_ventas "
+        "WHERE producto = ? AND fecha BETWEEN ? AND ?",
+        (producto, desde, hasta),
+    ).fetchone()[0]
+    dias = (datetime.fromisoformat(hasta).date()
+            - datetime.fromisoformat(desde).date()).days + 1
+    return (total / dias if dias > 0 else 0.0), total
+
+
+def detectar_ritmo_ventas_bajo(lib, producto=NEGOCIO_PRODUCTO_DEFAULT, hoy_str=None):
+    """Piezas/dia de la semana actual vs. el promedio de las
+    SEMANAS_HISTORICO_NEGOCIO semanas previas -- mismo patron que
+    detectar_categorias_disparadas, pero mirando hacia abajo (ritmo que cae)
+    en vez de hacia arriba (categoria que se dispara)."""
+    hoy_str = hoy_str or lib.hoy()
+    semana_actual_desde = fecha_hace_n_dias(6, hoy_str)
+    hasta_previo = fecha_hace_n_dias(7, hoy_str)
+    desde_previo = fecha_hace_n_dias(7 + 7 * SEMANAS_HISTORICO_NEGOCIO - 1, hoy_str)
+    ritmo_previo, total_previo = _unidades_por_dia(lib, producto, desde_previo, hasta_previo)
+    if total_previo < MIN_UNIDADES_HISTORICO_RITMO or ritmo_previo <= 0:
+        return None
+    ritmo_actual, total_actual = _unidades_por_dia(lib, producto, semana_actual_desde, hoy_str)
+    variacion = (ritmo_actual - ritmo_previo) / ritmo_previo
+    if variacion > -UMBRAL_RITMO_VENTAS_PCT:
+        return None
+    return {
+        "tipo": "ritmo_ventas_bajo", "producto": producto,
+        "ritmo_actual": ritmo_actual, "ritmo_previo": ritmo_previo,
+        "total_actual": total_actual, "variacion_pct": variacion * 100,
+    }
+
+
+def construir_mensaje_ritmo_ventas_bajo(h):
+    return (
+        f"• {h['producto']}: vendiste ~{h['ritmo_actual']:.1f} piezas/día "
+        f"esta semana, {abs(h['variacion_pct']):.0f}% menos que tu ritmo "
+        f"habitual (~{h['ritmo_previo']:.1f} piezas/día) — ¿bajaron las "
+        f"ventas o falta registrar algo?"
+    )
+
+
+def detectar_negocio_no_recupera_reja(lib, producto=NEGOCIO_PRODUCTO_DEFAULT, hoy_str=None):
+    """Desde la ultima compra, ¿las ventas ya cubrieron lo invertido
+    (margen_negocio())? Solo avisa si ya pasaron DIAS_GRACIA_RECUPERAR_REJA
+    dias -- recien comprar y no haber recuperado todavia es normal."""
+    hoy_str = hoy_str or lib.hoy()
+    ultima_compra = lib.con.execute(
+        "SELECT * FROM negocio_compras WHERE producto = ? "
+        "ORDER BY fecha DESC, id DESC LIMIT 1",
+        (producto,),
+    ).fetchone()
+    if ultima_compra is None:
+        return None
+    dias_desde_compra = (datetime.fromisoformat(hoy_str).date()
+                         - datetime.fromisoformat(ultima_compra["fecha"]).date()).days
+    if dias_desde_compra < DIAS_GRACIA_RECUPERAR_REJA:
+        return None
+    m = lib.margen_negocio(producto, desde=ultima_compra["fecha"], hasta=hoy_str)
+    if m["ganancia"] >= 0:
+        return None
+    return {"tipo": "negocio_no_recupera", "producto": producto,
+            "dias_desde_compra": dias_desde_compra, **m}
+
+
+def construir_mensaje_negocio_no_recupera(h):
+    return (
+        f"• {h['producto']}: pasaron {h['dias_desde_compra']} días desde la "
+        f"última reja (${h['invertido']:.2f}) y las ventas solo han traído "
+        f"${h['ingreso']:.2f} ({h['unidades_vendidas']} piezas) — no se ha "
+        f"recuperado. ¿bajó el ritmo o falta registrar ventas?"
+    )
+
+
 def construir_consolidado_dominical(lib, hoy_str=None):
     hoy_str = hoy_str or lib.hoy()
     disparadas = detectar_categorias_disparadas(lib, hoy_str)
+    fijos_faltantes = detectar_pagos_recurrentes_sin_registrar(lib, hoy_str)
+    negocio_hallazgos = [h for h in (
+        detectar_reja_mas_cara(lib),
+        detectar_ritmo_ventas_bajo(lib, hoy_str=hoy_str),
+        detectar_negocio_no_recupera_reja(lib, hoy_str=hoy_str),
+    ) if h is not None]
+    constructores_negocio = {
+        "reja_mas_cara": construir_mensaje_reja_mas_cara,
+        "ritmo_ventas_bajo": construir_mensaje_ritmo_ventas_bajo,
+        "negocio_no_recupera": construir_mensaje_negocio_no_recupera,
+    }
+
     lineas = [
         f"Arturo, resumen de patrones de gasto de la semana "
         f"({fecha_hace_n_dias(6, hoy_str)} a {hoy_str}):"
@@ -280,7 +469,17 @@ def construir_consolidado_dominical(lib, hoy_str=None):
     else:
         lineas.append("Categorías que se salieron de tu patrón habitual:")
         lineas.extend(construir_mensaje_categoria(h) for h in disparadas)
-        lineas.append("¿Alguna de estas fue intencional o quieres que le ponga ojo?")
+
+    if fijos_faltantes:
+        lineas.append("\nFijos que no veo registrados este ciclo:")
+        lineas.extend(construir_mensaje_recurrente_sin_registrar(h) for h in fijos_faltantes)
+
+    if negocio_hallazgos:
+        lineas.append("\nNegocio (refrescos):")
+        lineas.extend(constructores_negocio[h["tipo"]](h) for h in negocio_hallazgos)
+
+    if disparadas or fijos_faltantes or negocio_hallazgos:
+        lineas.append("\n¿Alguna de estas fue intencional o quieres que le ponga ojo?")
     return "\n".join(lineas)
 
 

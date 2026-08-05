@@ -285,6 +285,188 @@ class TestConsolidadoDominical:
         assert ok is False
 
 
+# ── F8-2: pagos recurrentes sin registrar ───────────────────────────────
+
+class TestPagosRecurrentesSinRegistrar:
+    def test_fijo_con_historial_y_sin_gasto_este_ciclo_se_detecta(self, entorno):
+        hoy_str = "2026-08-09"
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_pago_recurrente("gym", 500, frecuencia_meses=1)
+            desde_ciclo = motor.fecha_hace_n_dias(motor.DIAS_POR_MES_APROX, hoy_str)
+            antes = motor.fecha_hace_n_dias(1, desde_ciclo)
+            lib.registrar_gasto(500, "gym", None, fecha=antes)  # ciclo anterior: hubo historial
+            hallazgos = motor.detectar_pagos_recurrentes_sin_registrar(lib, hoy_str)
+        nombres = {h["nombre"] for h in hallazgos}
+        assert "gym" in nombres
+
+    def test_fijo_con_gasto_dentro_del_ciclo_no_se_detecta(self, entorno):
+        hoy_str = "2026-08-09"
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_pago_recurrente("gym", 500, frecuencia_meses=1)
+            desde_ciclo = motor.fecha_hace_n_dias(motor.DIAS_POR_MES_APROX, hoy_str)
+            antes = motor.fecha_hace_n_dias(1, desde_ciclo)
+            lib.registrar_gasto(500, "gym", None, fecha=antes)
+            lib.registrar_gasto(500, "gym", None, fecha=desde_ciclo)  # dentro del ciclo actual
+            hallazgos = motor.detectar_pagos_recurrentes_sin_registrar(lib, hoy_str)
+        assert "gym" not in {h["nombre"] for h in hallazgos}
+
+    def test_fijo_sin_historial_previo_nunca_confirmado_no_se_marca_desviacion(self, entorno):
+        """Un fijo recién dado de alta, sin ningún gasto registrado jamás,
+        no es una desviación -- es falta de dato (mismo criterio que
+        brief_matutino con ultimo_pago NULL)."""
+        hoy_str = "2026-08-09"
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_pago_recurrente("gym", 500, frecuencia_meses=1)
+            hallazgos = motor.detectar_pagos_recurrentes_sin_registrar(lib, hoy_str)
+        assert "gym" not in {h["nombre"] for h in hallazgos}
+
+    def test_frecuencia_cuatrimestral_respeta_su_propia_ventana(self, entorno):
+        """La colegiatura es cada 4 meses: un ciclo mensual normal (gym) no
+        debe confundirse con su ventana mucho más amplia."""
+        hoy_str = "2026-08-09"
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_pago_recurrente("colegiatura", 1200, frecuencia_meses=4)
+            desde_ciclo = motor.fecha_hace_n_dias(motor.DIAS_POR_MES_APROX * 4, hoy_str)
+            antes = motor.fecha_hace_n_dias(1, desde_ciclo)
+            lib.registrar_gasto(1200, "colegiatura", None, fecha=antes)  # hubo un ciclo anterior
+            # pagada a mitad del ciclo actual de 4 meses: NO deberia marcarse
+            reciente = motor.fecha_hace_n_dias(30, hoy_str)
+            lib.registrar_gasto(1200, "colegiatura", None, fecha=reciente)
+            hallazgos = motor.detectar_pagos_recurrentes_sin_registrar(lib, hoy_str)
+        assert "colegiatura" not in {h["nombre"] for h in hallazgos}
+
+    def test_mensaje_pregunta_sin_asumir(self, entorno):
+        hoy_str = "2026-08-09"
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_pago_recurrente("gym", 500, frecuencia_meses=1)
+            desde_ciclo = motor.fecha_hace_n_dias(motor.DIAS_POR_MES_APROX, hoy_str)
+            antes = motor.fecha_hace_n_dias(1, desde_ciclo)
+            lib.registrar_gasto(500, "gym", None, fecha=antes)
+            hallazgos = motor.detectar_pagos_recurrentes_sin_registrar(lib, hoy_str)
+            msg = motor.construir_mensaje_recurrente_sin_registrar(hallazgos[0])
+        assert "gym" in msg
+        assert "$500.00" in msg
+        assert "¿lo registraste o no aplicó?" in msg
+
+
+# ── F8-2: negocio (reventa de refrescos) ────────────────────────────────
+
+class TestRejaMasCara:
+    def test_con_una_sola_compra_no_hay_base_de_comparacion(self, entorno):
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_compra_negocio(328, fecha="2026-08-03")
+            h = motor.detectar_reja_mas_cara(lib)
+        assert h is None
+
+    def test_reja_mas_cara_que_la_anterior_se_detecta(self, entorno):
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_compra_negocio(328, fecha="2026-08-03")
+            lib.registrar_compra_negocio(360, fecha="2026-08-10")
+            h = motor.detectar_reja_mas_cara(lib)
+        assert h is not None
+        assert h["costo_actual"] == 360
+        assert h["costo_anterior"] == 328
+
+    def test_reja_igual_o_mas_barata_no_dispara(self, entorno):
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_compra_negocio(328, fecha="2026-08-03")
+            lib.registrar_compra_negocio(300, fecha="2026-08-10")
+            h = motor.detectar_reja_mas_cara(lib)
+        assert h is None
+
+    def test_mensaje_trae_ambos_montos_y_pregunta(self, entorno):
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_compra_negocio(328, fecha="2026-08-03")
+            lib.registrar_compra_negocio(360, fecha="2026-08-10")
+            h = motor.detectar_reja_mas_cara(lib)
+            msg = motor.construir_mensaje_reja_mas_cara(h)
+        assert "$360.00" in msg and "$328.00" in msg
+        assert msg.strip().endswith("?")
+
+
+class TestRitmoVentasBajo:
+    hoy_str = "2026-08-09"
+
+    def test_ritmo_que_cae_a_la_mitad_se_detecta(self, entorno):
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_venta_negocio(140, fecha="2026-07-10")  # ritmo previo: 5/dia
+            lib.registrar_venta_negocio(7, fecha="2026-08-05")    # semana actual: 1/dia
+            h = motor.detectar_ritmo_ventas_bajo(lib, hoy_str=self.hoy_str)
+        assert h is not None
+        assert h["ritmo_previo"] == pytest.approx(5.0)
+
+    def test_ritmo_estable_no_dispara(self, entorno):
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_venta_negocio(140, fecha="2026-07-10")  # ritmo previo: 5/dia
+            lib.registrar_venta_negocio(35, fecha="2026-08-05")   # semana actual: 5/dia
+            h = motor.detectar_ritmo_ventas_bajo(lib, hoy_str=self.hoy_str)
+        assert h is None
+
+    def test_sin_historico_minimo_no_dispara(self, entorno):
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_venta_negocio(3, fecha="2026-07-10")  # bajo MIN_UNIDADES_HISTORICO_RITMO
+            lib.registrar_venta_negocio(1, fecha="2026-08-05")
+            h = motor.detectar_ritmo_ventas_bajo(lib, hoy_str=self.hoy_str)
+        assert h is None
+
+    def test_mensaje_trae_ritmos_y_pregunta(self, entorno):
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_venta_negocio(140, fecha="2026-07-10")
+            lib.registrar_venta_negocio(7, fecha="2026-08-05")
+            h = motor.detectar_ritmo_ventas_bajo(lib, hoy_str=self.hoy_str)
+            msg = motor.construir_mensaje_ritmo_ventas_bajo(h)
+        assert msg.strip().endswith("?")
+
+
+class TestNegocioNoRecuperaReja:
+    def test_no_recupera_lo_invertido_tras_la_gracia_se_detecta(self, entorno):
+        hoy_str = "2026-08-20"
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_compra_negocio(328, fecha="2026-08-01")  # 19 dias antes, > gracia
+            lib.registrar_venta_negocio(5, fecha="2026-08-05")     # $100, no cubre $328
+            h = motor.detectar_negocio_no_recupera_reja(lib, hoy_str=hoy_str)
+        assert h is not None
+        assert h["ganancia"] < 0
+
+    def test_ya_recupero_lo_invertido_no_dispara(self, entorno):
+        hoy_str = "2026-08-20"
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_compra_negocio(328, fecha="2026-08-01")
+            lib.registrar_venta_negocio(20, fecha="2026-08-05")  # $400 > $328
+            h = motor.detectar_negocio_no_recupera_reja(lib, hoy_str=hoy_str)
+        assert h is None
+
+    def test_antes_de_la_gracia_no_dispara_aunque_vaya_perdiendo(self, entorno):
+        hoy_str = "2026-08-05"  # solo 4 dias desde la compra
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_compra_negocio(328, fecha="2026-08-01")
+            h = motor.detectar_negocio_no_recupera_reja(lib, hoy_str=hoy_str)
+        assert h is None
+
+    def test_sin_compras_no_dispara(self, entorno):
+        with libreta_mod.Libreta("real") as lib:
+            h = motor.detectar_negocio_no_recupera_reja(lib, hoy_str="2026-08-20")
+        assert h is None
+
+
+class TestConsolidadoDominicalF8_2:
+    def test_incluye_fijo_faltante_y_hallazgos_de_negocio(self, entorno):
+        hoy_str = "2026-08-20"
+        with libreta_mod.Libreta("real") as lib:
+            lib.registrar_pago_recurrente("gym", 500, frecuencia_meses=1)
+            desde_ciclo = motor.fecha_hace_n_dias(motor.DIAS_POR_MES_APROX, hoy_str)
+            antes = motor.fecha_hace_n_dias(1, desde_ciclo)
+            lib.registrar_gasto(500, "gym", None, fecha=antes)  # ciclo actual: sin gasto -> falta
+
+            lib.registrar_compra_negocio(328, fecha="2026-08-01")
+            lib.registrar_venta_negocio(5, fecha="2026-08-05")  # no recupera tras la gracia
+
+            msg = motor.construir_consolidado_dominical(lib, hoy_str=hoy_str)
+        assert "gym" in msg
+        assert "no se ha recuperado" in msg or "recupera" in msg.lower()
+        assert msg.strip().endswith("?")
+
+
 class TestEstadoPersistente:
     def test_guardar_y_cargar_ultimo_id(self, estado_aislado):
         assert motor.cargar_ultimo_id() == 0
