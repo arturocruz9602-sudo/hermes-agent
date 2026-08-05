@@ -357,3 +357,27 @@ en ~7s en vez de agotar el límite o expirar por timeout. Impacto: cualquier lla
 Gemini "thinking" para una tarea mecánica (extracción, clasificación, OCR — no las que sí necesitan
 razonar) debe evaluar este parámetro antes de simplemente subir `max_tokens` a ciegas; subir el límite sin
 apagar el razonamiento solo tapa el síntoma y es más lento/caro.
+
+**04 ago 2026 · F11-2 (USB-llave) CORREGIDO: agente Go por Telegram/ntfy.sh, NO VeraCrypt+Tailscale+SSH
+a equipos ajenos.** Hermes señaló que la implementación de F11-2 (`usb_llave/start-linux.sh`,
+`scripts/registro_autorizacion_terceros.py`) se desvió del diseño aprobado en el skill
+`hermes-portable-usb` (~/.hermes/skills/hermes-tools/hermes-portable-usb/SKILL.md +
+references/arquitectura-final.md). Verificado ANTES de aceptar (no de fe): el skill existe con las 7
+reglas exactas citadas, y el agente+gateway en Go YA estaban escritos y compilados desde julio (hallazgo:
+vivían sin control de versiones en `~/Desktop/hermes_portable/`, tamaños de binario coincidentes con lo
+reportado). Diseño real, confirmado por Arturo: la USB conecta Hermes a CUALQUIER PC/laptop/SO ajeno con
+unos clics, dando órdenes desde Telegram — no es una bóveda que levanta Tailscale/SSH. Reglas duras: (1)
+agente Go, binario único cross-compile Linux+Windows+macOS, sin dependencias externas; (2) transporte
+Telegram Bot API (sin puertos) + ntfy.sh para señales máquina-a-máquina (Telegram bots NO pueden verse
+entre sí por diseño de la API — esto invalidó un diseño anterior, ver `arquitectura-final.md`); (3)
+memoria/contexto SIEMPRE en la HP, la USB nunca es el cerebro; (4) agente propone → botón inline en
+Telegram → ejecuta, nunca comandos manuales; (5) **Tailscale limitado a HP+Mac+iPhone; equipos ajenos
+SOLO por Telegram, sin SSH, sin Tailscale en la USB**; (6) al retirar USB: resumen+limpieza; al
+reinsertar: recupera contexto por device_id; (7) passphrase memorizada, no derivada del token. Por esto
+Arturo NO autorizó la llave SSH `hermes-portable` ni authkey Tailscale para la USB — no son necesarias en
+el diseño correcto (eso es DISTINTO de `HERMES_EQUIPOS_PROPIOS`, que sigue usando SSH/Tailscale entre
+HP↔MacBook, equipos propios, sin relación con F11-2). Impacto: código traído a `usb_llave/agente-go/`
+(antes solo en Desktop); `usb_llave/start-linux.sh` queda marcado SUPERADO en su propio header, no
+borrado (reversibilidad). Corrección adicional al reporte de Hermes: la lista negra de comandos peligrosos
+(`evaluarComando`, 12 patrones regex) y el router multi-dispositivo por alias (`resolverAlias`) YA estaban
+implementados en el código encontrado — no eran pendientes como decía el reporte inicial.

@@ -2935,6 +2935,25 @@ publique), Hermes va a hacer el cambio solo: el de mayo-agosto se archiva
 (no se borra, queda de historial) y entra el nuevo — no hace falta que me
 pida nada especial, solo mandar la foto.
 
+### 04 ago — la USB portátil ya va por el camino correcto
+
+Hermes le avisó que el diseño de la USB que estábamos construyendo (una
+bóveda cifrada que se conecta con Tailscale/SSH) se había desviado del
+plan real: la USB debe funcionar en CUALQUIER computadora ajena (Windows,
+Mac, Linux) usando solo Telegram, sin necesitar que esa computadora
+confíe en la red de Arturo.
+
+**Antes:** íbamos construyendo algo que solo funcionaría con equipos que
+ya tuvieran Tailscale instalado y autorizado — no cualquier PC prestada.
+**Ahora:** el programa correcto (ya escrito desde hace semanas, solo
+estaba guardado sin control de versiones) ya vive en el proyecto —
+compila para las 3 plataformas y ya tiene su candado de seguridad (nunca
+propone comandos peligrosos como borrar todo o formatear un disco).
+
+Falta: probarlo de verdad en la laptop ALMENDRA, y un par de detalles
+menores (que la sesión se despida limpio al sacar la USB, que el token
+quede cifrado). Nada de esto necesita que Arturo haga algo todavía.
+
 **Notas de Arturo:**
 
 ---

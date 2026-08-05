@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+# ⚠️ SUPERADO (04 ago 2026, corrección de diseño de Arturo -- ver DECISIONES.md).
+# Este script (VeraCrypt + Tailscale + SSH a equipos ajenos) se DESVIÓ del
+# diseño real aprobado en el skill `hermes-portable-usb`. Arturo aclaró: la
+# USB es el vehículo del AGENTE (binario Go por Telegram+ntfy.sh), no una
+# bóveda que levanta Tailscale/SSH hacia equipos no confiables -- eso
+# contradice la regla de seguridad del skill (Tailscale limitado a HP+Mac+
+# iPhone; equipos ajenos SOLO por Telegram). El código correcto vive en
+# `usb_llave/agente-go/`. Se deja este archivo intacto por historial/
+# reversibilidad -- NO se usa para F11-2 en adelante.
+#
 # start-linux.sh -- lanzador Linux del USB-llave (HAS §B8, §OT-11 punto 2).
 #
 # "La llave, no el cerebro": este script NUNCA copia a Hermes a la máquina

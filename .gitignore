@@ -204,3 +204,9 @@ scripts/.loop_alto
 scripts/loop_run.log
 scripts/loop_f73_run.log
 scripts/loop_p3_run.log
+
+# usb_llave/agente-go: binarios compilados (se generan con build.sh, no se
+# versionan) y estado/secretos en tiempo de ejecucion.
+usb_llave/agente-go/dist/
+usb_llave/agente-go/**/dispositivos.json
+usb_llave/agente-go/.env
