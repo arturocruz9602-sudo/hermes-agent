@@ -2918,6 +2918,23 @@ primera versión confundía la hora en que Classroom PUBLICÓ el correo
 positivo. Ya no pasa: solo cuenta una hora como límite si el correo
 realmente la anuncia como tal ("a las", "antes de las").
 
+### 04 ago — su horario de la escuela ya está cargado, leído de una foto
+
+Le pasó a Hermes la foto de su horario (Grupo 301 DSM, mayo-agosto) y
+Hermes la leyó sola: 18 clases, con materia, profesor y hora exacta,
+directo a su libreta. Antes de tocar nada se guardó un respaldo, por si
+algo salía mal.
+
+**Antes:** el horario solo vivía en la foto que le mandaron por correo.
+**Ahora:** ya está en su libreta, listo para que Hermes lo cruce con lo
+demás (ej. el brief de las 6:30 avisándole si algo del horario choca con
+el gym o la lluvia).
+
+Cuando le pase el horario de septiembre-diciembre (en cuanto la escuela lo
+publique), Hermes va a hacer el cambio solo: el de mayo-agosto se archiva
+(no se borra, queda de historial) y entra el nuevo — no hace falta que me
+pida nada especial, solo mandar la foto.
+
 **Notas de Arturo:**
 
 ---

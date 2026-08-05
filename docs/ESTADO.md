@@ -23,16 +23,22 @@ libreta (solo `--foto`, sin `--aplicar`). 7 pruebas nuevas (mockean red),
 ## ⚠️ Hallazgos sin arreglar (arrastrados, no son de esta sesión)
 1. Ruido cosmético en `watchdog.log`: "Tubería rota" al cortar con grep -q.
 
+## ✅ Horario mayo-agosto APLICADO A PRODUCCIÓN esta sesión (dato real, no prueba)
+Arturo pidió aplicarlo ya. Respaldo previo verificado (`/mnt/seagate/
+hermes_backups/20260804_175853`, integrity ok) → 18 clases reales
+insertadas en `libreta.db` (tabla `horario`, cuatrimestre "2026-mayo-
+agosto") → verificado en disco: 18 filas, 18 activas. Cuando llegue el
+horario de sept-dic: mismo comando (`--foto RUTA --aplicar`), la lógica
+YA archiva lo viejo (activo=0, nunca se borra) e inserta lo nuevo sola —
+sin código nuevo, ya probado (`test_cuatrimestre_nuevo_archiva_...`).
+
 ## Decisiones pendientes ARTURO
 1. Autorizar llave SSH `hermes-portable` + authkey Tailscale reales.
 2. Horario escuela sept-dic (r.61): espera a que la escuela lo publique.
-   La foto de mayo-agosto ya usada es de PRUEBA (r.20), no el definitivo.
 3. F6-3: ¿el segundo aviso de seguimiento (después del límite) también
    dispara si Arturo nunca contestó el primero, o se calla si ya intervino?
 4. Correr `systemctl --user daemon-reload` para que el cierre nocturno a
    las 23:00 quede activo (Claude Code no puede, candado de servicios).
-5. ¿Aplicar de verdad el horario mayo-agosto a la libreta (`--aplicar`),
-   o esperar directo al de sept-dic ya que este cuatrimestre casi termina?
 
 ## 🔄 EN CURSO (arrastrados)
 **E14:** motor+gate+1ra fuente 17/17. Falta timer systemd, 2 fuentes, decisión 3 (ver arriba, era 5).
