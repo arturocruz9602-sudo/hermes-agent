@@ -12,6 +12,7 @@ so Herm TUI, CLI, and gateway surfaces that already show switch warnings pick it
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Callable, List, Optional
 
 from agent.model_metadata import MINIMUM_CONTEXT_LENGTH
@@ -191,7 +192,16 @@ async def enrich_model_switch_warnings_for_gateway(
         except Exception:
             pass
 
-    merge_preflight_compression_warning(
+    # 05 ago 2026 (fusion con upstream): offload AQUI, no en la llamada
+    # externa. merge_preflight_compression_warning() es sincrona y llama al
+    # resolver bloqueante resolve_display_context_length() -- offloadearla
+    # con asyncio.to_thread() desde DENTRO de esta funcion async si funciona.
+    # Envolver esta funcion ENTERA (async def) en asyncio.to_thread() en el
+    # call site (lo que intentaba upstream) NO ejecuta su cuerpo -- to_thread
+    # solo corre callables sincronos; sobre una async def solo crea la
+    # corrutina sin nunca hacerle await.
+    await asyncio.to_thread(
+        merge_preflight_compression_warning,
         result,
         agent=agent,
         messages=messages,

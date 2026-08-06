@@ -321,7 +321,7 @@ def build_bundle_invocation_message(
 
         try:
             from tools.skill_usage import bump_use
-            bump_use(skill_name, skill_dir=skill_dir)
+            bump_use(skill_name, skill_dir=skill_dir, task_id=task_id)
         except Exception:
             pass
 

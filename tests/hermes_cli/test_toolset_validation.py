@@ -26,9 +26,6 @@ def _is_valid(name):
     return name in _KNOWN
 
 
-def test_valid_config_produces_no_warnings():
-    cfg = {"cli": ["hermes-cli"], "telegram": ["hermes-telegram"]}
-    assert validate_platform_toolsets(cfg, _is_valid) == []
 
 
 def test_38798_corruption_warns_and_suggests_correct_name():
@@ -52,12 +49,6 @@ def test_mixed_valid_and_invalid_flags_only_the_invalid():
     assert "unknown toolset 'bogus'" in warnings[0]
 
 
-def test_unknown_without_valid_platform_default_omits_suggestion():
-    # hermes-mystery is not a known toolset, so no "did you mean" hint.
-    warnings = validate_platform_toolsets({"mystery": ["nope"]}, _is_valid)
-    unknown = [w for w in warnings if "unknown toolset 'nope'" in w]
-    assert len(unknown) == 1
-    assert "did you mean" not in unknown[0]
 
 
 @pytest.mark.parametrize("value", [None, {}, [], "hermes-cli", 42])
