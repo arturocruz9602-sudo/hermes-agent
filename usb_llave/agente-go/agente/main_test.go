@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
 
 func TestGetDeviceIDEsEstable(t *testing.T) {
 	// El device_id debe ser el mismo entre llamadas en la misma máquina --
@@ -41,5 +45,72 @@ func TestExtraerIOPlatformUUIDSinCoincidenciaFalla(t *testing.T) {
 	_, err := extraerIOPlatformUUID("nada de UUID aquí")
 	if err == nil {
 		t.Error("extraerIOPlatformUUID() debería fallar si no encuentra la línea, no inventar un UUID")
+	}
+}
+
+func TestCargarTopicPrefiereVariableDeEntorno(t *testing.T) {
+	dir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(dir)
+
+	os.Setenv("HERMES_NTFY_TOPIC", "tema-de-env")
+	defer os.Unsetenv("HERMES_NTFY_TOPIC")
+
+	// Si intentara leer secret.enc con la variable presente, se colgaría
+	// esperando stdin -- no tocar stdinLector aquí es parte de la prueba.
+	got := cargarTopic()
+	if string(got) != "tema-de-env" {
+		t.Errorf("cargarTopic() = %q, se esperaba tema-de-env (variable de entorno)", string(got))
+	}
+}
+
+func TestCargarTopicCaeASecretEncSinVariable(t *testing.T) {
+	dir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(dir)
+
+	os.Unsetenv("HERMES_NTFY_TOPIC")
+
+	blob, err := encryptTopic("tema-cifrado", "clave-usb")
+	if err != nil {
+		t.Fatalf("encryptTopic() falló: %v", err)
+	}
+	if err := escribirSecretFile(blob); err != nil {
+		t.Fatalf("no pude preparar secret.enc de prueba: %v", err)
+	}
+
+	entradaOriginal := stdinLector
+	defer func() { stdinLector = entradaOriginal }()
+	stdinLector = strings.NewReader("clave-usb\n")
+
+	got := cargarTopic()
+	if string(got) != "tema-cifrado" {
+		t.Errorf("cargarTopic() = %q, se esperaba tema-cifrado (desde secret.enc)", string(got))
+	}
+}
+
+func TestCargarTopicSinNadaDevuelveVacio(t *testing.T) {
+	dir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(dir)
+
+	os.Unsetenv("HERMES_NTFY_TOPIC")
+
+	got := cargarTopic()
+	if got != nil {
+		t.Errorf("cargarTopic() sin variable ni secret.enc = %q, se esperaba nil/vacío", string(got))
+	}
+}
+
+func TestLimpiarBytesSobreescribeConCeros(t *testing.T) {
+	b := []byte("secreto")
+	limpiarBytes(b)
+	for i, v := range b {
+		if v != 0 {
+			t.Errorf("limpiarBytes() dejó byte[%d]=%d, se esperaba 0", i, v)
+		}
 	}
 }

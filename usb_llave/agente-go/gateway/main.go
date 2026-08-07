@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -72,11 +73,13 @@ func nuevoSessionID() string {
 }
 
 type Dispositivo struct {
-	DeviceID  string `json:"device_id"`
-	OS        string `json:"os"`
-	IPLocal   string `json:"ip_local"`
-	FirstSeen string `json:"first_seen"`
-	LastSeen  string `json:"last_seen"`
+	DeviceID       string `json:"device_id"`
+	OS             string `json:"os"`
+	IPLocal        string `json:"ip_local"`
+	FirstSeen      string `json:"first_seen"`
+	LastSeen       string `json:"last_seen"`
+	Connected      bool   `json:"connected"`
+	DisconnectedAt string `json:"disconnected_at,omitempty"`
 }
 
 type HelloPayload struct {
@@ -84,6 +87,11 @@ type HelloPayload struct {
 	DeviceID string `json:"device_id"`
 	OS       string `json:"os"`
 	IPLocal  string `json:"ip_local"`
+}
+
+type ByePayload struct {
+	Type     string `json:"type"`
+	DeviceID string `json:"device_id"`
 }
 
 type ExecApproval struct {
@@ -95,7 +103,42 @@ type ExecApproval struct {
 
 var dbMutex sync.Mutex
 
-const deviceIDDefaultHP = "arturo-HP-Laptop-14-ck0xxx-753e5d759768"
+// deviceIDLocalHP identifica a ESTA máquina (donde corre el gateway) con el
+// mismo algoritmo que usa el agente (hostname + hash de machine-id) -- antes
+// era un string hardcodeado, lo que rompía silencioso el ruteo "sin alias
+// va a la HP" si el machine-id de la HP cambiaba (reinstalación, etc.).
+// Se calcula una sola vez al arrancar (comportamiento de var de paquete).
+var deviceIDLocalHP = computeDeviceIDLocal()
+
+func computeDeviceIDLocal() string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "hp-local"
+	}
+
+	hardwareID, err := leerArchivoLimpio("/etc/machine-id", "/var/lib/dbus/machine-id")
+	if err != nil {
+		// Fallback: sin machine-id legible, usa solo el hostname. Sigue siendo
+		// estable entre corridas en la misma máquina, aunque menos único.
+		return hostname
+	}
+
+	suma := sha256.Sum256([]byte(hostname + "|" + hardwareID))
+	hashCorto := hex.EncodeToString(suma[:])[:12]
+	return fmt.Sprintf("%s-%s", hostname, hashCorto)
+}
+
+func leerArchivoLimpio(rutas ...string) (string, error) {
+	var ultimoErr error
+	for _, ruta := range rutas {
+		data, err := os.ReadFile(ruta)
+		if err == nil {
+			return strings.TrimSpace(string(data)), nil
+		}
+		ultimoErr = err
+	}
+	return "", ultimoErr
+}
 
 func main() {
 	telegramToken := os.Getenv("HERMES_DISPOSITIVOS_TOKEN")
@@ -228,6 +271,7 @@ func registrarDispositivo(deviceID, osName, ipLocal string) (bool, error) {
 		IPLocal:   ipLocal,
 		FirstSeen: ahora,
 		LastSeen:  ahora,
+		Connected: true,
 	}
 	if yaExiste {
 		nuevo.FirstSeen = existente.FirstSeen
@@ -240,6 +284,38 @@ func registrarDispositivo(deviceID, osName, ipLocal string) (bool, error) {
 	}
 
 	return !yaExiste, nil
+}
+
+// marcarDesconectado deja constancia en dispositivos.json de que un
+// dispositivo mandó "bye" -- el "resumen guardado" mínimo que pedía la
+// Fase 4 del checklist (sin memoria/contexto todavía, eso vive en la HP
+// según la arquitectura aprobada, no en el canal de transporte).
+func marcarDesconectado(deviceID string) error {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
+
+	data, err := os.ReadFile(dbFile)
+	if err != nil {
+		return err
+	}
+
+	dispositivos := map[string]Dispositivo{}
+	if len(data) > 0 {
+		if err := json.Unmarshal(data, &dispositivos); err != nil {
+			return err
+		}
+	}
+
+	dispositivo, existe := dispositivos[deviceID]
+	if !existe {
+		return fmt.Errorf("bye de dispositivo no registrado: %s", deviceID)
+	}
+
+	dispositivo.Connected = false
+	dispositivo.DisconnectedAt = time.Now().UTC().Format(time.RFC3339)
+	dispositivos[deviceID] = dispositivo
+
+	return writeAll(dispositivos)
 }
 
 type ntfyMessage struct {
@@ -303,9 +379,28 @@ func procesarMensajeNtfy(texto, telegramToken string, chatID int64) {
 		manejarHello(telegramToken, chatID, payloadRaw)
 	case "exec_result":
 		manejarExecResult(telegramToken, chatID, payloadRaw)
+	case "bye":
+		manejarBye(telegramToken, chatID, payloadRaw)
 	default:
 		fmt.Printf("ℹ️  [ntfy] Tipo de mensaje aún no soportado: %s\n", tipo)
 	}
+}
+
+func manejarBye(telegramToken string, chatID int64, payloadRaw string) {
+	var bye ByePayload
+	if err := json.Unmarshal([]byte(payloadRaw), &bye); err != nil {
+		fmt.Printf("⚠️  Error parseando bye: %v\n", err)
+		return
+	}
+
+	fmt.Printf("📥 [ntfy] bye recibido — device_id=%s\n", bye.DeviceID)
+
+	if err := marcarDesconectado(bye.DeviceID); err != nil {
+		fmt.Printf("⚠️  Error marcando desconexión: %v\n", err)
+	}
+
+	_ = sendTelegramMessage(telegramToken, chatID, fmt.Sprintf(
+		"👋 Dispositivo desconectado.\ndevice_id: %s", bye.DeviceID))
 }
 
 func manejarHello(telegramToken string, chatID int64, payloadRaw string) {
@@ -535,7 +630,7 @@ func parsearComandoDeTest(texto string) (deviceID string, comando string, avisoA
 
 	if match == nil {
 		// No trae alias, comportamiento anterior: todo es el comando, va a la HP
-		return deviceIDDefaultHP, texto, ""
+		return deviceIDLocalHP, texto, ""
 	}
 
 	posibleAlias := match[1]
@@ -545,7 +640,7 @@ func parsearComandoDeTest(texto string) (deviceID string, comando string, avisoA
 	if err != nil {
 		// No se pudo resolver como alias — tratamos TODO el texto como comando
 		// dirigido a la HP por default, y avisamos por qué.
-		return deviceIDDefaultHP, texto, fmt.Sprintf(
+		return deviceIDLocalHP, texto, fmt.Sprintf(
 			"ℹ️ No interpreté '%s' como alias de dispositivo (%v) — mandando a la HP por default.",
 			posibleAlias, err)
 	}

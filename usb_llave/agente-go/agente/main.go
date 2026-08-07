@@ -12,10 +12,12 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"os/user"
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -48,6 +50,11 @@ type ExecResult struct {
 	Success   bool   `json:"success"`
 }
 
+type ByeMessage struct {
+	Type     string `json:"type"`
+	DeviceID string `json:"device_id"`
+}
+
 type ntfyMessage struct {
 	Event   string `json:"event"`
 	Message string `json:"message"`
@@ -59,10 +66,21 @@ var (
 )
 
 func main() {
-	topic := os.Getenv("HERMES_NTFY_TOPIC")
+	if len(os.Args) > 1 && os.Args[1] == "-encrypt" {
+		modoEncriptarSecreto()
+		return
+	}
+
+	topicBytes := cargarTopic()
+	topic := string(topicBytes)
+	// Limpieza local al salir (rutina de la Fase 3 pendiente): borra el tema
+	// de memoria en cuanto ya no se necesita. Best-effort -- Go no garantiza
+	// que la memoria se sobrescriba de verdad (strings inmutables, GC), pero
+	// es mejor que dejarlo indefinidamente en un []byte vivo.
+	defer limpiarBytes(topicBytes)
 
 	if topic == "" {
-		fmt.Println("❌ Falta la variable de entorno HERMES_NTFY_TOPIC")
+		fmt.Println("❌ Falta HERMES_NTFY_TOPIC (variable de entorno) o un secret.enc válido junto al binario")
 		os.Exit(1)
 	}
 
@@ -83,7 +101,54 @@ func main() {
 	fmt.Println("✅ Mensaje hello publicado en ntfy.sh. Revisa Telegram para la confirmación del gateway.")
 	fmt.Println("👂 Escuchando comandos aprobados para este dispositivo... (Ctrl+C para detener)")
 
-	listenForApprovals(topic, deviceID)
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	go listenForApprovals(topic, deviceID)
+
+	<-sigCh
+	fmt.Println("\n👋 Señal de salida recibida, avisando al gateway y limpiando...")
+	despedirse(topic, deviceID)
+}
+
+// cargarTopic resuelve el tema de ntfy.sh: primero intenta la variable de
+// entorno en texto plano (compatibilidad con pruebas/entornos de confianza),
+// y si no está, intenta descifrar secret.enc con una passphrase pedida por
+// stdin -- ese es el camino real para la USB (Fase 3, "token cifrado local").
+func cargarTopic() []byte {
+	if topic := os.Getenv("HERMES_NTFY_TOPIC"); topic != "" {
+		return []byte(topic)
+	}
+
+	data, err := os.ReadFile(secretFile)
+	if err != nil {
+		return nil // ni env var ni secret.enc -- el caller reporta el error
+	}
+
+	pass := leerPassphrase("🔑 Passphrase para desbloquear secret.enc: ")
+	topic, err := decryptTopic(string(data), pass)
+	if err != nil {
+		fmt.Printf("❌ No se pudo descifrar %s: %v\n", secretFile, err)
+		os.Exit(1)
+	}
+	return []byte(topic)
+}
+
+func limpiarBytes(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
+}
+
+// despedirse manda el mensaje "bye" (Fase 3/4 pendiente) para que el gateway
+// sepa que este dispositivo se desconectó de verdad y no por un corte de red.
+func despedirse(topic, deviceID string) {
+	bye := ByeMessage{Type: "bye", DeviceID: deviceID}
+	if err := publishGeneric(topic, bye); err != nil {
+		fmt.Printf("⚠️  Error publicando bye: %v\n", err)
+		return
+	}
+	fmt.Println("✅ Mensaje bye publicado.")
 }
 
 // getDeviceID genera un identificador único y estable por máquina,

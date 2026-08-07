@@ -121,9 +121,54 @@ func TestResolverAliasUnicaCoincidenciaFunciona(t *testing.T) {
 	}
 }
 
+func TestMarcarDesconectadoActualizaDispositivo(t *testing.T) {
+	dir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(dir)
+
+	dispositivos := map[string]Dispositivo{
+		"ALMENDRA-abc123": {DeviceID: "ALMENDRA-abc123", OS: "windows", Connected: true},
+	}
+	if err := writeAll(dispositivos); err != nil {
+		t.Fatalf("no pude preparar dispositivos.json de prueba: %v", err)
+	}
+
+	if err := marcarDesconectado("ALMENDRA-abc123"); err != nil {
+		t.Fatalf("marcarDesconectado() falló: %v", err)
+	}
+
+	leidos, err := leerTodosLosDispositivos()
+	if err != nil {
+		t.Fatalf("no pude releer dispositivos.json: %v", err)
+	}
+	d := leidos["ALMENDRA-abc123"]
+	if d.Connected {
+		t.Error("Connected debería quedar en false tras marcarDesconectado()")
+	}
+	if d.DisconnectedAt == "" {
+		t.Error("DisconnectedAt debería quedar poblado tras marcarDesconectado()")
+	}
+}
+
+func TestMarcarDesconectadoDispositivoNoRegistradoFalla(t *testing.T) {
+	dir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(dir)
+
+	if err := writeAll(map[string]Dispositivo{}); err != nil {
+		t.Fatalf("no pude preparar dispositivos.json de prueba: %v", err)
+	}
+
+	if err := marcarDesconectado("nunca-existio"); err == nil {
+		t.Error("marcarDesconectado() de un dispositivo no registrado debería fallar, no inventar el registro")
+	}
+}
+
 func TestParsearComandoDeTestSinAliasVaALaHP(t *testing.T) {
 	deviceID, comando, aviso := parsearComandoDeTest("ipconfig")
-	if deviceID != deviceIDDefaultHP {
+	if deviceID != deviceIDLocalHP {
 		t.Errorf("sin alias debería ir a la HP por default, llegó a %q", deviceID)
 	}
 	if comando != "ipconfig" {
@@ -131,6 +176,20 @@ func TestParsearComandoDeTestSinAliasVaALaHP(t *testing.T) {
 	}
 	if aviso != "" {
 		t.Errorf("no debería haber aviso cuando no hay alias, llegó: %q", aviso)
+	}
+}
+
+func TestComputeDeviceIDLocalEsEstable(t *testing.T) {
+	// deviceIDLocalHP ya no es un string hardcodeado -- si el cálculo
+	// cambiara entre llamadas, el "default a la HP" se rompería igual
+	// que se rompía antes con un machine-id distinto al literal viejo.
+	id1 := computeDeviceIDLocal()
+	id2 := computeDeviceIDLocal()
+	if id1 != id2 {
+		t.Errorf("computeDeviceIDLocal() no es estable: %q != %q", id1, id2)
+	}
+	if id1 == "" {
+		t.Error("computeDeviceIDLocal() devolvió cadena vacía")
 	}
 }
 
