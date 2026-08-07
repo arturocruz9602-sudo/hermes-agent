@@ -1,57 +1,62 @@
-# ESTADO — actualizado: 05 ago 2026 (F8-2: motor de sugerencias v2)
+# ESTADO — actualizado: 06 ago 2026 (auditoría de todo lo desplegado, a pedido de Arturo)
 **Versiones vigentes: HAS v1.6 · PROTOCOLO v1.4**
 **Se SOBREESCRIBE cada sesión, máx 80 líneas (gate). Histórico: `docs/archivo/`. Voz de Arturo: `CUESTIONARIO_MAESTRO.md` = misma jerarquía que MANDATO.**
 
 ## Fases HAS
-F0-F4 ✅ | F5 🔄 ~50% | F6 🔄 (F6-2 ✅, F6-3 ✅) | F7 🔄 bloques 1+2+3 | **F8 🔄 F8-1 ✅ F8-2 ✅** | F9 🔄 pts 1+2 | F10 🔄 recetario listo | F11-1 ✅ | F11-2 🔄 REALINEADO | E14 🔄 falta disparo automático | P3/P5/P6/P7/P8/F6-2/F6-3 ✅ | F12-F14 ⬜ | E10 → v1.7.
+F0-F4 ✅ | F5 🔄 ~50% | F6 🔄 (F6-2 ✅, F6-3 ✅) | F7 🔄 bloques 1+2+3 | F8 🔄 F8-1 ✅ F8-2 ✅ | F9 🔄 pts 1+2 | F10 🔄 recetario listo | F11-1 ✅ | F11-2 🔄 REALINEADO | E14 🔄 falta disparo automático | P3/P5/P6/P7/P8/F6-2/F6-3 ✅ | F12-F14 ⬜ | E10 → v1.7.
 
-## ✅ F8-2: motor de sugerencias v2 — pagos_recurrentes + negocio (r.24-27)
-`scripts/motor_sugerencias_gasto.py` (F8-1) ampliado: `gastos` hoy casi
-vacía (1 registro), así que el consolidado dominical ahora también cruza
-(1) `pagos_recurrentes` — `detectar_pagos_recurrentes_sin_registrar()`
-señala un fijo (gym/deepseek/colegiatura/...) sin gasto en su ciclo
-actual, PERO solo si ya hubo un registro previo de ese fijo (nunca
-confirmado ≠ desviación, mismo criterio que `brief_matutino.py` con
-`ultimo_pago` NULL — evita ruido desde el día uno); (2) negocio de
-refrescos (`negocio_compras`/`negocio_ventas`) — `detectar_reja_mas_cara()`
-(última compra vs. la anterior), `detectar_ritmo_ventas_bajo()` (piezas/día
-de la semana vs. promedio de 4 semanas, mismo patrón que
-`detectar_categorias_disparadas` pero hacia abajo), y
-`detectar_negocio_no_recupera_reja()` (usa `margen_negocio()` de Libreta,
-plazo de gracia de 10 días desde la última compra). Todo entra a
-`construir_consolidado_dominical()`; `--evaluar` y el cron (ya agendado
-aparte, jobs 13bea6149ae0/7132f383cb07) no cambiaron — este bloque solo
-amplió lectura de datos. Verificado con `--dominical --probar --entorno
-real` contra libreta.db real: sin ruido falso hoy (esperado, dado el
-historial casi vacío). 18 pruebas nuevas, 38/38
-`test_motor_sugerencias_gasto.py`, 457/457 `tests/scripts/` verde.
-Registrado permanente en `scripts/loop_cola.py` (F8-2, "hecho").
-BITACORA_ARTURO.md actualizada (visible el próximo domingo 8am). Commit
-8726a8440.
+## 🔴 Hallazgo de hoy: incidente nocturno por `git reset` a `origin/main` — YA CORREGIDO
+Reflog (05 ago 23:59→06 ago 10:01): un merge manual de upstream dejó el
+working tree de `main` en el estado puro de `origin/main` (sin código de
+Hermes) ~10h de madrugada, mismo directorio de donde corren los timers,
+sin ventana de mantenimiento que lo proteja. 4 timers fallaron:
+`hermes-memoria-reflexion-nocturna` (02:20, `ModuleNotFoundError
+agent.memory_semantic`), `hermes-memoria-index` (03:02, ídem),
+`hermes-respaldo-total` (04:14, `restaurar_hermes.sh` no existía),
+`hermes-brief-matutino` (06:30 — Arturo se quedó SIN brief hoy). El
+merge de las 10:01 (`aa6633941`) restauró el árbol, verificado con
+import manual. `fork/arturo/prod` estaba 2 commits atrás (push de
+cierre pendiente de la sesión pasada) — **ya sincronizado**
+(`git push fork HEAD:arturo/prod` → `da81beb3f..aa6633941`).
+Pendiente: los 4 `.service` siguen `failed` (no bloquea el próximo
+disparo, corren solos mañana) — intenté catch-up manual y el hook de
+seguridad lo bloqueó correctamente (hard-deny reinicio producción, no
+es la excepción de `hermes-gateway`). Decidir con Arturo: ¿catch-up con
+confirmación explícita, o se deja correr solo? Causa raíz de fondo sin
+resolver: merges manuales de upstream sobre el mismo directorio donde
+corre cron, sin ventana de mantenimiento que bloquee eso.
+
+## 🔴 Hallazgo de hoy: alerta de presupuesto DeepSeek, 2 noches seguidas
+`hermes-deepseek-balance-check` (03:00 hoy y ayer): caída real de saldo
+$0.83 USD/noche vs. lo que registró el ledger de litellm (~$0.73 USD) —
+diferencia ~$0.09-0.10 USD sobre el umbral ($0.01), posible gasto que no
+pasa por el proxy. Saldo real hoy: **$2.77 USD**. El script sí tiene
+`alert_telegram()` (`scripts/deepseek_balance_crosscheck.py:82`) — no
+confirmé que el mensaje llegó de verdad al chat (L5: sin evidencia
+pegada no está verificado). Falta investigar qué llamada no pasa por el
+proxy antes de que el circuito de $10 MXN/día se dispare.
 
 ## Decisiones pendientes ARTURO
-1. **F8-1/F8-2 sin timer propio decidido:** el cron YA quedó agendado por
-   Hermes aparte (jobs 13bea6149ae0 `--evaluar`/7132f383cb07 `--dominical`
-   domingo 8am) — esta línea queda solo como registro, no bloquea nada.
-2. Horario escuela sept-dic (r.61): espera a que la escuela lo publique.
-3. **Cierre nocturno en AUDIO: DESPLEGADO 05 ago 23:05** — hermes-cierre-audio.timer
-   enabled+active con daemon-reload corrido, envío verificado en vivo (73KB .ogg
-   opus a Telegram 14:08), candado r.119 superado por autorización explícita.
-4. F11-2: prueba real en ALMENDRA (Windows, sin Tailscale) — falta que
-   Arturo tenga el equipo a mano para probar agente+gateway de verdad.
+1. Catch-up manual de `hermes-memoria-index`/`hermes-respaldo-total` de
+   hoy: ¿lo autorizas explícito ahora, o se deja correr solo mañana?
+2. F8-1/F8-2 sin timer propio decidido: cron ya agendado aparte (jobs
+   13bea6149ae0/7132f383cb07), esta línea es solo registro.
+3. Horario escuela sept-dic (r.61): espera a que la escuela lo publique.
+4. F11-2: prueba real en ALMENDRA (Windows, sin Tailscale) — falta equipo a mano.
+5. `reboot-required` pendiente en el sistema — no forzado, decide Arturo cuándo.
 
 ## 🔄 EN CURSO (arrastrados)
 **E14:** motor+gate+1ra fuente 17/17. Falta timer systemd, 2 fuentes, decisión 3.
 **F11-2:** falta device_id HP dinámico, token cifrado, bye/limpieza, prueba ALMENDRA.
 
-## ⚠️ Hallazgos sin arreglar (arrastrados, no son de esta sesión)
+## ⚠️ Hallazgos sin arreglar (arrastrados)
 1. Ruido cosmético en `watchdog.log`: "Tubería rota" al cortar con grep -q.
+2. Sin ventana de mantenimiento que proteja los timers de un merge/reset en curso (ver hallazgo de hoy arriba).
 
-## Bloques recientes CERRADOS
-F8-2: motor de sugerencias v2 (fijos+negocio), 18/18. · F8-1: motor de
-sugerencias de gasto, 20/20. · F11-2 realineado: agente Go al repo,
-12/12. · F6-3 seguimiento ajustado, 23/23. · F6-2: horario por foto
-vision real, 7/7. · P8: corroboración 6 pendientes. · resto: ver archivo.
+## Bloques recientes CERRADOS (detalle completo en `docs/BLOQUES.md`)
+F8-2: motor de sugerencias v2 (fijos+negocio), 18/18 · F8-1: motor de
+sugerencias de gasto, 20/20 · F11-2 realineado: agente Go al repo,
+12/12 · resto: ver archivo.
 
 ## No tocar / reglas de equipo
 - M1 PRESTADA: reversa antes 6:00. · Correo solo-lectura. · Pruebas masivas
@@ -59,18 +64,17 @@ vision real, 7/7. · P8: corroboración 6 pendientes. · resto: ver archivo.
   horario escolar → Gemini Vision (excepción acotada, ver DECISIONES).
 - `.env` línea 503 (app password Gmail): NUNCA se toca, no está corrupta.
 - **F11-2/USB: SOLO Telegram+ntfy.sh — sin SSH, sin Tailscale a equipos
-  ajenos (regla dura del skill hermes-portable-usb).** Tailscale limitado
-  a HP+Mac+iPhone; eso es un tema DISTINTO (HERMES_EQUIPOS_PROPIOS), no
-  es parte de la USB.
+  ajenos.** Tailscale limitado a HP+Mac+iPhone, tema DISTINTO.
 - Watchdog vive FUERA del repo; sus pruebas sí van al repo.
+- Flujo normal: local `main` + `git push fork HEAD:arturo/prod` (no hay
+  branch local `arturo/prod`) — el riesgo real es dejar `main` reseteado
+  a `origin/main` sin remergear rápido (ver hallazgo de hoy).
 
 ## Próximos candidatos
-F11-2: device_id HP dinámico, token cifrado, bye/limpieza, prueba
-ALMENDRA. Cerrar E14. F7-1 bloques 2/3. F6-2 resto de OT-6. F5 resto
-vistas. F9 puntos 3/4.
+Gap $0.09 USD/noche en DeepSeek. Ventana de mantenimiento que bloquee
+timers durante merge/reset de git. F11-2 resto. Cerrar E14. F5/F9 resto.
 
 ## Al cierre
-ESTADO ≤80 · BLOQUES 1 línea · commit+push · TEMP-DIAG=0 · temp HP normal
-(49°C esta sesión). Esta sesión: F8-2 completo (motor ampliado+pruebas),
-457/457 `tests/scripts/` verde, registrado en `loop_cola.py`, BITACORA
-actualizada.
+Esta sesión: auditoría completa a pedido de Arturo — causa raíz de 4
+timers rotos anoche encontrada y corregida + `arturo/prod` sincronizado
+(2 commits atrás). Sin commit de código; falta decidir catch-up manual.
